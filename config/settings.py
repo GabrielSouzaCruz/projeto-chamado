@@ -218,3 +218,102 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # Para desenvolvimento sem SMTP real, use console:
 
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# config/settings.py - Seção de produção
+
+ 
+
+import os
+
+from django.core.management.utils import get_random_secret_key
+
+ 
+
+# Segurança em produção
+
+if not DEBUG:
+
+    SECURE_SSL_REDIRECT = True
+
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    SESSION_COOKIE_SECURE = True
+
+    CSRF_COOKIE_SECURE = True
+
+    SECURE_BROWSER_XSS_FILTER = True
+
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+    X_FRAME_OPTIONS = 'DENY'
+
+    SECURE_HSTS_SECONDS = 31536000  # 1 ano
+
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+    SECURE_HSTS_PRELOAD = True
+
+ 
+
+# Validação de hosts (obrigatório em produção)
+
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+ 
+
+# Arquivos estáticos coletados
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+ 
+
+# Log em produção
+
+LOGGING = {
+
+    'version': 1,
+
+    'disable_existing_loggers': False,
+
+    'formatters': {
+
+        'verbose': {
+
+            'format': '{levelname} {asctime} {module} {message}',
+
+            'style': '{',
+            },
+
+    },
+
+    'handlers': {
+
+        'file': {
+
+            'level': 'ERROR',
+
+            'class': 'logging.FileHandler',
+
+            'filename': BASE_DIR / 'logs' / 'django.log',
+
+            'formatter': 'verbose',
+
+        },
+
+    },
+
+    'loggers': {
+
+        'django': {
+
+            'handlers': ['file'],
+
+            'level': 'ERROR',
+
+            'propagate': True,
+
+        },
+
+    },
+
+}

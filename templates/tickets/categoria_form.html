@@ -1,0 +1,121 @@
+{# templates/tickets/categoria_form.html #}
+
+{% extends 'base.html' %}
+
+
+{% block title %}{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Categoria{% endblock %}
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-6">
+
+        <div class="card">
+
+            <div class="card-header bg-primary text-white">
+
+                <h4 class="mb-0">
+
+                    <i class="fas fa-tag me-2"></i>
+
+                    {% if form.instance.pk %}Editar Categoria{% else %}Nova Categoria{% endif %}
+
+                </h4>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    
+
+                    <div class="mb-3">
+
+                        <label for="id_nome" class="form-label">Nome *</label>
+
+                        <input type="text" name="nome" id="id_nome" 
+
+class="form-control" 
+
+value="{{ form.nome.value|default:'' }}" required>
+
+                    </div>
+
+                    
+
+                    <div class="mb-3">
+
+                        <label for="id_icone" class="form-label">Ícone (FontAwesome)</label>
+
+                        <input type="text" name="icone" id="id_icone" 
+
+class="form-control" 
+
+value="{{ form.icone.value|default:'' }}"
+
+placeholder="Ex: fa-desktop, fa-network-wired">
+
+                        <div class="form-text">
+
+                            Veja os ícones em: <a href="https://fontawesome.com/icons" target="_blank">FontAwesome</a>
+
+                        </div>
+
+                    </div>
+
+                    
+
+                    <div class="mb-3">
+
+                        <label for="id_descricao" class="form-label">Descrição</label>
+
+                        <textarea name="descricao" id="id_descricao" 
+
+class="form-control" rows="3">{{ form.descricao.value|default:'' }}</textarea>
+
+                    </div>
+
+                    
+
+                    <div class="mb-3 form-check">
+
+                        <input type="checkbox" name="ativa" id="id_ativa" 
+
+class="form-check-input"
+
+{% if form.ativa.value or not form.instance.pk %}checked{% endif %}>
+
+                        <label for="id_ativa" class="form-check-label">Categoria Ativa</label>
+
+                    </div>
+                    <div class="d-flex justify-content-between">
+
+                        <a href="{% url 'tickets:categorias' %}" class="btn btn-outline-secondary">
+
+                            <i class="fas fa-arrow-left me-1"></i> Voltar
+
+                        </a>
+
+                        <button type="submit" class="btn btn-primary">
+
+                            <i class="fas fa-save me-1"></i> Salvar
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

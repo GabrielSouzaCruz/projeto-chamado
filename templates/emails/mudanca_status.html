@@ -1,0 +1,91 @@
+{# templates/emails/mudanca_status.html #}
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+</head>
+
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+
+    <div style="background: #1e40af; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+
+        <h2 style="margin: 0;">📊 Status Atualizado</h2>
+
+    </div>
+
+    <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+
+        <p>Olá, <strong>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</strong>!</p>
+
+
+
+        <p>O status do seu chamado foi atualizado.</p>
+
+
+
+        <div
+            style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #1e40af;">
+
+            <h3 style="color: #1e293b; margin-top: 0;">{{ ticket.titulo }}</h3>
+
+            <p style="margin: 5px 0;">
+
+                <strong>Ticket:</strong> #{{ ticket.id }}
+
+            </p>
+
+            <p style="margin: 5px 0;">
+
+                <strong>Novo Status:</strong>
+
+                <span
+                    style="background: #22c55e; color: white; padding: 4px 12px; border-radius: 12px; font-size: 14px;">
+
+                    {{ novo_status }}
+
+                </span>
+
+            </p>
+
+            {% if ticket.tecnico_responsavel %}
+
+            <p style="margin: 5px 0;">
+
+                <strong>Técnico Responsável:</strong> {{
+                ticket.tecnico_responsavel.get_full_name|default:ticket.tecnico_responsavel.username }}
+
+            </p>
+            {% endif %}
+
+        </div>
+
+
+
+        <p style="text-align: center; margin-top: 20px;">
+
+            <a href="{{ ticket_url }}" style="background: #1e40af; color: white; padding: 12px 24px; 
+
+text-decoration: none; border-radius: 6px; display: inline-block;">
+
+                Ver Detalhes do Chamado
+
+            </a>
+
+        </p>
+
+    </div>
+
+    <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 20px;">
+
+        Este é um e-mail automático do Sistema de Chamados. Não responda diretamente.
+
+    </p>
+
+</body>
+
+</html>

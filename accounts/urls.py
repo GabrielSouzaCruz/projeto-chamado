@@ -1,4 +1,4 @@
-# accounts/urls.py
+# accounts/urls.py (versão completa atualizada)
 
 from django.urls import path
 
@@ -17,5 +17,9 @@ urlpatterns = [
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
 
     path('register/', views.RegisterView.as_view(), name='register'),
+
+    path('profile/', views.ProfileUpdateView.as_view(), name='profile'),
+
+    path('alterar-senha/', views.alterar_senha, name='alterar_senha'),
 
 ]

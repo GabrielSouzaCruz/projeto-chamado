@@ -19,7 +19,17 @@ urlpatterns = [
 
 ]
 
+# config/urls.py (adicionar ao final, antes do if settings.DEBUG)
+
  
+
+# Páginas de erro customizadas
+
+handler404 = 'tickets.views.page_not_found'
+
+handler500 = 'tickets.views.server_error'
+
+handler403 = 'tickets.views.permission_denied' 
 
 # Servir arquivos de mídia em desenvolvimento
 

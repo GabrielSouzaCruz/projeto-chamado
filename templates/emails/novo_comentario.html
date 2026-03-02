@@ -1,0 +1,83 @@
+{# templates/emails/novo_comentario.html #}
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+</head>
+
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+
+    <div style="background: #0891b2; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+
+        <h2 style="margin: 0;">💬 Novo Comentário</h2>
+
+    </div>
+
+    <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+
+        <p>Um novo comentário foi adicionado ao seu chamado.</p>
+
+
+
+        <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+
+            <h3 style="color: #1e293b; margin-top: 0;">{{ ticket.titulo }}</h3>
+
+            <p style="color: #64748b; font-size: 14px;">Ticket #{{ ticket.id }}</p>
+
+        </div>
+
+
+
+        <div style="background: #f1f5f9; padding: 15px; border-radius: 6px; border-left: 4px solid #0891b2;">
+
+            <p style="margin: 0 0 10px 0;">
+
+                <strong>{{ autor.get_full_name|default:autor.username }}</strong>
+
+                {% if autor.is_technician %}
+
+                <span
+                    style="background: #0891b2; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">TI</span>
+
+                {% endif %}
+
+                comentou:
+
+            </p>
+
+            <p style="margin: 0; color: #334155;">{{
+                comentario.mensagem|truncatewords:100 }}</p>
+
+        </div>
+
+
+
+        <p style="text-align: center; margin-top: 20px;">
+
+            <a href="{{ ticket_url }}" style="background: #0891b2; color: white; padding: 12px 24px; 
+
+text-decoration: none; border-radius: 6px; display: inline-block;">
+
+                Ver Comentário Completo
+
+            </a>
+
+        </p>
+
+    </div>
+
+    <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 20px;">
+
+        Sistema de Chamados Interno
+
+    </p>
+
+</body>
+
+</html>

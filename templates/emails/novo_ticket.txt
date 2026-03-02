@@ -7,13 +7,11 @@ Prioridade: {{ ticket.get_prioridade_display }}
 
 Categoria: {{ ticket.categoria|default:"Não definida" }}
 
- 
 
 Descrição:
 
 {{ ticket.descricao }}
 
- 
 
 ---
 

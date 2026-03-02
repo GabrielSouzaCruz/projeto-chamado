@@ -1,0 +1,28 @@
+# templates/emails/mudanca_status.txt
+
+Status Atualizado - Ticket #{{ ticket.id }}
+
+
+Olá, {{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}!
+
+
+O status do seu chamado foi atualizado.
+
+
+Ticket: #{{ ticket.id }} - {{ ticket.titulo }}
+
+Novo Status: {{ novo_status }}
+
+{% if ticket.tecnico_responsavel %}
+
+Técnico Responsável: {{ ticket.tecnico_responsavel.get_full_name|default:ticket.tecnico_responsavel.username }}
+
+{% endif %}
+
+
+Acesse o sistema para mais detalhes.
+
+
+---
+
+Sistema de Chamados Interno

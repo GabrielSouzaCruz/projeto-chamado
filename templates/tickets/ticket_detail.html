@@ -2,11 +2,11 @@
 
 {% extends 'base.html' %}
 
- 
+
 
 {% block title %}Ticket #{{ ticket.id }}{% endblock %}
 
- 
+
 
 {% block content %}
 
@@ -36,20 +36,21 @@
 
                     <div class="col-md-6">
 
-                        <strong>Solicitante:</strong> {{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}
+                        <strong>Solicitante:</strong> {{
+                        ticket.solicitante.get_full_name|default:ticket.solicitante.username }}
 
                     </div>
 
                     <div class="col-md-6">
-                        <strong>Técnico:</strong> 
+                        <strong>Técnico:</strong>
 
                         {% if ticket.tecnico_responsavel %}
 
-                            {{ ticket.tecnico_responsavel }}
+                        {{ ticket.tecnico_responsavel }}
 
                         {% else %}
 
-                            <span class="text-muted">Não atribuído</span>
+                        <span class="text-muted">Não atribuído</span>
 
                         {% endif %}
 
@@ -57,13 +58,13 @@
 
                 </div>
 
-                
+
 
                 <div class="row mb-3">
 
                     <div class="col-md-6">
 
-                        <strong>Categoria:</strong> 
+                        <strong>Categoria:</strong>
 
                         {{ ticket.categoria|default:"Não definida" }}
 
@@ -83,17 +84,17 @@
 
                 </div>
 
-                
+
 
                 <hr>
 
-                
+
 
                 <h6>Descrição do Problema</h6>
 
                 <p>{{ ticket.descricao|linebreaks }}</p>
 
-                
+
 
                 {% if ticket.anexo %}
 
@@ -107,7 +108,7 @@
 
                 {% endif %}
 
-                
+
 
                 <div class="text-muted small">
 
@@ -124,7 +125,7 @@
 
         </div>
 
-        
+
 
         <!-- Thread de Comentários -->
 
@@ -170,20 +171,22 @@
 
                     {% if comentario.anexo %}
 
-                    <p class="mt-2"><a href="{{ comentario.anexo.url }}" target="_blank"><i class="fas fa-paperclip"></i> Ver Anexo</a></p>
+                    <p class="mt-2"><a href="{{ comentario.anexo.url }}" target="_blank"><i
+                                class="fas fa-paperclip"></i> Ver Anexo</a></p>
 
                     {% endif %}
 
                 </div>
 
-                {% if not forloop.last %}<hr>{% endif %}
+                {% if not forloop.last %}
+                <hr>{% endif %}
                 {% empty %}
 
                 <p class="text-muted text-center">Nenhum comentário ainda.</p>
 
                 {% endfor %}
 
-                
+
 
                 <!-- Formulário de Comentário -->
 
@@ -195,9 +198,8 @@
 
                     <div class="mb-3">
 
-                        <textarea name="mensagem" class="form-control" rows="3" 
-
-                                  placeholder="Adicione um comentário..." required></textarea>
+                        <textarea name="mensagem" class="form-control" rows="3" placeholder="Adicione um comentário..."
+                            required></textarea>
 
                     </div>
 
@@ -240,11 +242,11 @@
                 </form>
 
             </div>
-            </div>
+        </div>
 
     </div>
 
-    
+
 
     <!-- Painel de Ações (Técnicos) -->
 
@@ -274,7 +276,7 @@
 
                             {% for value, label in ticket.Status.choices %}
 
-                            <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>
+                            <option value="{{ value }}" {% if ticket.status==value %}selected{% endif %}>
 
                                 {{ label }}
 
@@ -294,7 +296,7 @@
 
                             {% for value, label in ticket.Prioridade.choices %}
 
-                            <option value="{{ value }}" {% if ticket.prioridade == value %}selected{% endif %}>
+                            <option value="{{ value }}" {% if ticket.prioridade==value %}selected{% endif %}>
 
                                 {{ label }}
 
@@ -306,14 +308,20 @@
 
                     </div>
 
+                    <a href="{% url 'tickets:update' ticket.id %}" class="btn btn-outline-secondary w-100 mb-2">
+
+                        <i class="fas fa-edit me-1"></i> Editar Chamado
+
+                    </a>
+
                     <button type="submit" class="btn btn-success w-100 mb-2">
-                         <i class="fas fa-save me-1"></i> Salvar Alterações
+                        <i class="fas fa-save me-1"></i> Salvar Alterações
 
                     </button>
 
                 </form>
 
-                
+
 
                 {% if not ticket.tecnico_responsavel or ticket.tecnico_responsavel == user %}
 
@@ -323,7 +331,7 @@
 
                     <button type="submit" class="btn btn-outline-primary w-100">
 
-                        <i class="fas fa-hand-paper me-1"></i> 
+                        <i class="fas fa-hand-paper me-1"></i>
 
                         {% if ticket.tecnico_responsavel %}Já estou atendendo{% else %}Assumir este Chamado{% endif %}
 
@@ -339,7 +347,7 @@
 
         {% endif %}
 
-        
+
 
         <!-- Informações Adicionais -->
 

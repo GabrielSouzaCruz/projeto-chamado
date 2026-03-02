@@ -289,3 +289,122 @@ def alterar_status(request, pk):
     
 
     return redirect('tickets:detail', pk=pk)
+
+    # tickets/views.py (adicionar ao final)
+
+ 
+
+def page_not_found(request, exception):
+
+    """View para página 404 customizada."""
+
+    return render(request, '404.html', status=404)
+
+ 
+
+def server_error(request):
+
+    """View para página 500 customizada."""
+
+    return render(request, '500.html', status=500)
+
+ 
+
+def permission_denied(request, exception):
+
+    """View para página 403 customizada."""
+
+    return render(request, '403.html', status=403)
+
+# tickets/views.py (adicionar ao final)
+
+ 
+
+class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
+
+    model = Ticket
+
+    form_class = TicketForm
+
+    template_name = 'tickets/ticket_form.html'
+
+    
+
+    def get_success_url(self):
+
+        return reverse_lazy('tickets:detail', kwargs={'pk': self.object.pk})
+
+    
+
+    def form_valid(self, form):
+
+        messages.success(self.request, 'Chamado atualizado com sucesso!')
+
+        return super().form_valid(form)
+
+    
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+        context['editando'] = True
+
+        return context
+    # tickets/views.py (adicionar ao final)
+
+ 
+
+@tecnico_required
+
+def lista_categorias(request):
+
+    """Lista todas as categorias para gestão."""
+
+    categorias = Categoria.objects.all().annotate(
+
+        total_tickets=Count('ticket')
+
+    ).order_by('nome')
+
+    return render(request, 'tickets/categoria_list.html', {'categorias': categorias})
+
+ 
+
+ 
+
+class CategoriaCreateView(TecnicoRequiredMixin, CreateView):
+
+    model = Categoria
+
+    fields = ['nome', 'icone', 'descricao', 'ativa']
+
+    template_name = 'tickets/categoria_form.html'
+
+    success_url = reverse_lazy('tickets:categorias')
+    def form_valid(self, form):
+
+        messages.success(self.request, 'Categoria criada com sucesso!')
+
+        return super().form_valid(form)
+
+ 
+
+ 
+
+class CategoriaUpdateView(TecnicoRequiredMixin, UpdateView):
+
+    model = Categoria
+
+    fields = ['nome', 'icone', 'descricao', 'ativa']
+
+    template_name = 'tickets/categoria_form.html'
+
+    success_url = reverse_lazy('tickets:categorias')
+
+    
+
+    def form_valid(self, form):
+
+        messages.success(self.request, 'Categoria atualizada com sucesso!')
+
+        return super().form_valid(form)

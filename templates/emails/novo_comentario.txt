@@ -1,0 +1,19 @@
+# templates/emails/novo_comentario.txt
+
+Novo Comentário no Ticket #{{ ticket.id }}
+
+
+{{ autor.get_full_name|default:autor.username }} adicionou um comentário:
+
+
+"{{ comentario.mensagem|truncatewords:100 }}"
+
+
+---
+
+Ticket: {{ ticket.titulo }}
+
+Acesse o sistema para ver o comentário completo.
+
+
+Sistema de Chamados Interno

@@ -174,3 +174,67 @@ class RegisterView(SuccessMessageMixin, CreateView):
         login(self.request, self.object)
 
         return response
+    
+    # accounts/views.py (adicionar ao final do arquivo existente)
+
+ 
+
+from django.contrib.auth.decorators import login_required
+
+from django.views.generic import UpdateView
+
+from django.urls import reverse_lazy
+
+from django.contrib import messages
+
+from django.contrib.auth.forms import PasswordChangeForm
+
+from django.contrib.auth import update_session_auth_hash
+
+ 
+
+class ProfileUpdateView(SuccessMessageMixin, UpdateView):
+
+    model = User
+
+    fields = ['first_name', 'last_name', 'email', 'departamento', 'telefone']
+
+    template_name = 'accounts/profile.html'
+
+    success_url = reverse_lazy('accounts:profile')
+
+    success_message = 'Perfil atualizado com sucesso!'
+
+    
+
+    def get_object(self):
+
+        return self.request.user
+    
+@login_required
+
+def alterar_senha(request):
+
+    """View para alteração de senha."""
+
+    if request.method == 'POST':
+
+        form = PasswordChangeForm(request.user, request.POST)
+
+        if form.is_valid():
+
+            user = form.save()
+
+            update_session_auth_hash(request, user)
+
+            messages.success(request, 'Senha alterada com sucesso!')
+
+            return redirect('accounts:profile')
+
+    else:
+
+        form = PasswordChangeForm(request.user)
+
+    
+
+    return render(request, 'accounts/alterar_senha.html', {'form': form})
