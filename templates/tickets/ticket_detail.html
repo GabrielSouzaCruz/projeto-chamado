@@ -1,0 +1,391 @@
+{# templates/tickets/ticket_detail.html #}
+
+{% extends 'base.html' %}
+
+ 
+
+{% block title %}Ticket #{{ ticket.id }}{% endblock %}
+
+ 
+
+{% block content %}
+
+<div class="row">
+
+    <div class="col-lg-8">
+
+        <!-- Cabeçalho do Ticket -->
+
+        <div class="card mb-3">
+
+            <div class="card-header d-flex justify-content-between align-items-center">
+
+                <h5 class="mb-0">
+
+                    <span class="text-muted">#{{ ticket.id }}</span> - {{ ticket.titulo }}
+
+                </h5>
+
+                <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <strong>Solicitante:</strong> {{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}
+
+                    </div>
+
+                    <div class="col-md-6">
+                        <strong>Técnico:</strong> 
+
+                        {% if ticket.tecnico_responsavel %}
+
+                            {{ ticket.tecnico_responsavel }}
+
+                        {% else %}
+
+                            <span class="text-muted">Não atribuído</span>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <strong>Categoria:</strong> 
+
+                        {{ ticket.categoria|default:"Não definida" }}
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <strong>Prioridade:</strong>
+
+                        <span class="badge badge-priority-{{ ticket.prioridade }}">
+
+                            {{ ticket.get_prioridade_display }}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+                
+
+                <hr>
+
+                
+
+                <h6>Descrição do Problema</h6>
+
+                <p>{{ ticket.descricao|linebreaks }}</p>
+
+                
+
+                {% if ticket.anexo %}
+
+                <div class="alert alert-info">
+
+                    <i class="fas fa-paperclip me-2"></i>
+
+                    <a href="{{ ticket.anexo.url }}" target="_blank">Ver Anexo</a>
+
+                </div>
+
+                {% endif %}
+
+                
+
+                <div class="text-muted small">
+
+                    Criado em {{ ticket.criado_em|date:"d/m/Y H:i" }}
+
+                    {% if ticket.atualizado_em > ticket.criado_em %}
+                    | Atualizado em {{ ticket.atualizado_em|date:"d/m/Y H:i" }}
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+        
+
+        <!-- Thread de Comentários -->
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h6 class="mb-0"><i class="fas fa-comments me-2"></i>Comentários ({{ comentarios.count }})</h6>
+
+            </div>
+
+            <div class="card-body">
+
+                {% for comentario in comentarios %}
+
+                <div class="mb-3 {% if comentario.interno %}comment-internal p-2 rounded{% endif %}">
+
+                    <div class="d-flex justify-content-between align-items-start">
+
+                        <div>
+
+                            <strong>{{ comentario.autor }}</strong>
+
+                            {% if comentario.interno %}
+
+                            <span class="badge bg-warning text-dark ms-1">Interno</span>
+
+                            {% endif %}
+
+                            {% if comentario.autor.is_technician %}
+
+                            <span class="badge bg-info ms-1">TI</span>
+
+                            {% endif %}
+
+                        </div>
+
+                        <small class="text-muted">{{ comentario.criado_em|date:"d/m/Y H:i" }}</small>
+
+                    </div>
+
+                    <p class="mb-0 mt-2">{{ comentario.mensagem|linebreaks }}</p>
+
+                    {% if comentario.anexo %}
+
+                    <p class="mt-2"><a href="{{ comentario.anexo.url }}" target="_blank"><i class="fas fa-paperclip"></i> Ver Anexo</a></p>
+
+                    {% endif %}
+
+                </div>
+
+                {% if not forloop.last %}<hr>{% endif %}
+                {% empty %}
+
+                <p class="text-muted text-center">Nenhum comentário ainda.</p>
+
+                {% endfor %}
+
+                
+
+                <!-- Formulário de Comentário -->
+
+                <hr>
+
+                <form method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
+
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+
+                        <textarea name="mensagem" class="form-control" rows="3" 
+
+                                  placeholder="Adicione um comentário..." required></textarea>
+
+                    </div>
+
+                    <div class="row align-items-center">
+
+                        {% if user.is_technician %}
+
+                        <div class="col-md-4">
+
+                            <div class="form-check">
+
+                                <input type="checkbox" name="interno" id="id_interno" class="form-check-input">
+
+                                <label for="id_interno" class="form-check-label">Comentário Interno</label>
+
+                            </div>
+
+                        </div>
+
+                        {% endif %}
+
+                        <div class="col-md-4">
+
+                            <input type="file" name="anexo" class="form-control form-control-sm">
+
+                        </div>
+
+                        <div class="col-md-4 text-end">
+
+                            <button type="submit" class="btn btn-primary">
+
+                                <i class="fas fa-reply me-1"></i> Responder
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+            </div>
+
+    </div>
+
+    
+
+    <!-- Painel de Ações (Técnicos) -->
+
+    <div class="col-lg-4">
+
+        {% if user.is_technician %}
+
+        <div class="card">
+
+            <div class="card-header bg-secondary text-white">
+
+                <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Ações do Técnico</h6>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" action="{% url 'tickets:change_status' ticket.id %}">
+
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Status</label>
+
+                        <select name="status" class="form-select">
+
+                            {% for value, label in ticket.Status.choices %}
+
+                            <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>
+
+                                {{ label }}
+
+                            </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Prioridade</label>
+
+                        <select name="prioridade" class="form-select">
+
+                            {% for value, label in ticket.Prioridade.choices %}
+
+                            <option value="{{ value }}" {% if ticket.prioridade == value %}selected{% endif %}>
+
+                                {{ label }}
+
+                            </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 mb-2">
+                         <i class="fas fa-save me-1"></i> Salvar Alterações
+
+                    </button>
+
+                </form>
+
+                
+
+                {% if not ticket.tecnico_responsavel or ticket.tecnico_responsavel == user %}
+
+                <form method="post" action="{% url 'tickets:take' ticket.id %}">
+
+                    {% csrf_token %}
+
+                    <button type="submit" class="btn btn-outline-primary w-100">
+
+                        <i class="fas fa-hand-paper me-1"></i> 
+
+                        {% if ticket.tecnico_responsavel %}Já estou atendendo{% else %}Assumir este Chamado{% endif %}
+
+                    </button>
+
+                </form>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+        
+
+        <!-- Informações Adicionais -->
+
+        <div class="card mt-3">
+
+            <div class="card-header">
+
+                <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informações</h6>
+
+            </div>
+
+            <ul class="list-group list-group-flush">
+
+                <li class="list-group-item d-flex justify-content-between">
+
+                    <span>Aberto há:</span>
+
+                    <span>{{ ticket.criado_em|timesince }}</span>
+
+                </li>
+
+                {% if ticket.resolvido_em %}
+
+                <li class="list-group-item d-flex justify-content-between">
+
+                    <span>Tempo até resolução:</span>
+
+                    <span>{{ ticket.criado_em|timesince:ticket.resolvido_em }}</span>
+
+                </li>
+
+                {% endif %}
+
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Comentários:</span>
+
+                    <span>{{ comentarios.count }}</span>
+
+                </li>
+
+            </ul>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

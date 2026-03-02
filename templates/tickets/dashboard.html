@@ -1,0 +1,274 @@
+{# templates/tickets/dashboard.html #}
+
+{% extends 'base.html' %}
+
+ 
+
+{% block title %}Dashboard - Sistema de Chamados{% endblock %}
+
+ 
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
+
+    <a href="{% url 'tickets:create' %}" class="btn btn-primary">
+
+        <i class="fas fa-plus me-1"></i> Novo Chamado
+
+    </a>
+
+</div>
+
+ 
+
+<!-- Estatísticas -->
+
+<div class="row mb-4">
+
+    <div class="col-md-3">
+
+        <div class="card bg-primary text-white">
+
+            <div class="card-body text-center">
+
+                <h3>{{ stats.total }}</h3>
+
+                <small>Total de Chamados</small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-warning">
+
+            <div class="card-body text-center">
+
+                <h3>{{ stats.abertos }}</h3>
+
+                <small>Abertos</small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-info text-white">
+
+            <div class="card-body text-center">
+
+                <h3>{{ stats.em_andamento }}</h3>
+
+                <small>Em Andamento</small>
+
+            </div>
+            </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-success text-white">
+
+            <div class="card-body text-center">
+
+                <h3>{{ stats.resolvidos }}</h3>
+
+                <small>Resolvidos</small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+ 
+
+<!-- Filtros -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        <form method="get" class="row g-3">
+
+            <div class="col-md-3">
+
+                <input type="text" name="busca" class="form-control" 
+
+                       placeholder="Buscar..." value="{{ request.GET.busca }}">
+
+            </div>
+
+            <div class="col-md-2">
+
+                <select name="status" class="form-select">
+
+                    <option value="">Todos Status</option>
+
+                    <option value="aberto" {% if filtros.status == 'aberto' %}selected{% endif %}>Aberto</option>
+
+                    <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
+
+                    <option value="aguardando" {% if filtros.status == 'aguardando' %}selected{% endif %}>Aguardando</option>
+
+                    <option value="resolvido" {% if filtros.status == 'resolvido' %}selected{% endif %}>Resolvido</option>
+
+                    <option value="fechado" {% if filtros.status == 'fechado' %}selected{% endif %}>Fechado</option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <select name="prioridade" class="form-select"><option value="">Todas Prioridades</option>
+
+                    <option value="critica" {% if filtros.prioridade == 'critica' %}selected{% endif %}>Crítica</option>
+
+                    <option value="alta" {% if filtros.prioridade == 'alta' %}selected{% endif %}>Alta</option>
+
+                    <option value="media" {% if filtros.prioridade == 'media' %}selected{% endif %}>Média</option>
+
+                    <option value="baixa" {% if filtros.prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-3">
+
+                <select name="categoria" class="form-select">
+
+                    <option value="">Todas Categorias</option>
+
+                    {% for cat in categorias %}
+
+                    <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+
+                        {{ cat.nome }}
+
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <button type="submit" class="btn btn-outline-primary w-100">
+
+                    <i class="fas fa-filter me-1"></i> Filtrar
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+ 
+
+<!-- Lista de Tickets -->
+
+<div class="row">
+
+    {% for ticket in tickets %}
+
+    <div class="col-md-6 col-lg-4 mb-3">
+
+        <div class="card card-ticket h-100">
+
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">#{{ ticket.id }}</span>
+
+                <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
+
+            </div>
+
+            <div class="card-body">
+
+                <h5 class="card-title">{{ ticket.titulo|truncatechars:50 }}</h5>
+
+                <p class="card-text text-muted small">
+
+                    {{ ticket.descricao|truncatechars:100 }}
+
+                </p>
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <span class="badge badge-priority-{{ ticket.prioridade }}">
+
+                        {{ ticket.get_prioridade_display }}
+
+                    </span>
+
+                    <small class="text-muted">
+
+                        <i class="fas fa-clock me-1"></i>{{ ticket.criado_em|timesince }}
+
+                    </small>
+
+                </div>
+
+            </div>
+
+            <div class="card-footer bg-white">
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <small class="text-muted">
+
+                        <i class="fas fa-user me-1"></i>{{ ticket.solicitante }}
+
+                    </small>
+
+                    <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-outline-primary">
+
+                        Ver Detalhes
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% empty %}
+
+    <div class="col-12">
+
+        <div class="alert alert-info text-center">
+
+            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+
+            Nenhum chamado encontrado.
+            </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% endblock %}
