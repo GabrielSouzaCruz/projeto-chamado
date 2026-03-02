@@ -1,0 +1,66 @@
+{# templates/emails/novo_ticket.html #}
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+</head>
+
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+
+    <div style="background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">🎫 Novo Chamado Aberto</h2>
+
+    </div>
+
+    <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+
+        <p>Um novo chamado foi aberto e aguarda atendimento.</p>
+
+        
+
+        <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+
+            <h3 style="color: #1e293b; margin-top: 0;">{{ ticket.titulo }}</h3>
+
+            <p><strong>Solicitante:</strong> {{ solicitante.get_full_name|default:solicitante.username }}</p>
+
+            <p><strong>Prioridade:</strong> {{ ticket.get_prioridade_display }}</p>
+
+            <p><strong>Categoria:</strong> {{ ticket.categoria|default:"Não definida" }}</p>
+
+            <p><strong>Descrição:</strong></p>
+
+            <p style="background: #f1f5f9; padding: 10px; border-radius: 4px;">{{ ticket.descricao|truncatewords:50 }}</p>
+
+        </div>
+
+        
+
+        <p style="text-align: center;">
+
+            <a href="{{ ticket_url }}" style="background: #2563eb; color: white; padding: 12px 24px; 
+
+               text-decoration: none; border-radius: 6px; display: inline-block;">
+
+                Ver Detalhes do Chamado
+
+            </a>
+
+        </p>
+
+    </div>
+
+    <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 20px;">
+
+        Sistema de Chamados Interno
+
+    </p>
+
+</body>
+
+</html>
