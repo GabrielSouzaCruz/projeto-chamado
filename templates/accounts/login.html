@@ -1,72 +1,67 @@
 {# templates/accounts/login.html #}
-
 {% extends 'base.html' %}
 
-
-
-{% block title %}Entrar{% endblock %}
-
-
+{% block title %}Entrar - Sistema de Chamados{% endblock %}
 
 {% block content %}
-
 <div class="row justify-content-center mt-5">
-
     <div class="col-md-5">
-
         <div class="card shadow">
-
             <div class="card-header bg-primary text-white text-center">
-
-                <h4 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Entrar</h4>
-
+                <h4 class="mb-0">
+                    <i class="fas fa-ticket-alt me-2"></i>Sistema de Chamados
+                </h4>
+                <small>Entre com suas credenciais</small>
             </div>
-
-            <div class="card-body">
-
+            <div class="card-body p-4">
                 <form method="post">
-
                     {% csrf_token %}
 
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Usuário ou senha incorretos. Verifique seus dados.
+                    </div>
+                    {% endif %}
+
                     <div class="mb-3">
-
-                        <label for="username" class="form-label">Usuário</label>
-
-                        <input type="text" name="username" id="username" class="form-control" required autofocus>
-
+                        <label for="id_username" class="form-label">
+                            <i class="fas fa-user me-1"></i> Usuário
+                        </label>
+                        <input type="text" name="username" id="id_username"
+class="form-control form-control-lg"
+placeholder="Digite seu nome de usuário"
+value="{{ form.username.value|default:'' }}" required autofocus>
                     </div>
 
-                    <div class="mb-3">
-
-                        <label for="password" class="form-label">Senha</label>
-
-                        <input type="password" name="password" id="password" class="form-control" required>
-
+                    <div class="mb-4">
+                        <label for="id_password" class="form-label">
+                            <i class="fas fa-lock me-1"></i> Senha
+                        </label>
+                        <input type="password" name="password" id="id_password"
+class="form-control form-control-lg"
+placeholder="Digite sua senha" required>
                     </div>
+
                     <div class="d-grid">
-
-                        <button type="submit" class="btn btn-primary">
-
-                            <i class="fas fa-sign-in-alt me-1"></i> Entrar
-
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i> Entrar
                         </button>
-
                     </div>
-
                 </form>
-
             </div>
-
-            <div class="card-footer text-center text-muted">
-
-                <small>Sistema de Chamados Interno</small>
-
+            <div class="card-footer text-center py-3">
+                <span class="text-muted">Não tem uma conta?</span>
+                <a href="{% url 'accounts:register' %}" class="ms-1">Cadastre-se aqui</a>
             </div>
-
         </div>
 
+        <div class="text-center mt-4">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Em caso de problemas, contate o suporte de TI.
+            </small>
+        </div>
     </div>
-
 </div>
-
 {% endblock %}

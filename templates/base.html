@@ -1,225 +1,155 @@
-{# templates/base.html #}
+{# templates/base.html - ARQUIVO CORRIGIDO #}
+{# Substitua todo o conteúdo do seu templates/base.html por este #}
 
 <!DOCTYPE html>
-
 <html lang="pt-br">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>{% block title %}Sistema de Chamados{% endblock %}</title>
 
-    
-
     <!-- Bootstrap 5 CSS -->
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
     <!-- FontAwesome -->
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-
-    
 
     {% block extra_css %}{% endblock %}
 
-    
-
     <style>
-
         .navbar-brand { font-weight: 700; }
-
         .card-ticket { transition: transform 0.2s; }
-
         .card-ticket:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-
         .badge-priority-critica { background-color: #dc3545; }
         .badge-priority-alta { background-color: #fd7e14; }
-
         .badge-priority-media { background-color: #0dcaf0; }
-
         .badge-priority-baixa { background-color: #6c757d; }
-
         .comment-internal { background-color: #fff3cd; border-left: 4px solid #ffc107; }
-
+        body { background-color: #f8fafc; }
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            width: 100%;
+            text-align: left;
+            font-size: inherit;
+        }
+        .logout-btn:hover {
+            background-color: #f8f9fa;
+            color: #b02a37;
+        }
     </style>
-
 </head>
-
 <body>
-
     <!-- Navbar -->
-
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-
         <div class="container">
-
             <a class="navbar-brand" href="{% url 'tickets:dashboard' %}">
-
                 <i class="fas fa-ticket-alt me-2"></i>Sistema de Chamados
-
             </a>
-
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-
                 <span class="navbar-toggler-icon"></span>
-
             </button>
-
             <div class="collapse navbar-collapse" id="navbarNav">
-
                 <ul class="navbar-nav me-auto">
-
-                    <li class="nav-item">
-
-                        <a class="nav-link" href="{% url 'tickets:dashboard' %}">
-
-                            <i class="fas fa-home me-1"></i> Dashboard
-
-                        </a>
-
-                    </li>
-
-                    <li class="nav-item">
-
-                        <a class="nav-link" href="{% url 'tickets:create' %}">
-
-                            <i class="fas fa-plus me-1"></i> Novo Chamado
-
-                        </a>
-
-                    </li>
-
-                    {% if user.is_technician %}
-
-                    <li class="nav-item">
-
-                        <a class="nav-link" href="{% url 'admin:index' %}">
-
-                            <i class="fas fa-cog me-1"></i> Admin
-
-                        </a>
-
-                    </li>
-
-                    {% endif %}
-</ul>
-
-                <ul class="navbar-nav">
-
                     {% if user.is_authenticated %}
-
-                    <li class="nav-item dropdown">
-
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-
-                            <i class="fas fa-user me-1"></i> {{ user.get_full_name|default:user.username }}
-
-                            {% if user.is_technician %}
-
-                            <span class="badge bg-warning text-dark ms-1">TI</span>
-
-                            {% endif %}
-
-                        </a>
-
-                        <ul class="dropdown-menu dropdown-menu-end">
-
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog me-2"></i>Meu Perfil</a></li>
-
-                            <li><hr class="dropdown-divider"></li>
-
-                            <li>
-
-                                <a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
-
-                                    <i class="fas fa-sign-out-alt me-2"></i>Sair
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </li>
-
-                    {% else %}
-
                     <li class="nav-item">
-
-                        <a class="nav-link" href="{% url 'accounts:login' %}">
-
-                            <i class="fas fa-sign-in-alt me-1"></i> Entrar
-
+                        <a class="nav-link" href="{% url 'tickets:dashboard' %}">
+                            <i class="fas fa-home me-1"></i> Dashboard
                         </a>
-
                     </li>
-
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'tickets:create' %}">
+                            <i class="fas fa-plus me-1"></i> Novo Chamado
+                        </a>
+                    </li>
+                    {% if user.is_technician %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin:index' %}">
+                            <i class="fas fa-cog me-1"></i> Admin
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'tickets:categorias' %}">
+                            <i class="fas fa-tags me-1"></i> Categorias
+                        </a>
+                    </li>
                     {% endif %}
-
+                    {% endif %}
                 </ul>
-
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i> {{ user.get_full_name|default:user.username }}
+                            {% if user.is_technician %}
+                            <span class="badge bg-warning text-dark ms-1">TI</span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                {# CORREÇÃO: Link para perfil aponta para URL correta #}
+                                <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                    <i class="fas fa-user-cog me-2"></i>Meu Perfil
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                {# CORREÇÃO: Logout via POST (obrigatório no Django 4+) #}
+                                <form method="post" action="{% url 'accounts:logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="logout-btn">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Sair
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'accounts:login' %}">
+                            <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                        </a>
+                    </li>
+                    {# CORREÇÃO: Link para cadastrar adicionado #}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'accounts:register' %}">
+                            <i class="fas fa-user-plus me-1"></i> Cadastrar
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
             </div>
-
         </div>
-
     </nav>
 
-
     <!-- Mensagens -->
-
     <div class="container mt-3">
-
         {% if messages %}
-
         {% for message in messages %}
-
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
             {{ message }}
-
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-
         </div>
-
         {% endfor %}
-
         {% endif %}
-
     </div>
 
-
     <!-- Conteúdo Principal -->
-
     <main class="container my-4">
-
         {% block content %}{% endblock %}
-
     </main>
 
-
     <!-- Footer -->
-
     <footer class="bg-light py-3 mt-5">
-
         <div class="container text-center text-muted">
-
             <small>Sistema de Chamados Interno &copy; {% now "Y" %}</small>
-
         </div>
-
     </footer>
 
-
     <!-- Bootstrap JS -->
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
     {% block extra_js %}{% endblock %}
-
 </body>
-
 </html>
