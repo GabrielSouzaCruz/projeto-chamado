@@ -14,10 +14,13 @@ from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.cache import never_cache
+from django.views.generic import CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
 
 from accounts.mixins import TecnicoRequiredMixin, ProprietarioOrTecnicoMixin
 from accounts.decorators import tecnico_required, admin_required
 from accounts.models import User
+from .models import Ticket, Categoria, Comentario
 
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Comentario, Categoria
@@ -255,7 +258,8 @@ def assumir_ticket(request, pk):
         return redirect('tickets:dashboard')
 
     ticket.tecnico_responsavel = request.user
-    ticket.status = 'EM_ANDAMENTO'
+    # AJUSTE AQUI: Usando a constante do Model em vez de string "SOLTA"
+    ticket.status = Ticket.Status.EM_ANDAMENTO 
     ticket.save()
     messages.success(request, f"Você assumiu o chamado #{ticket.id}")
     return redirect('tickets:detail', pk=pk)
@@ -280,16 +284,39 @@ class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
 
 @login_required
 def cancelar_ticket(request, pk):
-    """View para o solicitante cancelar o próprio ticket."""
     ticket = get_object_or_404(Ticket, pk=pk)
     if ticket.solicitante != request.user and not request.user.is_superuser:
         messages.error(request, "Você não tem permissão para cancelar este ticket.")
         return redirect('tickets:detail', pk=pk)
     
-    ticket.status = 'CANCELADO'
+    # AJUSTE AQUI: Usando a constante do Model
+    ticket.status = Ticket.Status.CANCELADO
     ticket.save()
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
+
+class CategoriaCreateView(CreateView):
+    model = Categoria
+    fields = ['nome'] # ou os campos que sua categoria tiver
+    template_name = 'tickets/categoria_form.html'
+    success_url = reverse_lazy('tickets:categorias')
+
+class CategoriaCreateView(CreateView):
+    model = Categoria
+    fields = ['nome', 'descricao'] # Ajuste conforme os campos do seu modelo
+    template_name = 'tickets/categoria_form.html'
+    success_url = reverse_lazy('tickets:categorias')
+
+class CategoriaUpdateView(UpdateView):
+    model = Categoria
+    fields = ['nome', 'descricao']
+    template_name = 'tickets/categoria_form.html'
+    success_url = reverse_lazy('tickets:categorias')
+
+class CategoriaDeleteView(DeleteView):
+    model = Categoria
+    template_name = 'tickets/categoria_confirm_delete.html'
+    success_url = reverse_lazy('tickets:categorias')
 
 # =============================================================================
 # HISTÓRICO, FILA E CATEGORIAS
@@ -326,16 +353,21 @@ def lista_categorias(request):
     categorias = Categoria.objects.all().annotate(total_tickets=Count('ticket')).order_by('nome')
     return render(request, 'tickets/categoria_list.html', {'categorias': categorias})
 
-class CategoriaCreateView(TecnicoRequiredMixin, CreateView):
+class CategoriaCreateView(CreateView):
     model = Categoria
-    fields = ['nome', 'icone', 'descricao', 'ativa']
+    fields = ['nome', 'descricao']
     template_name = 'tickets/categoria_form.html'
     success_url = reverse_lazy('tickets:categorias')
 
-class CategoriaUpdateView(TecnicoRequiredMixin, UpdateView):
+class CategoriaUpdateView(UpdateView):
     model = Categoria
-    fields = ['nome', 'icone', 'descricao', 'ativa']
+    fields = ['nome', 'descricao']
     template_name = 'tickets/categoria_form.html'
+    success_url = reverse_lazy('tickets:categorias')
+
+class CategoriaDeleteView(DeleteView):
+    model = Categoria
+    template_name = 'tickets/categoria_confirm_delete.html'
     success_url = reverse_lazy('tickets:categorias')
     
 # =============================================================================

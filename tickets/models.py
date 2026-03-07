@@ -42,13 +42,9 @@ class Categoria(models.Model):
 class Ticket(models.Model):
     """
     Modelo principal de chamado de suporte.
-    
-    Representa um ticket aberto por um solicitante, com status,
-    prioridade, categoria e possível técnico responsável.
     """
     
     class Status(models.TextChoices):
-        """Estados possíveis do ciclo de vida do ticket."""
         ABERTO = 'aberto', 'Aberto'
         EM_ANDAMENTO = 'em_andamento', 'Em Andamento'
         AGUARDANDO = 'aguardando', 'Aguardando Resposta'
@@ -57,36 +53,31 @@ class Ticket(models.Model):
         CANCELADO = 'cancelado', 'Cancelado'
     
     class Prioridade(models.TextChoices):
-        """Níveis de urgência para priorização da fila."""
         BAIXA = 'baixa', 'Baixa'
         MEDIA = 'media', 'Média'
         ALTA = 'alta', 'Alta'
         CRITICA = 'critica', 'Crítica'
     
-    # === Dados do Ticket ===
     titulo = models.CharField(max_length=200, verbose_name='Título')
     descricao = models.TextField(verbose_name='Descrição do Problema')
     
-    # === Relacionamentos ===
-    # CASCADE: se o usuário for deletado, seus tickets também são (histórico preservado via logs)
+    # Relacionamentos
     solicitante = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='tickets_solicitados',  # Permite: user.tickets_solicitados.all()
+        related_name='tickets_solicitados',
         verbose_name='Solicitante'
     )
     
-    # SET_NULL: se o técnico for deletado, o ticket permanece sem responsável (não é perdido)
     tecnico_responsavel = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='tickets_atendidos',  # Permite: tecnico.tickets_atendidos.all()
+        related_name='tickets_atendidos',
         verbose_name='Técnico Responsável'
     )
     
-    # SET_NULL: categoria pode ser removida sem afetar tickets históricos
     categoria = models.ForeignKey(
         Categoria,
         on_delete=models.SET_NULL,
@@ -95,19 +86,21 @@ class Ticket(models.Model):
         verbose_name='Categoria'
     )
     
-    # === Metadados ===
+    # Metadados com db_index=True para performance em filtros e buscas
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
         default=Status.ABERTO,
-        verbose_name='Status'
+        verbose_name='Status',
+        db_index=True  # 🔥 Otimiza filtros de Status na Fila Admin
     )
     
     prioridade = models.CharField(
         max_length=20,
         choices=Prioridade.choices,
         default=Prioridade.MEDIA,
-        verbose_name='Prioridade'
+        verbose_name='Prioridade',
+        db_index=True  # 🔥 Otimiza filtros de Prioridade e Ordenação
     )
     
     anexo = models.FileField(
@@ -117,8 +110,8 @@ class Ticket(models.Model):
         verbose_name='Anexo'
     )
     
-    # === Timestamps ===
-    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+    # Timestamps
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em', db_index=True)
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
     resolvido_em = models.DateTimeField(
         null=True, 
@@ -129,34 +122,18 @@ class Ticket(models.Model):
     class Meta:
         verbose_name = 'Ticket'
         verbose_name_plural = 'Tickets'
-        ordering = ['-criado_em']  # Mais recentes primeiro
+        ordering = ['-criado_em']
     
     def __str__(self):
         return f'#{self.pk} - {self.titulo}'
     
     def save(self, *args, **kwargs):
-        """
-        Override do save para registrar automaticamente a data de resolução.
-        
-        Quando o status muda para RESOLVIDO e resolvido_em ainda é None,
-        preenchemos com o timestamp atual. Isso garante métricas precisas
-        de tempo de resolução sem depender de lógica externa.
-        """
         if self.status == self.Status.RESOLVIDO and not self.resolvido_em:
             self.resolvido_em = timezone.now()
         super().save(*args, **kwargs)
     
     @property
     def status_css_class(self):
-        """
-        Retorna classe CSS Bootstrap para estilização visual do status.
-        
-        Usado nos templates para badges coloridas:
-        - Aberto: amarelo (bg-warning)
-        - Em andamento: azul (bg-info)
-        - Resolvido: verde (bg-success)
-        - Cancelado: vermelho (bg-danger)
-        """
         classes = {
             self.Status.ABERTO: 'bg-warning text-dark',
             self.Status.EM_ANDAMENTO: 'bg-info text-white',
@@ -169,16 +146,8 @@ class Ticket(models.Model):
     
     @property
     def prioridade_css_class(self):
-        """
-        Retorna classe CSS customizada para estilização da prioridade.
-        
-        As classes são definidas em base.html:
-        - badge-priority-baixa: cinza
-        - badge-priority-media: azul claro
-        - badge-priority-alta: laranja
-        - badge-priority-critica: vermelho
-        """
         classes = {
+            self.Status.ABERTO: 'bg-warning text-dark',
             self.Prioridade.BAIXA: 'badge-priority-baixa',
             self.Prioridade.MEDIA: 'badge-priority-media',
             self.Prioridade.ALTA: 'badge-priority-alta',
@@ -187,26 +156,10 @@ class Ticket(models.Model):
         return classes.get(self.prioridade, 'badge-priority-baixa')
     
     def cancelar(self):
-        """
-        Método auxiliar para cancelar o ticket com validação embutida.
-        
-        Uso: ticket.cancelar() em vez de manipular status diretamente.
-        Facilita testes e mantém a lógica de negócio centralizada.
-        """
         self.status = self.Status.CANCELADO
         self.save()
     
     def assumir(self, tecnico):
-        """
-        Método auxiliar para técnico assumir o ticket.
-        
-        - Atribui o técnico responsável
-        - Se estiver ABERTO, muda automaticamente para EM_ANDAMENTO
-        - Facilita a lógica nas views sem repetir código
-        
-        Args:
-            tecnico: Instância do usuário técnico
-        """
         self.tecnico_responsavel = tecnico
         if self.status == self.Status.ABERTO:
             self.status = self.Status.EM_ANDAMENTO
@@ -215,17 +168,12 @@ class Ticket(models.Model):
 
 class Comentario(models.Model):
     """
-    Comentários em tickets para comunicação entre solicitante e técnico.
-    
-    Recursos:
-    - Comentários públicos (visíveis a todos) ou internos (só técnicos)
-    - Anexos opcionais para evidências
-    - Timestamp automático de criação
+    Comentários em tickets.
     """
     ticket = models.ForeignKey(
         Ticket,
-        on_delete=models.CASCADE,  # Comentário não faz sentido sem ticket
-        related_name='comentarios',  # Permite: ticket.comentarios.all()
+        on_delete=models.CASCADE,
+        related_name='comentarios',
         verbose_name='Ticket'
     )
     
@@ -255,7 +203,7 @@ class Comentario(models.Model):
     class Meta:
         verbose_name = 'Comentário'
         verbose_name_plural = 'Comentários'
-        ordering = ['criado_em']  # Mais antigos primeiro (linha do tempo)
+        ordering = ['criado_em']
     
     def __str__(self):
         return f'Comentário de {self.autor} em {self.ticket}'

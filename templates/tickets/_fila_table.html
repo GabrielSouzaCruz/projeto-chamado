@@ -1,5 +1,5 @@
 {% for ticket in tickets %}
-<tr class="{% if ticket.prioridade == 'critica' and ticket.status == 'ABERTO' %}table-danger{% elif ticket.id in tickets_novos_ids %}table-info{% endif %}">
+<tr class="{% if ticket.prioridade == 'critica' and ticket.status == 'aberto' %}table-danger{% elif ticket.id in tickets_novos_ids %}table-info{% endif %}">
     <td class="fw-bold">#{{ ticket.id }}</td>
     <td class="text-truncate" style="max-width: 200px;">{{ ticket.titulo }}</td>
     <td>{{ ticket.solicitante.username }}</td>
@@ -7,7 +7,7 @@
         {% if ticket.tecnico_responsavel %}
             <span class="badge bg-light text-dark border">{{ ticket.tecnico_responsavel.username }}</span>
         {% else %}
-            <span class="text-danger small italic"><i class="fas fa-user-slash me-1"></i>Aguardando</span>
+            <span class="text-danger small fw-bold italic"><i class="fas fa-user-slash me-1"></i>Aguardando</span>
         {% endif %}
     </td>
     <td>
@@ -21,9 +21,17 @@
     <td>{{ ticket.categoria.nome|default:"-" }}</td>
     <td><small>{{ ticket.criado_em|timesince }}</small></td>
     <td>
-        <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-primary">
-            <i class="fas fa-eye"></i>
-        </a>
+        <div class="d-flex gap-1">
+            <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-primary" title="Ver Detalhes">
+                <i class="fas fa-eye"></i>
+            </a>
+            
+            {% if not ticket.tecnico_responsavel and ticket.status == 'aberto' and user.is_technician %}
+            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-sm btn-success" title="Assumir Chamado">
+                <i class="fas fa-hand-paper"></i>
+            </a>
+            {% endif %}
+        </div>
     </td>
 </tr>
 {% empty %}

@@ -6,6 +6,18 @@
 
 <div class="row">
     <div class="col-lg-8">
+        {% if user.is_technician and not ticket.tecnico_responsavel and ticket.status == 'aberto' %}
+        <div class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm border-0 mb-3">
+            <div>
+                <i class="fas fa-hand-paper me-2"></i>
+                <strong>Este chamado está aguardando um técnico.</strong>
+            </div>
+            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-dark btn-sm px-3">
+                Assumir Agora
+            </a>
+        </div>
+        {% endif %}
+
         <div class="card mb-3 shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
                 <h5 class="mb-0">
@@ -25,7 +37,7 @@
                         {% if ticket.tecnico_responsavel %}
                             <span class="badge bg-light text-dark border">{{ ticket.tecnico_responsavel }}</span>
                         {% else %}
-                            <span class="text-muted italic">Não atribuído</span>
+                            <span class="text-danger small fw-bold"><i class="fas fa-user-clock me-1"></i>Aguardando Técnico</span>
                         {% endif %}
                     </div>
                 </div>
@@ -59,6 +71,18 @@
                     <a href="{{ ticket.anexo.url }}" target="_blank" class="alert-link">Ver Anexo Original</a>
                 </div>
                 {% endif %}
+
+                {% if ticket.status != 'cancelado' and ticket.status != 'resolvido' %}
+                    {% if ticket.solicitante == user or user.is_superuser %}
+                    <div class="mt-4 border-top pt-3">
+                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                data-bs-toggle="modal" data-bs-target="#modalCancelarTicket"
+                                data-action="{% url 'tickets:cancelar' ticket.id %}">
+                            <i class="fas fa-times me-1"></i> Cancelar meu Chamado
+                        </button>
+                    </div>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
         
@@ -76,7 +100,7 @@
                 <form id="chat-form" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="input-group mb-2">
-                        <textarea name="mensagem" id="chat-input" class="form-control" rows="2" placeholder="Digite sua mensagem..." required></textarea>
+                        <textarea name="conteudo" id="chat-input" class="form-control" rows="2" placeholder="Digite sua mensagem..." required></textarea>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center">
@@ -99,25 +123,28 @@
     
     <div class="col-lg-4">
         {% if user.is_technician or user.is_superuser %}
-        <div class="card shadow-sm border-primary">
+        <div class="card shadow-sm border-primary mb-3">
             <div class="card-header bg-primary text-white">
-                <h6 class="mb-0"><i class="fas fa-user-shield me-2"></i>Gestão</h6>
+                <h6 class="mb-0"><i class="fas fa-user-shield me-2"></i>Gestão do Técnico</h6>
             </div>
             <div class="card-body">
                 <form method="post" action="{% url 'tickets:change_status' ticket.id %}">
                     {% csrf_token %}
                     <div class="mb-3">
+                        <label class="small fw-bold">Alterar Status:</label>
                         <select name="status" class="form-select form-select-sm mb-2">
                             {% for value, label in ticket.Status.choices %}
                             <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        
+                        <label class="small fw-bold">Alterar Prioridade:</label>
                         <select name="prioridade" class="form-select form-select-sm mb-3">
                             {% for value, label in ticket.Prioridade.choices %}
                             <option value="{{ value }}" {% if ticket.prioridade == value %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="btn btn-success btn-sm w-100">Atualizar</button>
+                        <button type="submit" class="btn btn-success btn-sm w-100">Atualizar Ticket</button>
                     </div>
                 </form>
             </div>
@@ -134,9 +161,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 text-center">
-                <div class="mb-3">
-                    <i class="fas fa-times-circle fa-4x text-danger opacity-25"></i>
-                </div>
                 <h5>Tem certeza que deseja cancelar?</h5>
                 <p class="text-muted">Esta ação encerrará o chamado #{{ ticket.id }} e não poderá ser desfeita.</p>
             </div>
@@ -157,8 +181,6 @@
     const chatInput = document.getElementById('chat-input');
     const chatFile = document.getElementById('chat-file');
 
-    // DELEGAÇÃO DE EVENTOS PARA O MODAL
-    // Garante que botões novos (via AJAX) funcionem
     document.addEventListener('click', function (event) {
         const btn = event.target.closest('[data-bs-target="#modalCancelarTicket"]');
         if (btn) {
@@ -175,7 +197,6 @@
                 if (container.innerHTML.trim() !== data.html.trim()) {
                     container.innerHTML = data.html;
                     document.getElementById('comment-count').innerText = data.count;
-                    // Opcional: tocar som aqui
                 }
             });
     }
@@ -196,7 +217,6 @@
             chatFile.value = '';
             atualizarChat();
             btn.disabled = false;
-            // Força scroll para o fim após enviar
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 300);
         })
         .catch(err => {
@@ -206,8 +226,6 @@
     };
 
     setInterval(atualizarChat, 4000);
-
     window.onload = () => { container.scrollTop = container.scrollHeight; };
 </script>
-
 {% endblock %}

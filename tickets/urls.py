@@ -10,6 +10,9 @@ urlpatterns = [
     path('novo/', views.TicketCreateView.as_view(), name='create'),
     path('historico/', views.historico_tickets, name='historico'),
     path('categorias/', views.lista_categorias, name='categorias'),
+    path('categorias/nova/', views.CategoriaCreateView.as_view(), name='categoria_create'),
+    path('categorias/<int:pk>/editar/', views.CategoriaUpdateView.as_view(), name='categoria_update'),
+    path('categorias/<int:pk>/deletar/', views.CategoriaDeleteView.as_view(), name='categoria_delete'),
     path('fila-admin/', views.fila_admin, name='fila_admin'), # <--- Fixa e bem definida
 
     # 2. APIs (PREFIXADAS PARA NÃO CONFUNDIR)
