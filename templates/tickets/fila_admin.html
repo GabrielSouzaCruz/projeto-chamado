@@ -5,7 +5,6 @@
 
 {% block content %}
 
-<!-- Cabeçalho com Alerta de Destaque -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-1">
@@ -21,36 +20,15 @@
         <a href="{% url 'tickets:dashboard' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
-        <button class="btn btn-primary" onclick="location.reload()">
+        <button class="btn btn-primary" onclick="atualizarFilaAdmin()">
             <i class="fas fa-sync-alt me-1"></i> Atualizar Agora
         </button>
     </div>
 </div>
 
-<!-- Barra de Alerta para Tickets Recentes -->
-{% if ultimos_tickets %}
-<div class="alert alert-info alert-dismissible fade show mb-4" role="alert" id="alertaRecentes">
-    <div class="d-flex align-items-center">
-        <i class="fas fa-bell fa-2x me-3"></i>
-        <div>
-            <strong>🔔 Chamados Recentes:</strong>
-            <span class="ms-2">
-                {% for t in ultimos_tickets|slice:":3" %}
-                    <a href="{% url 'tickets:detail' t.id %}" class="alert-link">
-                        #{{ t.id }} - {{ t.titulo|truncatechars:30 }}
-                    </a>{% if not forloop.last %} • {% endif %}
-                {% endfor %}
-            </span>
-        </div>
-    </div>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
-
-<!-- Estatísticas Rápidas COM IDs para atualização -->
 <div class="row mb-4">
     <div class="col-md-4">
-        <div class="card bg-primary text-white">
+        <div class="card bg-primary text-white shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <h3 class="mb-0" id="stat-total-hoje">{{ stats.total_hoje }}</h3>
@@ -61,7 +39,7 @@
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card bg-warning">
+        <div class="card bg-warning shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <h3 class="mb-0 text-dark" id="stat-sem-tecnico">{{ stats.sem_tecnico }}</h3>
@@ -72,7 +50,7 @@
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card bg-danger text-white">
+        <div class="card bg-danger text-white shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <h3 class="mb-0" id="stat-criticos">{{ stats.criticos }}</h3>
@@ -84,23 +62,23 @@
     </div>
 </div>
 
-<!-- Filtros -->
-<div class="card mb-4">
+<div class="card mb-4 border-0 shadow-sm">
     <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="form-filtros">
+        <form method="get" class="row g-3 align-items-end" id="form-filtros-admin">
             <div class="col-md-3">
-                <label class="form-label">Status</label>
-                <select name="status" class="form-select" onchange="this.form.submit()">
+                <label class="form-label fw-bold">Status</label>
+                <select name="status" id="filtro-status" class="form-select border-primary">
+                    <option value="todos" {% if filtros.status == 'todos' %}selected{% endif %}>Todos (Ativos)</option>
                     <option value="aberto" {% if filtros.status == 'aberto' %}selected{% endif %}>Abertos</option>
                     <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
                     <option value="aguardando" {% if filtros.status == 'aguardando' %}selected{% endif %}>Aguardando</option>
-                    <option value="todos" {% if filtros.status == 'todos' %}selected{% endif %}>Todos (não finalizados)</option>
+                    <option value="resolvido" {% if filtros.status == 'resolvido' %}selected{% endif %}>Resolvidos</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Categoria</label>
-                <select name="categoria" class="form-select" onchange="this.form.submit()">
-                    <option value="">Todas</option>
+                <label class="form-label fw-bold">Categoria</label>
+                <select name="categoria" id="filtro-categoria" class="form-select border-primary">
+                    <option value="">Todas Categorias</option>
                     {% for cat in categorias %}
                     <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
                         {{ cat.nome }}
@@ -109,33 +87,31 @@
                 </select>
             </div>
             <div class="col-md-6">
-                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-outline-secondary w-100">
-                    <i class="fas fa-times me-1"></i> Limpar Filtros
+                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-light w-100 border">
+                    <i class="fas fa-eraser me-1"></i> Limpar Todos os Filtros
                 </a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Indicador de Atualização -->
 <div class="text-end mb-2 text-muted small" id="indicador-atualizacao">
-    <i class="fas fa-sync-alt me-1"></i>Atualizado: {% now "H:i:s" %}
+    <i class="fas fa-check-circle me-1"></i>Sincronizado
 </div>
 
-<!-- Lista de Tickets COM ID no tbody para atualização -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 text-primary">
             <i class="fas fa-list-ol me-2"></i>
             Fila de Atendimento (<span id="count-tickets">{{ tickets.count }}</span>)
         </h5>
         <small class="text-muted">
-            Última atualização: <span id="last-update">{% now "H:i:s" %}</span>
+            Último check: <span id="last-update">{% now "H:i:s" %}</span>
         </small>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>ID</th>
@@ -161,119 +137,81 @@
 
 {% block extra_js %}
 <style>
-    /* Transição suave ao atualizar a tabela */
-    #fila-tbody {
-        transition: opacity 0.3s ease-in-out;
-    }
-    
-    /* Animação de destaque para tickets novos */
+    #fila-tbody { transition: opacity 0.2s ease-in-out; }
+    .ticket-novo { animation: highlight-new 2s ease-out; }
     @keyframes highlight-new {
-        0% { background-color: rgba(13, 202, 240, 0.4); }
+        0% { background-color: rgba(13, 202, 240, 0.3); }
         100% { background-color: transparent; }
-    }
-    .ticket-novo {
-        animation: highlight-new 2s ease-out;
     }
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// Definimos a função no escopo global para o botão "Atualizar Agora" funcionar
+function atualizarFilaAdmin() {
+    const tbody = document.getElementById('fila-tbody');
+    const indicador = document.getElementById('indicador-atualizacao');
+    const lastUpdate = document.getElementById('last-update');
+    const countTickets = document.getElementById('count-tickets');
     
-    // === Animação de Destaque para Tickets Novos ===
-    function aplicarAnimacaoNovos() {
-        document.querySelectorAll('tr.table-info').forEach(function(row) {
-            row.classList.add('ticket-novo');
+    if (indicador) indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+
+    // Pega os filtros atuais (Selects)
+    const statusVal = document.getElementById('filtro-status').value;
+    const catVal = document.getElementById('filtro-categoria').value;
+    
+    const params = new URLSearchParams();
+    if(statusVal) params.append('status', statusVal);
+    if(catVal) params.append('categoria', catVal);
+    params.append('_t', Date.now()); // Quebra de cache
+
+    fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
+        .then(res => res.json())
+        .then(data => {
+            if (data.html && tbody) {
+                tbody.style.opacity = '0.5';
+                setTimeout(() => {
+                    tbody.innerHTML = data.html;
+                    tbody.style.opacity = '1';
+                }, 100);
+            }
+            
+            if (data.stats) {
+                document.getElementById('stat-total-hoje').textContent = data.stats.total_hoje;
+                document.getElementById('stat-sem-tecnico').textContent = data.stats.sem_tecnico;
+                document.getElementById('stat-criticos').textContent = data.stats.criticos;
+            }
+
+            if (countTickets) countTickets.textContent = data.count || '0';
+            
+            const agora = new Date().toLocaleTimeString('pt-BR');
+            if (indicador) indicador.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i>Sincronizado: ${agora}`;
+            if (lastUpdate) lastUpdate.textContent = agora;
+        })
+        .catch(err => {
+            console.error('Erro:', err);
+            if (indicador) indicador.innerHTML = '<i class="fas fa-exclamation-circle text-danger me-1"></i>Erro de conexão';
         });
-    }
-    aplicarAnimacaoNovos();
-    
-    // === Atualização em Tempo Real da Fila Admin ===
-    function atualizarFilaAdmin() {
-        const tbody = document.getElementById('fila-tbody');
-        const indicador = document.getElementById('indicador-atualizacao');
-        const lastUpdate = document.getElementById('last-update');
-        const countTickets = document.getElementById('count-tickets');
-        
-        // Mostra estado de carregamento
-        if (indicador) {
-            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
-        }
-        
-        // Pega os filtros atuais da URL
-        const params = new URLSearchParams(window.location.search);
-        
-        // ✅ URL usando Django tag (resolve para /tickets/api/fila-admin/ com prefixo)
-        fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Erro na resposta: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.html && tbody) {
-                    // Fade out → atualiza → fade in
-                    tbody.style.opacity = '0.5';
-                    setTimeout(() => {
-                        tbody.innerHTML = data.html;
-                        tbody.style.opacity = '1';
-                        
-                        // Aplica animação nos tickets novos
-                        aplicarAnimacaoNovos();
-                    }, 200);
-                }
-                
-                // Atualiza estatísticas
-                if (data.stats) {
-                    const elTotalHoje = document.getElementById('stat-total-hoje');
-                    const elSemTecnico = document.getElementById('stat-sem-tecnico');
-                    const elCriticos = document.getElementById('stat-criticos');
-                    
-                    if (elTotalHoje && data.stats.total_hoje !== undefined) {
-                        elTotalHoje.textContent = data.stats.total_hoje;
-                    }
-                    if (elSemTecnico && data.stats.sem_tecnico !== undefined) {
-                        elSemTecnico.textContent = data.stats.sem_tecnico;
-                    }
-                    if (elCriticos && data.stats.criticos !== undefined) {
-                        elCriticos.textContent = data.stats.criticos;
-                    }
-                }
-                
-                // Atualiza contador de tickets
-                if (data.count !== undefined && countTickets) {
-                    countTickets.textContent = data.count;
-                }
-                
-                // Atualiza indicador de horário
-                if (indicador || lastUpdate) {
-                    const now = new Date().toLocaleTimeString('pt-BR');
-                    if (indicador) indicador.innerHTML = `<i class="fas fa-check me-1"></i>Atualizado: ${now}`;
-                    if (lastUpdate) lastUpdate.textContent = now;
-                }
-            })
-            .catch(err => {
-                console.error('Erro ao atualizar fila admin:', err);
-                if (indicador) {
-                    indicador.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erro ao sincronizar';
-                }
-            });
-    }
-    
-    // === Polling: Atualiza a cada 10 segundos ===
-    setInterval(atualizarFilaAdmin, 10000);
-    
-    // === Primeira atualização após carregar ===
-    setTimeout(atualizarFilaAdmin, 2000);
-    
-    // === Atualiza ao mudar filtros ===
-    document.getElementById('form-filtros')?.addEventListener('change', function() {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador) {
-            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
-        }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Eventos para os filtros (sem recarregar página)
+    document.getElementById('filtro-status').addEventListener('change', function() {
+        // Atualiza a URL visualmente para o usuário não se perder se der F5
+        const url = new URL(window.location);
+        url.searchParams.set('status', this.value);
+        window.history.pushState({}, '', url);
+        atualizarFilaAdmin();
     });
-    
+
+    document.getElementById('filtro-categoria').addEventListener('change', function() {
+        const url = new URL(window.location);
+        url.searchParams.set('categoria', this.value);
+        window.history.pushState({}, '', url);
+        atualizarFilaAdmin();
+    });
+
+    // Inicia o Polling de 10 segundos
+    setInterval(atualizarFilaAdmin, 10000);
 });
 </script>
 {% endblock %}

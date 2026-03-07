@@ -159,7 +159,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'    # Pasta para produção (Nginx serve d
 
 # Arquivos de mídia (uploads dos usuários: anexos de tickets)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # =============================================================================
 # MODELO DE USUÁRIO CUSTOMIZADO

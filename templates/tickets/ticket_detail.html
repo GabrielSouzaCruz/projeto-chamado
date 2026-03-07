@@ -1,247 +1,213 @@
-{# templates/tickets/fila_admin.html #}
 {% extends 'base.html' %}
 
-{% block title %}🎛️ Fila de Chamados - Admin{% endblock %}
+{% block title %}Ticket #{{ ticket.id }} - {{ ticket.titulo }}{% endblock %}
 
 {% block content %}
 
-<!-- Cabeçalho com Alerta de Destaque -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-1">
-            <i class="fas fa-traffic-light me-2 text-warning"></i>
-            Fila de Chamados - Admin
-        </h2>
-        <small class="text-muted">
-            <i class="fas fa-shield-alt me-1"></i>
-            Acesso restrito a administradores
-        </small>
-    </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'tickets:dashboard' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Voltar
-        </a>
-        <button class="btn btn-primary" onclick="location.reload()">
-            <i class="fas fa-sync-alt me-1"></i> Atualizar Agora
-        </button>
-    </div>
-</div>
-
-<!-- Barra de Alerta para Tickets Recentes -->
-{% if ultimos_tickets %}
-<div class="alert alert-info alert-dismissible fade show mb-4" role="alert" id="alertaRecentes">
-    <div class="d-flex align-items-center">
-        <i class="fas fa-bell fa-2x me-3"></i>
-        <div>
-            <strong>🔔 Chamados Recentes:</strong>
-            <span class="ms-2">
-                {% for t in ultimos_tickets|slice:":3" %}
-                    <a href="{% url 'tickets:detail' t.id %}" class="alert-link">
-                        #{{ t.id }} - {{ t.titulo|truncatechars:30 }}
-                    </a>{% if not forloop.last %} • {% endif %}
-                {% endfor %}
-            </span>
-        </div>
-    </div>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
-
-<!-- Estatísticas Rápidas com IDs para atualização -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card bg-primary text-white">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="mb-0" id="stat-total-hoje">{{ stats.total_hoje }}</h3>
-                    <small>Abertos Hoje</small>
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
+                <h5 class="mb-0">
+                    <span class="text-muted">#{{ ticket.id }}</span> - {{ ticket.titulo }}
+                </h5>
+                <span class="badge {{ ticket.status_css_class }} p-2">
+                    {{ ticket.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Solicitante:</strong> {{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Técnico:</strong> 
+                        {% if ticket.tecnico_responsavel %}
+                            <span class="badge bg-light text-dark border">{{ ticket.tecnico_responsavel }}</span>
+                        {% else %}
+                            <span class="text-muted italic">Não atribuído</span>
+                        {% endif %}
+                    </div>
                 </div>
-                <i class="fas fa-calendar-day fa-2x opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-warning">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="mb-0 text-dark" id="stat-sem-tecnico">{{ stats.sem_tecnico }}</h3>
-                    <small class="text-dark">Sem Técnico</small>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Categoria:</strong> 
+                        <span class="text-primary">{{ ticket.categoria|default:"Não definida" }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Prioridade:</strong>
+                        <span class="badge 
+                            {% if ticket.prioridade == 'critica' %}bg-danger
+                            {% elif ticket.prioridade == 'alta' %}bg-warning text-dark
+                            {% else %}bg-info{% endif %}">
+                            {{ ticket.get_prioridade_display }}
+                        </span>
+                    </div>
                 </div>
-                <i class="fas fa-user-clock fa-2x text-dark opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-danger text-white">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="mb-0" id="stat-criticos">{{ stats.criticos }}</h3>
-                    <small>Críticos Pendentes</small>
+                
+                <hr>
+                
+                <h6><i class="fas fa-align-left me-2"></i>Descrição do Problema</h6>
+                <div class="p-3 bg-light rounded border">
+                    <p class="mb-0">{{ ticket.descricao|linebreaks }}</p>
                 </div>
-                <i class="fas fa-exclamation-triangle fa-2x opacity-50"></i>
+                
+                {% if ticket.anexo %}
+                <div class="alert alert-secondary mt-3 d-inline-block">
+                    <i class="fas fa-paperclip me-2"></i>
+                    <a href="{{ ticket.anexo.url }}" target="_blank" class="alert-link">Ver Anexo Original</a>
+                </div>
+                {% endif %}
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Filtros -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end" id="form-filtros">
-            <div class="col-md-3">
-                <label class="form-label">Status</label>
-                <select name="status" class="form-select" onchange="this.form.submit()">
-                    <option value="aberto" {% if filtros.status == 'aberto' %}selected{% endif %}>Abertos</option>
-                    <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
-                    <option value="aguardando" {% if filtros.status == 'aguardando' %}selected{% endif %}>Aguardando</option>
-                    <option value="todos" {% if filtros.status == 'todos' %}selected{% endif %}>Todos (não finalizados)</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Categoria</label>
-                <select name="categoria" class="form-select" onchange="this.form.submit()">
-                    <option value="">Todas</option>
-                    {% for cat in categorias %}
-                    <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
-                        {{ cat.nome }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-6">
-                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-outline-secondary w-100">
-                    <i class="fas fa-times me-1"></i> Limpar Filtros
-                </a>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Indicador de Atualização -->
-<div class="text-end mb-2 text-muted small" id="indicador-atualizacao">
-    <i class="fas fa-sync-alt me-1"></i>Atualizado: {% now "H:i:s" %}
-</div>
-
-<!-- Lista de Tickets em Formato de Fila -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="fas fa-list-ol me-2"></i>
-            Fila de Atendimento (<span id="count-tickets">{{ tickets.count }}</span>)
-        </h5>
-        <small class="text-muted">
-            Última atualização: <span id="last-update">{% now "H:i:s" %}</span>
-        </small>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>ID</th>
-                        <th>Título</th>
-                        <th>Solicitante</th>
-                        <th>Técnico</th>
-                        <th>Prioridade</th>
-                        <th>Status</th>
-                        <th>Categoria</th>
-                        <th>Tempo</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="fila-tbody">
-                    {% include 'tickets/_fila_table.html' %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
         
-        // === Animação de Destaque para Tickets Novos ===
-        function aplicarAnimacaoNovos() {
-            document.querySelectorAll('tr.table-info').forEach(function(row) {
-                row.style.animation = 'pulse 2s infinite';
-            });
-        }
-        aplicarAnimacaoNovos();
-        
-        // Adiciona animação CSS dinâmica
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0%, 100% { background-color: rgba(13, 202, 240, 0.1); }
-                50% { background-color: rgba(13, 202, 240, 0.3); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // === Atualização em Tempo Real da Fila Admin ===
-        function atualizarFilaAdmin() {
-            // Pega os filtros atuais da URL
-            const params = new URLSearchParams(window.location.search);
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-comments me-2 text-primary"></i>Conversa</h6>
+                <span class="badge bg-secondary" id="comment-count">{{ comentarios.count }}</span>
+            </div>
             
-            fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
-                .then(response => response.json())
-                .then(data => {
-                    if (data.html) {
-                        // Atualiza tabela com efeito suave
-                        const tbody = document.getElementById('fila-tbody');
-                        if (tbody) {
-                            tbody.style.opacity = '0.5';
-                            setTimeout(() => {
-                                tbody.innerHTML = data.html;
-                                tbody.style.opacity = '1';
-                                
-                                // Reaplica animação nos tickets novos
-                                aplicarAnimacaoNovos();
-                            }, 200);
-                        }
-                        
-                        // Atualiza estatísticas
-                        if (data.stats) {
-                            const elTotalHoje = document.getElementById('stat-total-hoje');
-                            const elSemTecnico = document.getElementById('stat-sem-tecnico');
-                            const elCriticos = document.getElementById('stat-criticos');
-                            const elCount = document.getElementById('count-tickets');
-                            
-                            if (elTotalHoje) elTotalHoje.textContent = data.stats.total_hoje;
-                            if (elSemTecnico) elSemTecnico.textContent = data.stats.sem_tecnico;
-                            if (elCriticos) elCriticos.textContent = data.stats.criticos;
-                            if (elCount) elCount.textContent = data.count;
-                        }
-                        
-                        // Atualiza indicador de horário
-                        const now = new Date();
-                        const timeStr = now.toLocaleTimeString('pt-BR');
-                        const indicador = document.getElementById('indicador-atualizacao');
-                        const lastUpdate = document.getElementById('last-update');
-                        if (indicador) indicador.innerHTML = `<i class="fas fa-sync-alt me-1"></i>Atualizado: ${timeStr}`;
-                        if (lastUpdate) lastUpdate.textContent = timeStr;
-                    }
-                })
-                .catch(err => console.error('Erro ao atualizar fila admin:', err));
+            <div class="card-body" id="comentarios-container" style="max-height: 500px; overflow-y: auto;">
+                {% include 'tickets/_comentarios_list.html' %}
+            </div>
+
+            <div class="card-footer bg-white border-top-0">
+                <form id="chat-form" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="input-group mb-2">
+                        <textarea name="mensagem" id="chat-input" class="form-control" rows="2" placeholder="Digite sua mensagem..." required></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <input type="file" name="anexo" id="chat-file" class="form-control form-control-sm me-2" style="width: auto;">
+                            {% if user.is_technician %}
+                            <div class="form-check form-switch ms-2">
+                                <input class="form-check-input" type="checkbox" name="interno" id="id_interno">
+                                <label class="form-check-label small text-warning fw-bold" for="id_interno">Privado</label>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <button type="submit" id="btn-enviar" class="btn btn-primary px-4">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        {% if user.is_technician or user.is_superuser %}
+        <div class="card shadow-sm border-primary">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-user-shield me-2"></i>Gestão</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'tickets:change_status' ticket.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <select name="status" class="form-select form-select-sm mb-2">
+                            {% for value, label in ticket.Status.choices %}
+                            <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="prioridade" class="form-select form-select-sm mb-3">
+                            {% for value, label in ticket.Prioridade.choices %}
+                            <option value="{{ value }}" {% if ticket.prioridade == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-success btn-sm w-100">Atualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Cancelar Chamado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="mb-3">
+                    <i class="fas fa-times-circle fa-4x text-danger opacity-25"></i>
+                </div>
+                <h5>Tem certeza que deseja cancelar?</h5>
+                <p class="text-muted">Esta ação encerrará o chamado #{{ ticket.id }} e não poderá ser desfeita.</p>
+            </div>
+            <div class="modal-footer bg-light d-flex justify-content-center">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Não, voltar</button>
+                <form id="formCancelarTicket" method="post" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger px-4">Sim, cancelar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const container = document.getElementById('comentarios-container');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatFile = document.getElementById('chat-file');
+
+    // DELEGAÇÃO DE EVENTOS PARA O MODAL
+    // Garante que botões novos (via AJAX) funcionem
+    document.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-bs-target="#modalCancelarTicket"]');
+        if (btn) {
+            const actionUrl = btn.getAttribute('data-action');
+            const form = document.getElementById('formCancelarTicket');
+            if (form) form.setAttribute('action', actionUrl);
         }
-        
-        // Atualiza a cada 10 segundos (fila admin precisa ser mais rápida)
-        setInterval(atualizarFilaAdmin, 10000);
-        
-        // Atualiza também quando os filtros mudam
-        document.getElementById('form-filtros')?.addEventListener('change', function() {
-            const indicador = document.getElementById('indicador-atualizacao');
-            if (indicador) {
-                indicador.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...`;
-            }
-        });
-        
-        // Primeira atualização após carregar
-        setTimeout(atualizarFilaAdmin, 2000);
-        
     });
+
+    function atualizarChat() {
+        fetch("{% url 'tickets:api_comentarios_update' ticket.id %}")
+            .then(response => response.json())
+            .then(data => {
+                if (container.innerHTML.trim() !== data.html.trim()) {
+                    container.innerHTML = data.html;
+                    document.getElementById('comment-count').innerText = data.count;
+                    // Opcional: tocar som aqui
+                }
+            });
+    }
+
+    chatForm.onsubmit = function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const btn = document.getElementById('btn-enviar');
+        btn.disabled = true;
+
+        fetch("{% url 'tickets:add_comment' ticket.id %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            chatInput.value = '';
+            chatFile.value = '';
+            atualizarChat();
+            btn.disabled = false;
+            // Força scroll para o fim após enviar
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 300);
+        })
+        .catch(err => {
+            console.error(err);
+            btn.disabled = false;
+        });
+    };
+
+    setInterval(atualizarChat, 4000);
+
+    window.onload = () => { container.scrollTop = container.scrollHeight; };
 </script>
+
 {% endblock %}

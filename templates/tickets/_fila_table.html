@@ -1,69 +1,35 @@
-{# templates/tickets/_fila_table.html #}
-{# Template parcial para atualização via AJAX da fila admin #}
-
 {% for ticket in tickets %}
-<tr class="{% if ticket in ultimos_tickets %}table-info{% endif %}">
-    <td>
-        <strong>#{{ ticket.id }}</strong>
-        {% if ticket in ultimos_tickets %}
-        <span class="badge bg-warning text-dark ms-1">NOVO</span>
-        {% endif %}
-    </td>
-    <td>
-        {# ✅ LINK CORRETO: tickets:detail (não fila_admin!) #}
-        <a href="{% url 'tickets:detail' ticket.id %}" class="text-decoration-none">
-            {{ ticket.titulo|truncatechars:40 }}
-        </a>
-    </td>
-    <td>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</td>
+<tr class="{% if ticket.prioridade == 'critica' and ticket.status == 'ABERTO' %}table-danger{% elif ticket.id in tickets_novos_ids %}table-info{% endif %}">
+    <td class="fw-bold">#{{ ticket.id }}</td>
+    <td class="text-truncate" style="max-width: 200px;">{{ ticket.titulo }}</td>
+    <td>{{ ticket.solicitante.username }}</td>
     <td>
         {% if ticket.tecnico_responsavel %}
-        <span class="badge bg-info text-dark">{{ ticket.tecnico_responsavel.username }}</span>
+            <span class="badge bg-light text-dark border">{{ ticket.tecnico_responsavel.username }}</span>
         {% else %}
-        <span class="text-muted">—</span>
+            <span class="text-danger small italic"><i class="fas fa-user-slash me-1"></i>Aguardando</span>
         {% endif %}
     </td>
     <td>
-        <span class="badge badge-priority-{{ ticket.prioridade }}">
+        <span class="badge {% if ticket.prioridade == 'critica' %}bg-danger{% elif ticket.prioridade == 'alta' %}bg-warning text-dark{% else %}bg-info{% endif %}">
             {{ ticket.get_prioridade_display }}
         </span>
     </td>
     <td>
-        <span class="badge {{ ticket.status_css_class }}">
-            {{ ticket.get_status_display }}
-        </span>
+        <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
     </td>
-    <td>{{ ticket.categoria|default:"—" }}</td>
+    <td>{{ ticket.categoria.nome|default:"-" }}</td>
+    <td><small>{{ ticket.criado_em|timesince }}</small></td>
     <td>
-        <small class="text-muted">
-            {{ ticket.criado_em|timesince }} atrás
-        </small>
-    </td>
-    <td>
-        <div class="btn-group btn-group-sm">
-            {# ✅ BOTÃO VER: tickets:detail (não fila_admin!) #}
-            <a href="{% url 'tickets:detail' ticket.id %}" 
-               class="btn btn-outline-primary" title="Ver">
-                <i class="fas fa-eye"></i>
-            </a>
-            
-            {# ✅ BOTÃO ASSUMIR: COM CSRF TOKEN #}
-            {% if not ticket.tecnico_responsavel %}
-            <form method="post" action="{% url 'tickets:take' ticket.id %}" class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-success" title="Assumir">
-                    <i class="fas fa-hand-paper"></i>
-                </button>
-            </form>
-            {% endif %}
-        </div>
+        <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-primary">
+            <i class="fas fa-eye"></i>
+        </a>
     </td>
 </tr>
 {% empty %}
 <tr>
     <td colspan="9" class="text-center py-4 text-muted">
-        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-        Nenhum chamado na fila com estes filtros.
+        Nenhum chamado pendente nesta fila.
     </td>
 </tr>
 {% endfor %}

@@ -1,43 +1,77 @@
 {# templates/tickets/_comentarios_list.html #}
-{# Template parcial para atualização via AJAX #}
 
-<div id="lista-comentarios" class="mt-4">
-    <h5 class="mb-3"><i class="fas fa-comments me-2"></i>Comentários ({{ comentarios.count }})</h5>
-    
-    {% for comentario in comentarios %}
-    <div class="comment {% if comentario.interno %}comment-internal{% endif %} mb-3 p-3 rounded border">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <div>
-                <strong>{{ comentario.autor.get_full_name|default:comentario.autor.username }}</strong>
-                {% if comentario.autor.is_technician %}
-                <span class="badge bg-info text-dark ms-1">Técnico</span>
-                {% endif %}
+{# 1. BOTÃO DE CANCELAMENTO RÁPIDO NO TOPO DA LISTA (Opcional, mantive conforme anterior) #}
+{% if not is_technician and ticket.solicitante_id == request.user.id %}
+    {% if ticket.status|upper != 'RESOLVIDO' and ticket.status|upper != 'CANCELADO' and ticket.status|upper != 'FECHADO' %}
+    <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4 shadow-sm">
+        <span class="small text-muted"><i class="fas fa-info-circle me-2"></i>Deseja encerrar este chamado?</span>
+        <button type="button" 
+                class="btn btn-sm btn-outline-danger" 
+                data-bs-toggle="modal" 
+                data-bs-target="#modalCancelarTicket"
+                data-action="{% url 'tickets:cancelar' ticket.id %}">
+            <i class="fas fa-times me-1"></i>Cancelar Ticket
+        </button>
+    </div>
+    {% endif %}
+{% endif %}
+
+{# 2. LISTAGEM DE COMENTÁRIOS #}
+{% for comentario in comentarios %}
+    <div class="card mb-3 shadow-sm border-0 {% if comentario.interno %}bg-light-yellow{% endif %}" 
+         style="{% if comentario.interno %}border-left: 4px solid #ffc107 !important;{% elif comentario.autor.is_technician %}border-left: 4px solid #0dcaf0 !important;{% else %}border-left: 4px solid #6c757d !important;{% endif %}">
+        
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center flex-wrap">
+                    <span class="fw-bold text-dark me-2">
+                        {{ comentario.autor.get_full_name|default:comentario.autor.username }}
+                    </span>
+                    
+                    {% if comentario.autor.is_technician %}
+                        <span class="badge bg-info text-dark ms-1" style="font-size: 0.65rem;">Técnico</span>
+                    {% endif %}
+                    
+                    {% if comentario.interno %}
+                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">
+                            <i class="fas fa-lock me-1"></i>Interno
+                        </span>
+                    {% endif %}
+
+                    {# --- LINHA 22: BOTÃO DE CANCELAR DENTRO DO COMENTÁRIO --- #}
+                    {% if not is_technician and ticket.solicitante_id == request.user.id %}
+                        {% if ticket.status|upper != 'RESOLVIDO' and ticket.status|upper != 'CANCELADO' and ticket.status|upper != 'FECHADO' %}
+                            <button type="button" 
+                                    class="btn btn-link text-danger p-0 ms-3 shadow-none" 
+                                    style="font-size: 0.75rem; text-decoration: none;"
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalCancelarTicket"
+                                    data-action="{% url 'tickets:cancelar' ticket.id %}">
+                                <i class="fas fa-times-circle me-1"></i>Encerrar chamado
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <small class="text-muted" style="font-size: 0.75rem;">
+                    <i class="far fa-clock me-1"></i>{{ comentario.criado_em|timesince }}
+                </small>
             </div>
-            <small class="text-muted">
-                <i class="far fa-clock me-1"></i>{{ comentario.criado_em|timesince }} atrás
-            </small>
+            
+            <div class="comment-text text-secondary" style="white-space: pre-wrap;">{{ comentario.texto }}</div>
+            
+            {% if comentario.anexo %}
+            <div class="mt-3 pt-2 border-top">
+                <a href="{{ comentario.anexo.url }}" class="btn btn-xs btn-outline-secondary d-inline-flex align-items-center" target="_blank" style="font-size: 0.8rem; padding: 2px 8px;">
+                    <i class="fas fa-paperclip me-2"></i>
+                    Ver anexo: {{ comentario.anexo.name|truncatechars:30 }}
+                </a>
+            </div>
+            {% endif %}
         </div>
-        
-        <p class="mb-1">{{ comentario.texto|linebreaks }}</p>
-        
-        {% if comentario.anexo %}
-        <div class="mt-2">
-            <a href="{{ comentario.anexo.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
-                <i class="fas fa-paperclip me-1"></i>Ver Anexo
-            </a>
-        </div>
-        {% endif %}
-        
-        {% if comentario.interno %}
-        <small class="text-warning mt-2 d-block">
-            <i class="fas fa-lock me-1"></i>Comentário Interno (não visível ao solicitante)
-        </small>
-        {% endif %}
     </div>
-    {% empty %}
-    <div class="text-center py-4 text-muted">
-        <i class="far fa-comment-dots fa-3x mb-3 d-block"></i>
-        <p>Nenhum comentário ainda. Seja o primeiro a comentar!</p>
+{% empty %}
+    <div class="text-center py-5">
+        <i class="fas fa-comments fa-3x mb-3 opacity-25" style="color: #ccc;"></i>
+        <p class="text-muted">Nenhum comentário registrado ainda.</p>
     </div>
-    {% endfor %}
-</div>
+{% endfor %}
