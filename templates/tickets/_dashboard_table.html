@@ -1,0 +1,46 @@
+{# templates/tickets/_dashboard_table.html #}
+{# Template parcial para atualização via AJAX #}
+
+{% for ticket in tickets %}
+<tr class="{% if ticket.status == Ticket.Status.ABERTO %}table-warning{% elif ticket.status == Ticket.Status.EM_ANDAMENTO %}table-info{% elif ticket.status == Ticket.Status.RESOLVIDO %}table-success{% endif %}">
+    <td>
+        <strong>#{{ ticket.id }}</strong>
+    </td>
+    <td>
+        <a href="{% url 'tickets:detail' ticket.id %}" class="text-decoration-none">
+            {{ ticket.titulo|truncatechars:40 }}
+        </a>
+    </td>
+    <td>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</td>
+    <td>
+        {% if is_technician %}
+        {% if ticket.tecnico_responsavel %}
+        <span class="badge bg-info text-dark">{{ ticket.tecnico_responsavel.username }}</span>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+        {% endif %}
+    </td>
+    <td>
+        <span class="badge badge-priority-{{ ticket.prioridade }}">
+            {{ ticket.get_prioridade_display }}
+        </span>
+    </td>
+    <td>
+        <span class="badge {{ ticket.status_css_class }}">
+            {{ ticket.get_status_display }}
+        </span>
+    </td>
+    <td>{{ ticket.categoria.nome|default:"—" }}</td>
+    <td>
+        <small class="text-muted">{{ ticket.criado_em|timesince }} atrás</small>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="7" class="text-center py-4 text-muted">
+        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+        Nenhum ticket encontrado
+    </td>
+</tr>
+{% endfor %}

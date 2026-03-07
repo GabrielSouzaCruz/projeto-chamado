@@ -1,269 +1,332 @@
 {# templates/tickets/dashboard.html #}
-
 {% extends 'base.html' %}
 
-
 {% block title %}Dashboard - Sistema de Chamados{% endblock %}
-
 
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-
-    <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
-
+    <h2><i class="fas fa-tachometer-alt me-2"></i>
+        {% if is_technician %}Painel do Técnico{% else %}Meus Chamados{% endif %}
+    </h2>
     <a href="{% url 'tickets:create' %}" class="btn btn-primary">
-
         <i class="fas fa-plus me-1"></i> Novo Chamado
-
     </a>
-
 </div>
 
-
-<!-- Estatísticas -->
-
+<!-- Estatísticas com IDs para atualização em tempo real -->
 <div class="row mb-4">
-
+    {% if is_technician %}
+    <!-- Visão Técnica Completa -->
     <div class="col-md-3">
-
         <div class="card bg-primary text-white">
-
             <div class="card-body text-center">
-
-                <h3>{{ stats.total }}</h3>
-
+                <h3 id="stat-total">{{ stats.total }}</h3>
                 <small>Total de Chamados</small>
-
             </div>
-
         </div>
-
     </div>
-
     <div class="col-md-3">
-
         <div class="card bg-warning">
-
             <div class="card-body text-center">
-
-                <h3>{{ stats.abertos }}</h3>
-
+                <h3 id="stat-abertos">{{ stats.abertos }}</h3>
                 <small>Abertos</small>
-
             </div>
-
         </div>
-
     </div>
-
     <div class="col-md-3">
-
         <div class="card bg-info text-white">
-
             <div class="card-body text-center">
-
-                <h3>{{ stats.em_andamento }}</h3>
-
+                <h3 id="stat-andamento">{{ stats.em_andamento }}</h3>
                 <small>Em Andamento</small>
-
             </div>
-            </div>
-
-    </div>
-
-    <div class="col-md-3">
-
-        <div class="card bg-success text-white">
-
-            <div class="card-body text-center">
-
-                <h3>{{ stats.resolvidos }}</h3>
-
-                <small>Resolvidos</small>
-
-            </div>
-
         </div>
-
     </div>
-
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3 id="stat-resolvidos">{{ stats.resolvidos }}</h3>
+                <small>Resolvidos</small>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Visão do Solicitante -->
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3 id="stat-total">{{ stats.total }}</h3>
+                <small>Total de Chamados</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3 id="stat-em-aberto">{{ stats.meus_em_aberto }}</h3>
+                <small>Em Aberto/Andamento</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3 id="stat-resolvidos">{{ stats.resolvidos }}</h3>
+                <small>Resolvidos (Histórico)</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
-
 
 <!-- Filtros -->
-
 <div class="card mb-4">
-
     <div class="card-body">
-
-        <form method="get" class="row g-3">
-
+        <form method="get" class="row g-3" id="form-filtros">
             <div class="col-md-3">
-
                 <input type="text" name="busca" class="form-control" 
-
-placeholder="Buscar..." value="{{ request.GET.busca }}">
-
+                       placeholder="Buscar..." value="{{ request.GET.busca }}">
             </div>
-
             <div class="col-md-2">
-
                 <select name="status" class="form-select">
-
                     <option value="">Todos Status</option>
-
                     <option value="aberto" {% if filtros.status == 'aberto' %}selected{% endif %}>Aberto</option>
-
                     <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
-
                     <option value="aguardando" {% if filtros.status == 'aguardando' %}selected{% endif %}>Aguardando</option>
-
                     <option value="resolvido" {% if filtros.status == 'resolvido' %}selected{% endif %}>Resolvido</option>
-
+                    <option value="cancelado" {% if filtros.status == 'cancelado' %}selected{% endif %}>Cancelado</option>
                     <option value="fechado" {% if filtros.status == 'fechado' %}selected{% endif %}>Fechado</option>
-
                 </select>
-
             </div>
-
+            
+            {% if is_technician %}
+            <!-- Técnico: col-md-2 (com prioridade) -->
             <div class="col-md-2">
-
-                <select name="prioridade" class="form-select"><option value="">Todas Prioridades</option>
-
+                <select name="prioridade" class="form-select">
+                    <option value="">Todas Prioridades</option>
                     <option value="critica" {% if filtros.prioridade == 'critica' %}selected{% endif %}>Crítica</option>
-
                     <option value="alta" {% if filtros.prioridade == 'alta' %}selected{% endif %}>Alta</option>
-
                     <option value="media" {% if filtros.prioridade == 'media' %}selected{% endif %}>Média</option>
-
                     <option value="baixa" {% if filtros.prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
-
                 </select>
-
             </div>
-
+            <!-- Categoria: col-md-3 (com prioridade) -->
             <div class="col-md-3">
-
                 <select name="categoria" class="form-select">
-
                     <option value="">Todas Categorias</option>
-
                     {% for cat in categorias %}
-
                     <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
-
                         {{ cat.nome }}
-
                     </option>
-
                     {% endfor %}
-
                 </select>
-
             </div>
-
+            <!-- Botão: col-md-2 (com prioridade) -->
             <div class="col-md-2">
-
                 <button type="submit" class="btn btn-outline-primary w-100">
-
                     <i class="fas fa-filter me-1"></i> Filtrar
-
                 </button>
-
             </div>
-
+            {% else %}
+            <!-- Solicitante: sem prioridade, ajustamos as larguras -->
+            <!-- Categoria: col-md-4 -->
+            <div class="col-md-4">
+                <select name="categoria" class="form-select">
+                    <option value="">Todas Categorias</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Botão: col-md-3 -->
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-filter me-1"></i> Filtrar
+                </button>
+            </div>
+            {% endif %}
         </form>
-
     </div>
-
 </div>
 
+<!-- Indicador de Atualização -->
+<div class="text-end mb-2 text-muted small" id="indicador-atualizacao">
+    <i class="fas fa-sync-alt me-1"></i>Atualizado: {% now "H:i:s" %}
+</div>
 
-<!-- Lista de Tickets -->
+<!-- Lista de Tickets com ID para atualização -->
+<div class="row" id="lista-tickets">
+    {% include 'tickets/_dashboard_cards.html' %}
+</div>
 
-<div class="row">
-
-    {% for ticket in tickets %}
-
-    <div class="col-md-6 col-lg-4 mb-3">
-
-        <div class="card card-ticket h-100">
-
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-bold">#{{ ticket.id }}</span>
-
-                <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
-
+<!-- Modal de Confirmação de Cancelamento -->
+<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-labelledby="modalCancelarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalCancelarLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Cancelamento
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-
-            <div class="card-body">
-
-                <h5 class="card-title">{{ ticket.titulo|truncatechars:50 }}</h5>
-
-                <p class="card-text text-muted small">
-
-                    {{ ticket.descricao|truncatechars:100 }}
-
+            <div class="modal-body">
+                <p>Tem certeza que deseja cancelar este chamado?</p>
+                <p class="text-muted small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Esta ação não pode ser desfeita. O ticket permanecerá no histórico como "Cancelado".
                 </p>
-
-                <div class="d-flex justify-content-between align-items-center">
-
-                    <span class="badge badge-priority-{{ ticket.prioridade }}">
-
-                        {{ ticket.get_prioridade_display }}
-
-                    </span>
-
-                    <small class="text-muted">
-
-                        <i class="fas fa-clock me-1"></i>{{ ticket.criado_em|timesince }}
-
-                    </small>
-
-                </div>
-
             </div>
-
-            <div class="card-footer bg-white">
-
-                <div class="d-flex justify-content-between align-items-center">
-
-                    <small class="text-muted">
-
-                        <i class="fas fa-user me-1"></i>{{ ticket.solicitante }}
-
-                    </small>
-
-                    <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-outline-primary">
-
-                        Ver Detalhes
-
-                    </a>
-
-                </div>
-
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Voltar
+                </button>
+                <form id="formCancelarTicket" method="post" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-check me-1"></i> Sim, Cancelar
+                    </button>
+                </form>
             </div>
-
         </div>
-
     </div>
-
-    {% empty %}
-
-    <div class="col-12">
-
-        <div class="alert alert-info text-center">
-
-            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
-
-            Nenhum chamado encontrado.
-            </div>
-
-    </div>
-
-    {% endfor %}
-
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    /* Transição suave ao atualizar */
+    #lista-tickets {
+        transition: opacity 0.3s ease-in-out;
+    }
+    
+    /* Efeito de destaque em tickets novos */
+    @keyframes highlight-new {
+        0% { background-color: rgba(13, 202, 240, 0.4); }
+        100% { background-color: transparent; }
+    }
+    .ticket-novo {
+        animation: highlight-new 2s ease-out;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // === Configuração do Modal de Cancelamento ===
+    var modalCancelar = document.getElementById('modalCancelarTicket');
+    
+    modalCancelar?.addEventListener('show.bs.modal', function(event) {
+        var button = event.relatedTarget;
+        var actionUrl = button.getAttribute('data-action');
+        var form = modalCancelar.querySelector('#formCancelarTicket');
+        if (form && actionUrl) {
+            form.action = actionUrl;
+        }
+    });
+    
+    // === Reconfigura modais após atualização dinâmica ===
+    function configurarModais() {
+        const buttons = document.querySelectorAll('[data-bs-target="#modalCancelarTicket"]');
+        buttons.forEach(button => {
+            button.onclick = function(e) {
+                e.preventDefault();
+                const actionUrl = this.getAttribute('data-action');
+                const form = document.getElementById('formCancelarTicket');
+                if (form && actionUrl) {
+                    form.action = actionUrl;
+                }
+                if (modalCancelar) {
+                    new bootstrap.Modal(modalCancelar).show();
+                }
+            };
+        });
+    }
+    
+    // === Atualização em Tempo Real do Dashboard ===
+    function atualizarDashboard() {
+        const lista = document.getElementById('lista-tickets');
+        const indicador = document.getElementById('indicador-atualizacao');
+        
+        // Mostra estado de carregamento
+        if (indicador) {
+            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+        }
+        
+        // Pega os filtros atuais da URL
+        const params = new URLSearchParams(window.location.search);
+        
+        // ✅ URL usando Django tag (resolve para /tickets/api/dashboard/ com prefixo)
+        fetch('{% url "tickets:api_dashboard_update" %}?' + params.toString())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro na resposta: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html && lista) {
+                    // Fade out → atualiza → fade in
+                    lista.style.opacity = '0.5';
+                    setTimeout(() => {
+                        lista.innerHTML = data.html;
+                        lista.style.opacity = '1';
+                        
+                        // Destaca tickets novos com animação
+                        document.querySelectorAll('tr.table-info').forEach(row => {
+                            row.classList.add('ticket-novo');
+                        });
+                        
+                        // Reconfigura modais após atualização
+                        configurarModais();
+                    }, 200);
+                }
+                
+                // Atualiza estatísticas
+                if (data.stats) {
+                    const elTotal = document.getElementById('stat-total');
+                    const elAbertos = document.getElementById('stat-abertos');
+                    const elAndamento = document.getElementById('stat-andamento');
+                    const elResolvidos = document.getElementById('stat-resolvidos');
+                    const elEmAberto = document.getElementById('stat-em-aberto');
+                    
+                    if (elTotal && data.stats.total !== undefined) elTotal.textContent = data.stats.total;
+                    if (elAbertos && data.stats.abertos !== undefined) elAbertos.textContent = data.stats.abertos;
+                    if (elAndamento && data.stats.em_andamento !== undefined) elAndamento.textContent = data.stats.em_andamento;
+                    if (elResolvidos && data.stats.resolvidos !== undefined) elResolvidos.textContent = data.stats.resolvidos;
+                    if (elEmAberto && data.stats.meus_em_aberto !== undefined) elEmAberto.textContent = data.stats.meus_em_aberto;
+                }
+                
+                // Restaura indicador com horário
+                if (indicador) {
+                    const now = new Date().toLocaleTimeString('pt-BR');
+                    indicador.innerHTML = `<i class="fas fa-check me-1"></i>Atualizado: ${now}`;
+                }
+            })
+            .catch(err => {
+                console.error('Erro ao atualizar dashboard:', err);
+                if (indicador) {
+                    indicador.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erro ao sincronizar';
+                }
+            });
+    }
+    
+    // === Polling: Atualiza a cada 15 segundos ===
+    setInterval(atualizarDashboard, 15000);
+    
+    // === Primeira atualização após carregar a página ===
+    setTimeout(atualizarDashboard, 2000);
+    
+    // === Atualiza ao mudar filtros ===
+    document.getElementById('form-filtros')?.addEventListener('submit', function() {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador) {
+            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
+        }
+    });
+    
+});
+</script>
 {% endblock %}

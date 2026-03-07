@@ -141,51 +141,28 @@ class="form-control" value="{{ user.telefone|default:'' }}">
 
         </div>
 
-        
-
         <!-- Estatísticas do Usuário -->
-
-        <div class="card mt-4">
-
-            <div class="card-header">
-
-                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Minhas Estatísticas</h5>
-
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Minhas Estatísticas</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <h3 class="text-primary">{{ stats.total }}</h3>
+                <small class="text-muted">Total de Chamados</small>
             </div>
-
-            <div class="card-body">
-
-                <div class="row text-center">
-
-                    <div class="col-md-4">
-
-                        <h3 class="text-primary">{{ user.tickets_solicitados.count }}</h3>
-
-                        <small class="text-muted">Chamados Abertos</small>
-
-                    </div>
-
-                    <div class="col-md-4">
-
-                        <h3 class="text-success">{{ user.tickets_solicitados.filter(status='resolvido').count }}</h3>
-
-                        <small class="text-muted">Resolvidos</small>
-
-                    </div>
-
-                    <div class="col-md-4">
-
-                        <h3 class="text-warning">{{ user.tickets_solicitados.filter(status='aberto').count }}</h3>
-
-                        <small class="text-muted">Em Aberto</small>
-
-                    </div>
-
-                </div>
-
+            <div class="col-md-4">
+                <h3 class="text-success">{{ stats.resolvidos }}</h3>
+                <small class="text-muted">Resolvidos</small>
             </div>
-
+            <div class="col-md-4">
+                <h3 class="text-warning">{{ stats.abertos }}</h3>
+                <small class="text-muted">Em Aberto</small>
+            </div>
         </div>
+    </div>
+</div>
 
     </div>
 

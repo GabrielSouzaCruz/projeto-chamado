@@ -1,6 +1,4 @@
-{# templates/base.html - ARQUIVO CORRIGIDO #}
-{# Substitua todo o conteúdo do seu templates/base.html por este #}
-
+{# templates/base.html #}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -8,9 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Chamados{% endblock %}</title>
 
-    <!-- Bootstrap 5 CSS -->
+    <!-- Bootstrap 5 CSS (URLs corrigidas - sem espaços) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome -->
+    
+    <!-- FontAwesome (URL corrigida - sem espaços) -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 
     {% block extra_css %}{% endblock %}
@@ -38,6 +37,20 @@
         .logout-btn:hover {
             background-color: #f8f9fa;
             color: #b02a37;
+        }
+        
+        /* Transição suave ao atualizar (para polling do dashboard) */
+        #lista-tickets {
+            transition: opacity 0.3s ease-in-out;
+        }
+        
+        /* Efeito de destaque em tickets novos */
+        @keyframes highlight-new {
+            0% { background-color: rgba(13, 202, 240, 0.4); }
+            100% { background-color: transparent; }
+        }
+        .ticket-novo {
+            animation: highlight-new 2s ease-out;
         }
     </style>
 </head>
@@ -75,13 +88,33 @@
                             <i class="fas fa-tags me-1"></i> Categorias
                         </a>
                     </li>
+                    {% if user.is_superuser %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'fila_admin' %}active{% endif %}" 
+                        href="{% url 'tickets:fila_admin' %}">
+                            <i class="fas fa-traffic-light me-1"></i> 🎛️ Fila Admin
+                        </a>
+                    </li>
+                    {% if user.is_technician %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'historico' %}active{% endif %}" 
+                        href="{% url 'tickets:historico' %}">
+                            <i class="fas fa-history me-1"></i> Histórico
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
                     {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" 
+                           id="navbarDropdownUser" 
+                           role="button" 
+                           data-bs-toggle="dropdown" 
+                           aria-expanded="false">
                             <i class="fas fa-user me-1"></i> {{ user.get_full_name|default:user.username }}
                             {% if user.is_technician %}
                             <span class="badge bg-warning text-dark ms-1">TI</span>
@@ -89,14 +122,12 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                {# CORREÇÃO: Link para perfil aponta para URL correta #}
                                 <a class="dropdown-item" href="{% url 'accounts:profile' %}">
                                     <i class="fas fa-user-cog me-2"></i>Meu Perfil
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                {# CORREÇÃO: Logout via POST (obrigatório no Django 4+) #}
                                 <form method="post" action="{% url 'accounts:logout' %}">
                                     {% csrf_token %}
                                     <button type="submit" class="logout-btn">
@@ -112,7 +143,6 @@
                             <i class="fas fa-sign-in-alt me-1"></i> Entrar
                         </a>
                     </li>
-                    {# CORREÇÃO: Link para cadastrar adicionado #}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'accounts:register' %}">
                             <i class="fas fa-user-plus me-1"></i> Cadastrar
@@ -148,8 +178,72 @@
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
+    <!-- Bootstrap JS (URL corrigida - sem espaços) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
     {% block extra_js %}{% endblock %}
+
+    {# Notificação Sonora em Tempo Real (apenas para usuários logados) #}
+    {% if user.is_authenticated %}
+    <script>
+    // === NOTIFICAÇÃO SONORA EM TEMPO REAL ===
+    let audioTocado = false;
+
+    // Som de notificação (use um arquivo local ou URL)
+    const notificacaoAudio = new Audio('/static/audio/notificacao.wav');
+    // Alternativa online (descomente se preferir):
+    // const notificacaoAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+    function verificarNovosTickets() {
+        // ✅ URL usando Django tag (funciona com prefixo /tickets/)
+        fetch('{% url "tickets:check_novos" %}')
+            .then(response => {
+                if (!response.ok) throw new Error('Erro na resposta: ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                if (data.novos && !audioTocado) {
+                    // Toca o som
+                    notificacaoAudio.play().catch(e => console.log('Áudio bloqueado pelo browser:', e));
+                    
+                    // Mostra notificação visual
+                    mostrarNotificacao(`🔔 ${data.quantidade} novo(s) ticket(s)!`);
+                    
+                    // Evita tocar múltiplas vezes
+                    audioTocado = true;
+                    
+                    // Reset após 30 segundos
+                    setTimeout(() => { audioTocado = false; }, 30000);
+                }
+            })
+            .catch(err => console.error('Erro ao verificar tickets:', err));
+    }
+
+    function mostrarNotificacao(mensagem) {
+        // Cria toast de notificação
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed top-0 end-0 p-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="toast show bg-primary text-white">
+                <div class="toast-body">
+                    ${mensagem}
+                    <button type="button" class="btn-close btn-close-white float-end" onclick="this.parentElement.parentElement.remove()"></button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Remove após 5 segundos
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    // Verifica a cada 10 segundos
+    setInterval(verificarNovosTickets, 10000);
+
+    // Verifica imediatamente ao carregar
+    document.addEventListener('DOMContentLoaded', verificarNovosTickets);
+    </script>
+    {% endif %}
 </body>
 </html>

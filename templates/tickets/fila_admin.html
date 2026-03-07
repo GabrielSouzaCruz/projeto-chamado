@@ -47,7 +47,7 @@
 </div>
 {% endif %}
 
-<!-- Estatísticas Rápidas com IDs para atualização -->
+<!-- Estatísticas Rápidas COM IDs para atualização -->
 <div class="row mb-4">
     <div class="col-md-4">
         <div class="card bg-primary text-white">
@@ -122,7 +122,7 @@
     <i class="fas fa-sync-alt me-1"></i>Atualizado: {% now "H:i:s" %}
 </div>
 
-<!-- Lista de Tickets em Formato de Fila -->
+<!-- Lista de Tickets COM ID no tbody para atualização -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
@@ -160,88 +160,120 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+    /* Transição suave ao atualizar a tabela */
+    #fila-tbody {
+        transition: opacity 0.3s ease-in-out;
+    }
+    
+    /* Animação de destaque para tickets novos */
+    @keyframes highlight-new {
+        0% { background-color: rgba(13, 202, 240, 0.4); }
+        100% { background-color: transparent; }
+    }
+    .ticket-novo {
+        animation: highlight-new 2s ease-out;
+    }
+</style>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        
-        // === Animação de Destaque para Tickets Novos ===
-        function aplicarAnimacaoNovos() {
-            document.querySelectorAll('tr.table-info').forEach(function(row) {
-                row.style.animation = 'pulse 2s infinite';
-            });
-        }
-        aplicarAnimacaoNovos();
-        
-        // Adiciona animação CSS dinâmica
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0%, 100% { background-color: rgba(13, 202, 240, 0.1); }
-                50% { background-color: rgba(13, 202, 240, 0.3); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // === Atualização em Tempo Real da Fila Admin ===
-        function atualizarFilaAdmin() {
-            // Pega os filtros atuais da URL
-            const params = new URLSearchParams(window.location.search);
-            
-            fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
-                .then(response => response.json())
-                .then(data => {
-                    if (data.html) {
-                        // Atualiza tabela com efeito suave
-                        const tbody = document.getElementById('fila-tbody');
-                        if (tbody) {
-                            tbody.style.opacity = '0.5';
-                            setTimeout(() => {
-                                tbody.innerHTML = data.html;
-                                tbody.style.opacity = '1';
-                                
-                                // Reaplica animação nos tickets novos
-                                aplicarAnimacaoNovos();
-                            }, 200);
-                        }
-                        
-                        // Atualiza estatísticas
-                        if (data.stats) {
-                            const elTotalHoje = document.getElementById('stat-total-hoje');
-                            const elSemTecnico = document.getElementById('stat-sem-tecnico');
-                            const elCriticos = document.getElementById('stat-criticos');
-                            const elCount = document.getElementById('count-tickets');
-                            
-                            if (elTotalHoje) elTotalHoje.textContent = data.stats.total_hoje;
-                            if (elSemTecnico) elSemTecnico.textContent = data.stats.sem_tecnico;
-                            if (elCriticos) elCriticos.textContent = data.stats.criticos;
-                            if (elCount) elCount.textContent = data.count;
-                        }
-                        
-                        // Atualiza indicador de horário
-                        const now = new Date();
-                        const timeStr = now.toLocaleTimeString('pt-BR');
-                        const indicador = document.getElementById('indicador-atualizacao');
-                        const lastUpdate = document.getElementById('last-update');
-                        if (indicador) indicador.innerHTML = `<i class="fas fa-sync-alt me-1"></i>Atualizado: ${timeStr}`;
-                        if (lastUpdate) lastUpdate.textContent = timeStr;
-                    }
-                })
-                .catch(err => console.error('Erro ao atualizar fila admin:', err));
-        }
-        
-        // Atualiza a cada 10 segundos (fila admin precisa ser mais rápida)
-        setInterval(atualizarFilaAdmin, 10000);
-        
-        // Atualiza também quando os filtros mudam
-        document.getElementById('form-filtros')?.addEventListener('change', function() {
-            const indicador = document.getElementById('indicador-atualizacao');
-            if (indicador) {
-                indicador.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...`;
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // === Animação de Destaque para Tickets Novos ===
+    function aplicarAnimacaoNovos() {
+        document.querySelectorAll('tr.table-info').forEach(function(row) {
+            row.classList.add('ticket-novo');
         });
+    }
+    aplicarAnimacaoNovos();
+    
+    // === Atualização em Tempo Real da Fila Admin ===
+    function atualizarFilaAdmin() {
+        const tbody = document.getElementById('fila-tbody');
+        const indicador = document.getElementById('indicador-atualizacao');
+        const lastUpdate = document.getElementById('last-update');
+        const countTickets = document.getElementById('count-tickets');
         
-        // Primeira atualização após carregar
-        setTimeout(atualizarFilaAdmin, 2000);
+        // Mostra estado de carregamento
+        if (indicador) {
+            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+        }
         
+        // Pega os filtros atuais da URL
+        const params = new URLSearchParams(window.location.search);
+        
+        // ✅ URL usando Django tag (resolve para /tickets/api/fila-admin/ com prefixo)
+        fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro na resposta: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html && tbody) {
+                    // Fade out → atualiza → fade in
+                    tbody.style.opacity = '0.5';
+                    setTimeout(() => {
+                        tbody.innerHTML = data.html;
+                        tbody.style.opacity = '1';
+                        
+                        // Aplica animação nos tickets novos
+                        aplicarAnimacaoNovos();
+                    }, 200);
+                }
+                
+                // Atualiza estatísticas
+                if (data.stats) {
+                    const elTotalHoje = document.getElementById('stat-total-hoje');
+                    const elSemTecnico = document.getElementById('stat-sem-tecnico');
+                    const elCriticos = document.getElementById('stat-criticos');
+                    
+                    if (elTotalHoje && data.stats.total_hoje !== undefined) {
+                        elTotalHoje.textContent = data.stats.total_hoje;
+                    }
+                    if (elSemTecnico && data.stats.sem_tecnico !== undefined) {
+                        elSemTecnico.textContent = data.stats.sem_tecnico;
+                    }
+                    if (elCriticos && data.stats.criticos !== undefined) {
+                        elCriticos.textContent = data.stats.criticos;
+                    }
+                }
+                
+                // Atualiza contador de tickets
+                if (data.count !== undefined && countTickets) {
+                    countTickets.textContent = data.count;
+                }
+                
+                // Atualiza indicador de horário
+                if (indicador || lastUpdate) {
+                    const now = new Date().toLocaleTimeString('pt-BR');
+                    if (indicador) indicador.innerHTML = `<i class="fas fa-check me-1"></i>Atualizado: ${now}`;
+                    if (lastUpdate) lastUpdate.textContent = now;
+                }
+            })
+            .catch(err => {
+                console.error('Erro ao atualizar fila admin:', err);
+                if (indicador) {
+                    indicador.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erro ao sincronizar';
+                }
+            });
+    }
+    
+    // === Polling: Atualiza a cada 10 segundos ===
+    setInterval(atualizarFilaAdmin, 10000);
+    
+    // === Primeira atualização após carregar ===
+    setTimeout(atualizarFilaAdmin, 2000);
+    
+    // === Atualiza ao mudar filtros ===
+    document.getElementById('form-filtros')?.addEventListener('change', function() {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador) {
+            indicador.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
+        }
     });
+    
+});
 </script>
 {% endblock %}

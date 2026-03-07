@@ -1,0 +1,43 @@
+{# templates/tickets/_comentarios_list.html #}
+{# Template parcial para atualização via AJAX #}
+
+<div id="lista-comentarios" class="mt-4">
+    <h5 class="mb-3"><i class="fas fa-comments me-2"></i>Comentários ({{ comentarios.count }})</h5>
+    
+    {% for comentario in comentarios %}
+    <div class="comment {% if comentario.interno %}comment-internal{% endif %} mb-3 p-3 rounded border">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <strong>{{ comentario.autor.get_full_name|default:comentario.autor.username }}</strong>
+                {% if comentario.autor.is_technician %}
+                <span class="badge bg-info text-dark ms-1">Técnico</span>
+                {% endif %}
+            </div>
+            <small class="text-muted">
+                <i class="far fa-clock me-1"></i>{{ comentario.criado_em|timesince }} atrás
+            </small>
+        </div>
+        
+        <p class="mb-1">{{ comentario.texto|linebreaks }}</p>
+        
+        {% if comentario.anexo %}
+        <div class="mt-2">
+            <a href="{{ comentario.anexo.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                <i class="fas fa-paperclip me-1"></i>Ver Anexo
+            </a>
+        </div>
+        {% endif %}
+        
+        {% if comentario.interno %}
+        <small class="text-warning mt-2 d-block">
+            <i class="fas fa-lock me-1"></i>Comentário Interno (não visível ao solicitante)
+        </small>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-center py-4 text-muted">
+        <i class="far fa-comment-dots fa-3x mb-3 d-block"></i>
+        <p>Nenhum comentário ainda. Seja o primeiro a comentar!</p>
+    </div>
+    {% endfor %}
+</div>

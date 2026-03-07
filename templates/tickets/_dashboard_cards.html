@@ -1,0 +1,70 @@
+{# templates/tickets/_dashboard_cards.html #}
+{# Template parcial para atualização via AJAX #}
+
+{% for ticket in tickets %}
+<div class="col-md-6 col-lg-4 mb-3">
+    <div class="card card-ticket h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">#{{ ticket.id }}</span>
+            <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">{{ ticket.titulo|truncatechars:50 }}</h5>
+            <p class="card-text text-muted small">
+                {{ ticket.descricao|truncatechars:100 }}
+            </p>
+            <div class="d-flex justify-content-between align-items-center">
+                {% if is_technician %}
+                <span class="badge badge-priority-{{ ticket.prioridade }}">
+                    {{ ticket.get_prioridade_display }}
+                </span>
+                {% endif %}
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>{{ ticket.criado_em|timesince }}
+                </small>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    {% if is_technician %}
+                    <i class="fas fa-user me-1"></i>{{ ticket.solicitante }}
+                    {% else %}
+                    <i class="fas fa-tag me-1"></i>{{ ticket.categoria|default:"Sem categoria" }}
+                    {% endif %}
+                </small>
+                
+                <div class="btn-group" role="group">
+                    <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-outline-primary">
+                        Ver Detalhes
+                    </a>
+                    
+                    {# Botão de Cancelar com Modal #}
+                    {% if not is_technician %}
+                        {% if ticket.solicitante_id == user.id %}
+                            {% if ticket.status == 'aberto' or ticket.status == 'em_andamento' or ticket.status == 'aguardando' %}
+                            <button type="button" 
+                                    class="btn btn-sm btn-outline-danger" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalCancelarTicket"
+                                    data-action="{% url 'tickets:cancelar' ticket.id %}">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            {% else %}
+                            <small class="text-muted">(Não pode cancelar)</small>
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="col-12">
+    <div class="alert alert-info text-center">
+        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+        Nenhum chamado encontrado.
+    </div>
+</div>
+{% endfor %}

@@ -1,223 +1,284 @@
 {# templates/accounts/register.html #}
-
 {% extends 'base.html' %}
-
 
 {% block title %}Criar Conta{% endblock %}
 
-
 {% block content %}
-
 <div class="row justify-content-center mt-4">
-
     <div class="col-md-6">
         <div class="card shadow">
-
             <div class="card-header bg-success text-white text-center">
-
                 <h4 class="mb-0"><i class="fas fa-user-plus me-2"></i>Criar Nova Conta</h4>
-
             </div>
-
             <div class="card-body">
 
-                <form method="post">
+                <!-- Instruções de Cadastro -->
+                <div class="alert alert-info">
+                    <h6>📋 Como se cadastrar:</h6>
+                    <ol class="mb-0">
+                        <li>Preencha todos os campos obrigatórios (*)</li>
+                        <li>Use um e-mail válido (será usado para recuperar senha)</li>
+                        <li>Senha: mínimo 8 caracteres, misture letras e números</li>
+                    </ol>
+                </div>
 
+                <form method="post" id="form-cadastro">
                     {% csrf_token %}
 
-                    
-
+                    <!-- Username + Email -->
                     <div class="row">
-
                         <div class="col-md-6 mb-3">
-
                             <label for="id_username" class="form-label">Nome de Usuário *</label>
-
                             <input type="text" name="username" id="id_username" 
-
-="form-control {% if form.username.errors %}is-invalid{% endif %}"
-
-value="{{ form.username.value|default:'' }}" required>
-
+                                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                                   value="{{ form.username.value|default:'' }}" required>
+                            <!-- ✅ Feedback em tempo real -->
+                            <div id="usuario-feedback" class="form-text"></div>
                             {% if form.username.errors %}
-
-                            <div class="invalid-feedback">{{ form.username.errors.0 }}</div>
-
+                                <div class="invalid-feedback d-block">{{ form.username.errors.0 }}</div>
                             {% endif %}
-
                         </div>
 
                         <div class="col-md-6 mb-3">
-
                             <label for="id_email" class="form-label">E-mail *</label>
-
                             <input type="email" name="email" id="id_email" 
-
-class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-
-value="{{ form.email.value|default:'' }}" required>
-
+                                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                   value="{{ form.email.value|default:'' }}" required>
                             {% if form.email.errors %}
-
-                            <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
-
+                                <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
                             {% endif %}
-
                         </div>
-
                     </div>
 
-                    
-
+                    <!-- Nome + Sobrenome -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
-
                             <label for="id_first_name" class="form-label">Nome</label>
-
                             <input type="text" name="first_name" id="id_first_name" 
-
-class="form-control"
-
-value="{{ form.first_name.value|default:'' }}">
-
+                                   class="form-control"
+                                   value="{{ form.first_name.value|default:'' }}">
                         </div>
-
                         <div class="col-md-6 mb-3">
-
                             <label for="id_last_name" class="form-label">Sobrenome</label>
-
                             <input type="text" name="last_name" id="id_last_name" 
-
-class="form-control"
-
-value="{{ form.last_name.value|default:'' }}">
-
+                                   class="form-control"
+                                   value="{{ form.last_name.value|default:'' }}">
                         </div>
-
                     </div>
 
-                    
-
+                    <!-- Departamento + Telefone -->
                     <div class="row">
-
                         <div class="col-md-6 mb-3">
-
                             <label for="id_departamento" class="form-label">Departamento</label>
-
                             <input type="text" name="departamento" id="id_departamento" 
-
-class="form-control"
-
-value="{{ form.departamento.value|default:'' }}"
-
-placeholder="Ex: Recursos Humanos">
-
+                                   class="form-control"
+                                   value="{{ form.departamento.value|default:'' }}"
+                                   placeholder="Ex: Recursos Humanos">
                         </div>
-
                         <div class="col-md-6 mb-3">
-
                             <label for="id_telefone" class="form-label">Telefone</label>
-
                             <input type="text" name="telefone" id="id_telefone" 
-
-class="form-control"
-
-value="{{ form.telefone.value|default:'' }}"
-
-placeholder="(00) 00000-0000">
-
+                                   class="form-control"
+                                   value="{{ form.telefone.value|default:'' }}"
+                                   placeholder="(00) 00000-0000">
                         </div>
-
                     </div>
-
-                    
 
                     <hr>
 
-                    
-
+                    <!-- Senha + Confirmação -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
-
                             <label for="id_password1" class="form-label">Senha *</label>
-
                             <input type="password" name="password1" id="id_password1" 
-
-class="form-control {% if form.password1.errors %}is-invalid{% endif %}" required>
-
+                                   class="form-control {% if form.password1.errors %}is-invalid{% endif %}" required>
+                            <!-- ✅ Feedback em tempo real -->
+                            <div id="senha-feedback" class="form-text"></div>
+                            <!-- Barra de força da senha -->
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div id="senha-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
                             {% if form.password1.errors %}
-
-                            <div class="invalid-feedback">{{ form.password1.errors.0 }}</div>
-
+                                <div class="invalid-feedback d-block">{{ form.password1.errors.0 }}</div>
                             {% endif %}
-
                             <div class="form-text">Mínimo de 8 caracteres</div>
-
                         </div>
 
                         <div class="col-md-6 mb-3">
-
                             <label for="id_password2" class="form-label">Confirmar Senha *</label>
-
                             <input type="password" name="password2" id="id_password2" 
-
-class="form-control {% if form.password2.errors %}is-invalid{% endif %}" required>
-
+                                   class="form-control {% if form.password2.errors %}is-invalid{% endif %}" required>
+                            <!-- ✅ Feedback de confirmação -->
+                            <div id="confirmacao-feedback" class="form-text"></div>
                             {% if form.password2.errors %}
-
-                            <div class="invalid-feedback">{{ form.password2.errors.0 }}</div>
-
+                                <div class="invalid-feedback">{{ form.password2.errors.0 }}</div>
                             {% endif %}
-
                         </div>
-
                     </div>
 
-                    
-
+                    <!-- Erros não vinculados a campos -->
                     {% if form.non_field_errors %}
-
                     <div class="alert alert-danger">
-
                         {% for error in form.non_field_errors %}
-
-                        <p class="mb-0">{{ error }}</p>
-
+                            <p class="mb-0">{{ error }}</p>
                         {% endfor %}
-
                     </div>
-
                     {% endif %}
 
-                    
-
+                    <!-- Botão de Envio -->
                     <div class="d-grid gap-2 mt-3">
-
-                        <button type="submit" class="btn btn-success">
-
+                        <button type="submit" class="btn btn-success" id="btn-submit" disabled>
                             <i class="fas fa-user-plus me-1"></i> Criar Conta
-
                         </button>
-                        </div>
-
+                    </div>
                 </form>
-
             </div>
 
             <div class="card-footer text-center">
-
                 <small class="text-muted">
-
                     Já tem uma conta? <a href="{% url 'accounts:login' %}">Entrar</a>
-
                 </small>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
+<!-- ✅ JavaScript de Validação em Tempo Real -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const usernameInput = document.getElementById('id_username');
+    const password1Input = document.getElementById('id_password1');
+    const password2Input = document.getElementById('id_password2');
+    const usuarioFeedback = document.getElementById('usuario-feedback');
+    const senhaFeedback = document.getElementById('senha-feedback');
+    const confirmacaoFeedback = document.getElementById('confirmacao-feedback');
+    const senhaProgress = document.getElementById('senha-progress');
+    const btnSubmit = document.getElementById('btn-submit');
+    
+    let validations = {
+        username: false,
+        password: false,
+        confirmation: false
+    };
+
+    // === Validação de Username ===
+    usernameInput.addEventListener('input', function() {
+        const usuario = this.value.trim();
+        
+        if (usuario.length === 0) {
+            usuarioFeedback.className = 'form-text text-muted';
+            usuarioFeedback.textContent = '';
+            validations.username = false;
+        } else if (usuario.length < 4) {
+            usuarioFeedback.className = 'form-text text-danger';
+            usuarioFeedback.textContent = '❌ Mínimo 4 caracteres';
+            validations.username = false;
+        } else if (!/^[a-zA-Z0-9_@.+-]+$/.test(usuario)) {
+            usuarioFeedback.className = 'form-text text-danger';
+            usuarioFeedback.textContent = '❌ Apenas letras, números e @/./+/-/_';
+            validations.username = false;
+        } else {
+            usuarioFeedback.className = 'form-text text-success';
+            usuarioFeedback.textContent = '✅ Usuário válido';
+            validations.username = true;
+        }
+        updateSubmitButton();
+    });
+
+    // === Validação de Senha ===
+    password1Input.addEventListener('input', function() {
+        const senha = this.value;
+        let score = 0;
+        
+        // Critérios de força
+        if (senha.length >= 8) score += 25;
+        if (senha.length >= 12) score += 25;
+        if (/[a-z]/.test(senha) && /[A-Z]/.test(senha)) score += 25;
+        if (/[0-9]/.test(senha) || /[^a-zA-Z0-9]/.test(senha)) score += 25;
+        
+        // Atualizar barra de progresso
+        senhaProgress.style.width = score + '%';
+        if (score < 50) {
+            senhaProgress.className = 'progress-bar bg-danger';
+        } else if (score < 75) {
+            senhaProgress.className = 'progress-bar bg-warning';
+        } else {
+            senhaProgress.className = 'progress-bar bg-success';
+        }
+        
+        // Feedback de texto
+        if (senha.length === 0) {
+            senhaFeedback.className = 'form-text text-muted';
+            senhaFeedback.textContent = '';
+            validations.password = false;
+        } else if (senha.length < 8) {
+            senhaFeedback.className = 'form-text text-danger';
+            senhaFeedback.textContent = `❌ Mínimo 8 caracteres (faltam ${8 - senha.length})`;
+            validations.password = false;
+        } else if (score < 50) {
+            senhaFeedback.className = 'form-text text-warning';
+            senhaFeedback.textContent = '⚠️ Senha fraca - adicione números ou símbolos';
+            validations.password = false;
+        } else {
+            senhaFeedback.className = 'form-text text-success';
+            senhaFeedback.textContent = '✅ Senha forte';
+            validations.password = true;
+        }
+        updateSubmitButton();
+    });
+
+    // === Validação de Confirmação de Senha ===
+    password2Input.addEventListener('input', function() {
+        const senha1 = password1Input.value;
+        const senha2 = this.value;
+        
+        if (senha2.length === 0) {
+            confirmacaoFeedback.className = 'form-text text-muted';
+            confirmacaoFeedback.textContent = '';
+            validations.confirmation = false;
+        } else if (senha1 !== senha2) {
+            confirmacaoFeedback.className = 'form-text text-danger';
+            confirmacaoFeedback.textContent = '❌ As senhas não conferem';
+            validations.confirmation = false;
+        } else {
+            confirmacaoFeedback.className = 'form-text text-success';
+            confirmacaoFeedback.textContent = '✅ Senhas conferem';
+            validations.confirmation = true;
+        }
+        updateSubmitButton();
+    });
+
+    // === Atualizar estado do botão de submit ===
+    function updateSubmitButton() {
+        // Habilita botão apenas se todas as validações principais passaram
+        if (validations.username && validations.password && validations.confirmation) {
+            btnSubmit.disabled = false;
+            btnSubmit.classList.remove('btn-secondary');
+            btnSubmit.classList.add('btn-success');
+        } else {
+            btnSubmit.disabled = true;
+            btnSubmit.classList.remove('btn-success');
+            btnSubmit.classList.add('btn-secondary');
+        }
+    }
+
+    // === Máscara de Telefone (opcional) ===
+    const telefoneInput = document.getElementById('id_telefone');
+    if (telefoneInput) {
+        telefoneInput.addEventListener('input', function() {
+            let valor = this.value.replace(/\D/g, '');
+            if (valor.length > 10) {
+                valor = valor.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
+            } else if (valor.length > 5) {
+                valor = valor.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+            } else if (valor.length > 2) {
+                valor = valor.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+            } else if (valor.length > 0) {
+                valor = valor.replace(/^(\d*)/, '($1');
+            }
+            this.value = valor;
+        });
+    }
+});
+</script>
 {% endblock %}
