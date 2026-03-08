@@ -1,33 +1,58 @@
 {% for ticket in tickets %}
-<tr class="{% if ticket.prioridade == 'critica' and ticket.status == 'aberto' %}table-danger{% elif ticket.id in tickets_novos_ids %}table-info{% endif %}">
-    <td class="fw-bold">#{{ ticket.id }}</td>
-    <td class="text-truncate" style="max-width: 200px;">{{ ticket.titulo }}</td>
-    <td>{{ ticket.solicitante.username }}</td>
+<tr class="align-middle {% if ticket.prioridade == 'critica' and ticket.status == 'aberto' %}table-danger{% elif ticket.id in tickets_novos_ids %}table-info{% endif %}">
+    <td class="ps-3">
+        <span class="fw-bold text-primary">#{{ ticket.id }}</span>
+    </td>
+    <td class="text-truncate" style="max-width: 220px;" title="{{ ticket.titulo }}">
+        <span class="fw-semibold">{{ ticket.titulo }}</span>
+    </td>
+    <td>
+        <div class="small fw-bold text-dark">{{ ticket.solicitante.username }}</div>
+        <div class="text-muted" style="font-size: 0.7rem;">Solicitante</div>
+    </td>
     <td>
         {% if ticket.tecnico_responsavel %}
-            <span class="badge bg-light text-dark border">{{ ticket.tecnico_responsavel.username }}</span>
+            <span class="badge bg-light text-primary border border-primary-subtle px-2">
+                <i class="fas fa-user-check me-1"></i>{{ ticket.tecnico_responsavel.username }}
+            </span>
         {% else %}
-            <span class="text-danger small fw-bold italic"><i class="fas fa-user-slash me-1"></i>Aguardando</span>
+            <span class="badge bg-white text-danger border border-danger-subtle px-2 shadow-sm">
+                <i class="fas fa-clock me-1 animate-pulse"></i>Aguardando
+            </span>
         {% endif %}
     </td>
     <td>
-        <span class="badge {% if ticket.prioridade == 'critica' %}bg-danger{% elif ticket.prioridade == 'alta' %}bg-warning text-dark{% else %}bg-info{% endif %}">
-            {{ ticket.get_prioridade_display }}
+        {% if ticket.prioridade == 'critica' or ticket.prioridade == '4' %}
+            <span class="badge bg-danger px-3">Crítica</span>
+        {% elif ticket.prioridade == 'alta' or ticket.prioridade == '3' %}
+            <span class="badge bg-warning text-dark px-3">Alta</span>
+        {% elif ticket.prioridade == 'normal' or ticket.prioridade == '2' %}
+            <span class="badge bg-primary px-3">Normal</span>
+        {% else %}
+            <span class="badge bg-secondary px-3 text-white">Baixa</span>
+        {% endif %}
+    </td>
+    <td>
+        <span class="badge {{ ticket.status_css_class }} px-3 rounded-pill">
+            {{ ticket.get_status_display }}
         </span>
     </td>
     <td>
-        <span class="badge {{ ticket.status_css_class }}">{{ ticket.get_status_display }}</span>
+        <span class="text-secondary small fw-bold">
+            <i class="fas fa-tag me-1 opacity-50"></i>{{ ticket.categoria.nome|default:"Geral" }}
+        </span>
     </td>
-    <td>{{ ticket.categoria.nome|default:"-" }}</td>
-    <td><small>{{ ticket.criado_em|timesince }}</small></td>
     <td>
-        <div class="d-flex gap-1">
-            <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-primary" title="Ver Detalhes">
+        <small class="text-muted fw-medium">{{ ticket.criado_em|timesince }}</small>
+    </td>
+    <td class="pe-3">
+        <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-outline-primary rounded-circle" title="Ver Detalhes" style="width: 32px; height: 32px; padding: 0; line-height: 32px;">
                 <i class="fas fa-eye"></i>
             </a>
             
             {% if not ticket.tecnico_responsavel and ticket.status == 'aberto' and user.is_technician %}
-            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-sm btn-success" title="Assumir Chamado">
+            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-sm btn-success rounded-circle shadow-sm" title="Assumir Chamado" style="width: 32px; height: 32px; padding: 0; line-height: 32px;">
                 <i class="fas fa-hand-paper"></i>
             </a>
             {% endif %}
@@ -36,8 +61,12 @@
 </tr>
 {% empty %}
 <tr>
-    <td colspan="9" class="text-center py-4 text-muted">
-        Nenhum chamado pendente nesta fila.
+    <td colspan="9" class="text-center py-5">
+        <div class="text-muted">
+            <i class="fas fa-clipboard-list fa-3x mb-3 opacity-25"></i>
+            <p class="mb-0 fw-bold">Nenhum chamado pendente nesta fila.</p>
+            <small>Tudo em dia por aqui!</small>
+        </div>
     </td>
 </tr>
 {% endfor %}

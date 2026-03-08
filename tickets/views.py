@@ -25,24 +25,56 @@ from .models import Ticket, Categoria, Comentario
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Comentario, Categoria
 
+from django.db.models import Q, Avg, F
+from django.utils.timezone import now
+import csv
+from django.http import HttpResponse
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # DASHBOARD E PRINCIPAL
 # =============================================================================
 
+@login_required
 def dashboard(request):
-    # Se for técnico, vê tudo. Se for usuário, vê só os dele.
-    if request.user.is_technician or request.user.is_superuser:
-        tickets = Ticket.objects.all().order_by('-criado_em')
-        is_technician = True
+    # Definir se é técnico/admin
+    is_team = request.user.is_technician or request.user.is_superuser
+    
+    # Base de tickets (Filtro de segurança)
+    if is_team:
+        tickets_base = Ticket.objects.all()
     else:
-        tickets = Ticket.objects.filter(solicitante=request.user).order_by('-criado_em')
-        is_technician = False
+        tickets_base = Ticket.objects.filter(solicitante=request.user)
+
+    # Capturar busca e filtros da URL
+    busca = request.GET.get('busca')
+    status_filtro = request.GET.get('status')
+
+    if busca:
+        tickets_base = tickets_base.filter(
+            Q(titulo__icontains=busca) | 
+            Q(descricao__icontains=busca) | 
+            Q(id__icontains=busca)
+        )
+    
+    if status_filtro:
+        tickets_base = tickets_base.filter(status=status_filtro)
+
+    # Cálculo das métricas (Stats)
+    stats = {
+        'total': tickets_base.count(),
+        'abertos': tickets_base.filter(status='aberto').count(),
+        'em_andamento': tickets_base.filter(status='em_andamento').count(),
+        'resolvidos': tickets_base.filter(status='resolvido').count(),
+    }
+
+    tickets = tickets_base.order_by('-criado_em')
 
     return render(request, 'tickets/dashboard.html', {
         'tickets': tickets,
-        'is_technician': is_technician
+        'is_technician': is_team,
+        'stats': stats  # Enviando os números para o HTML
     })
 
 # =============================================================================
@@ -68,57 +100,59 @@ def check_novos_tickets(request):
 @never_cache
 def api_dashboard_update(request):
     try:
-        # 1. Pegamos o usuário de forma explícita
         user = request.user
-        
-        # 2. Checagem rigorosa de quem é esse cara
         is_tech_attr = getattr(user, 'is_technician', False)
         is_admin = user.is_superuser
         sou_tecnico = is_tech_attr or is_admin
 
-        # 3. CONSTRUÇÃO DA QUERYSET BASE (A trava de segurança)
+        # 1. DEFINE A BASE DE DADOS (A trava de segurança que você já tem)
         if sou_tecnico:
-            # Se for técnico ou admin, pode ver tudo
-            tickets_base = Ticket.objects.all()
+            # TÉCNICO VÊ TUDO DA EMPRESA
+            queryset_para_stats = Ticket.objects.all()
         else:
-            # Se for usuário comum (como o GG), VÊ APENAS OS DELE.
-            # Forçamos o filtro pelo objeto user logado.
-            tickets_base = Ticket.objects.filter(solicitante=user)
+            # USUÁRIO COMUM VÊ SÓ OS DELE
+            queryset_para_stats = Ticket.objects.filter(solicitante=user)
 
-        # 4. APLICAÇÃO DE FILTROS DE STATUS (Search/Filtros da tela)
+        # 2. CÁLCULO DE ESTATÍSTICAS (Sempre baseadas na visão geral permitida)
+        # Calculamos as stats ANTES de aplicar os filtros de busca da tela
+        stats = {
+            'total': queryset_para_stats.count(),
+            'abertos': queryset_para_stats.filter(status='ABERTO').count(),
+            'em_andamento': queryset_para_stats.filter(status='EM_ANDAMENTO').count(),
+            'resolvidos': queryset_para_stats.filter(status='RESOLVIDO').count(),
+        }
+
+        # 3. APLICAÇÃO DE FILTROS PARA A LISTA DE CARDS (O que aparece embaixo)
+        tickets_list_query = queryset_para_stats
+        
         status_req = request.GET.get('status', '').upper()
         if status_req and status_req != 'TODOS':
-            tickets_base = tickets_base.filter(status=status_req)
+            tickets_list_query = tickets_list_query.filter(status=status_req)
 
-        # 5. CÁLCULO DE ESTATÍSTICAS (Baseado na queryset já travada acima)
-        # Se o GG só tem 2 tickets, as stats agora DEVEM mostrar apenas 2.
-        stats = {
-            'total': tickets_base.count(),
-            'abertos': tickets_base.filter(status='ABERTO').count(),
-            'em_andamento': tickets_base.filter(status='EM_ANDAMENTO').count(),
-            'resolvidos': tickets_base.filter(status='RESOLVIDO').count(),
-            'meus_em_aberto': tickets_base.filter(status__in=['ABERTO', 'EM_ANDAMENTO']).count(),
-        }
-        
-        # 6. BUSCA DOS DADOS (Com select_related para performance)
-        tickets_list = tickets_base.select_related(
-            'solicitante', 
-            'tecnico_responsavel', 
-            'categoria'
+        busca = request.GET.get('busca')
+        if busca:
+            from django.db.models import Q
+            tickets_list_query = tickets_list_query.filter(
+                Q(titulo__icontains=busca) | 
+                Q(descricao__icontains=busca) | 
+                Q(id__icontains=busca)
+            )
+
+        # 4. BUSCA DOS DADOS PARA O HTML
+        tickets_final = tickets_list_query.select_related(
+            'solicitante', 'tecnico_responsavel', 'categoria'
         ).order_by('-criado_em')[:20]
 
-        # 7. RENDERIZAÇÃO
-        # Passamos o request=request para o render_to_string para o template 
-        # conseguir ler o request.user corretamente.
+        # 5. RENDERIZAÇÃO
         html = render_to_string('tickets/_dashboard_cards.html', {
-            'tickets': tickets_list,
+            'tickets': tickets_final,
             'is_technician': sou_tecnico,
         }, request=request)
         
         return JsonResponse({
             'html': html, 
-            'stats': stats,
-            'debug_user': user.username, # Apenas para você conferir no console do F12
+            'stats': stats, # Agora os stats são o total da visão (geral ou pessoal)
+            'debug_user': user.username,
             'debug_is_tech': sou_tecnico
         })
 
@@ -267,11 +301,25 @@ def assumir_ticket(request, pk):
 @tecnico_required
 def alterar_status(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    
+    # 1. Salva quem era o técnico antes de o formulário mexer nos dados
+    tecnico_original = ticket.tecnico_responsavel
+    
     if request.method == 'POST':
         form = TicketStatusForm(request.POST, instance=ticket)
         if form.is_valid():
-            form.save()
+            # 2. Prepara para salvar, mas segura um pouco (commit=False)
+            ticket_atualizado = form.save(commit=False)
+            
+            # 3. Se o formulário HTML não enviou o campo do técnico, 
+            # devolvemos o técnico original para o ticket não ficar órfão.
+            if 'tecnico_responsavel' not in request.POST:
+                ticket_atualizado.tecnico_responsavel = tecnico_original
+                
+            # 4. Agora sim, salva no banco!
+            ticket_atualizado.save()
             messages.success(request, 'Status atualizado!')
+            
     return redirect('tickets:detail', pk=pk)
 
 class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
@@ -322,11 +370,103 @@ class CategoriaDeleteView(DeleteView):
 # HISTÓRICO, FILA E CATEGORIAS
 # =============================================================================
 
-@tecnico_required
-def historico_tickets(request):
-    tickets = Ticket.objects.all().select_related('solicitante', 'tecnico_responsavel', 'categoria')
-    # ... (Lógica de filtro permanece a mesma)
-    return render(request, 'tickets/historico.html', {'tickets': tickets})
+@login_required
+def historico(request):
+    # Segurança: Apenas técnicos e admins acessam o histórico completo
+    if not (request.user.is_technician or request.user.is_superuser):
+        messages.error(request, "Acesso negado.")
+        return redirect('tickets:dashboard')
+
+    tickets_qs = Ticket.objects.all()
+
+    # --- CAPTURA DE FILTROS ---
+    busca = request.GET.get('busca', '')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    status_selecionados = request.GET.getlist('status')
+    prioridades_selecionadas = request.GET.getlist('prioridade')
+    categorias_selecionadas = request.GET.getlist('categoria')
+    tecnico_id = request.GET.get('tecnico')
+    ordenar = request.GET.get('ordenar', '-criado_em')
+
+    # --- APLICAÇÃO DOS FILTROS ---
+    if busca:
+        tickets_qs = tickets_qs.filter(
+            Q(titulo__icontains=busca) | 
+            Q(descricao__icontains=busca) |
+            Q(solicitante__username__icontains=busca) |
+            Q(id__icontains=busca)
+        )
+
+    if data_inicio:
+        tickets_qs = tickets_qs.filter(criado_em__date__gte=data_inicio)
+    if data_fim:
+        tickets_qs = tickets_qs.filter(criado_em__date__lte=data_fim)
+    
+    if status_selecionados:
+        tickets_qs = tickets_qs.filter(status__in=status_selecionados)
+    
+    if prioridades_selecionadas:
+        tickets_qs = tickets_qs.filter(prioridade__in=prioridades_selecionadas)
+    
+    if categorias_selecionadas:
+        tickets_qs = tickets_qs.filter(categoria_id__in=categorias_selecionadas)
+    
+    if tecnico_id and tecnico_id != 'todos':
+        tickets_qs = tickets_qs.filter(tecnico_responsavel_id=tecnico_id)
+
+    tickets_qs = tickets_qs.order_by(ordenar)
+
+    # --- EXPORTAÇÃO CSV ---
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="historico_{now().strftime("%Y%m%d")}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Titulo', 'Solicitante', 'Status', 'Prioridade', 'Criado em'])
+        for t in tickets_qs:
+            writer.writerow([t.id, t.titulo, t.solicitante.username, t.status, t.prioridade, t.criado_em])
+        return response
+
+    # --- ESTATÍSTICAS DO RELATÓRIO ---
+    stats = {
+        'total': tickets_qs.count(),
+        'resolvidos': tickets_qs.filter(status__iexact='RESOLVIDO').count(),
+        'cancelados': tickets_qs.filter(status__iexact='CANCELADO').count(),
+        'tempo_medio_resolucao': None
+    }
+    
+    # Cálculo do Tempo Médio (apenas se houver resolvidos para não dar erro de divisão)
+    tickets_resolvidos = tickets_qs.filter(status__iexact='RESOLVIDO', resolvido_em__isnull=False)
+    
+    if tickets_resolvidos.exists():
+        # Calculamos a diferença entre resolvido_em e criado_em
+        media = tickets_resolvidos.annotate(
+            duracao=F('resolvido_em') - F('criado_em')
+        ).aggregate(Avg('duracao'))['duracao__avg']
+        
+        if media:
+            # Converte o timedelta para horas decimais
+            stats['tempo_medio_resolucao'] = media.total_seconds() / 3600
+
+    context = {
+        'tickets': tickets_qs, # Adicione paginação aqui se desejar
+        'stats': stats,
+        'categorias': Categoria.objects.all(),
+        'tecnicos': User.objects.filter(Q(is_technician=True) | Q(is_superuser=True)),
+        'status_choices': Ticket.Status.choices,
+        'prioridade_choices': Ticket.Prioridade.choices,
+        'filtros': {
+            'busca': busca,
+            'data_inicio': data_inicio,
+            'data_fim': data_fim,
+            'status': status_selecionados,
+            'prioridade': prioridades_selecionadas,
+            'categoria': categorias_selecionadas,
+            'tecnico': tecnico_id,
+            'ordenar': ordenar,
+        }
+    }
+    return render(request, 'tickets/historico.html', context)
 
 @admin_required
 def fila_admin(request):

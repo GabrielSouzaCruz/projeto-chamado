@@ -1,248 +1,263 @@
-{# templates/base.html #}
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sistema de Chamados{% endblock %}</title>
+    <title>{% block title %}Central de Chamados PMM{% endblock %}</title>
 
-    <!-- Bootstrap 5 CSS (URLs corrigidas - sem espaços) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- FontAwesome (URL corrigida - sem espaços) -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 
-    {% block extra_css %}{% endblock %}
-
     <style>
-        .navbar-brand { font-weight: 700; }
-        .card-ticket { transition: transform 0.2s; }
-        .card-ticket:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .badge-priority-critica { background-color: #dc3545; }
-        .badge-priority-alta { background-color: #fd7e14; }
-        .badge-priority-media { background-color: #0dcaf0; }
-        .badge-priority-baixa { background-color: #6c757d; }
-        .comment-internal { background-color: #fff3cd; border-left: 4px solid #ffc107; }
-        body { background-color: #f8fafc; }
-        .logout-btn {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            padding: 0.5rem 1rem;
+        :root {
+            --primary-color: #1A4A92;
+            --accent-color: #FFD700;
+            --danger-machado: #D62828;
+            --sidebar-dark: #143569;
+            --bg-body: #f4f7fe;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-body);
+            color: #2d3436;
+        }
+
+        .wrapper { display: flex; align-items: stretch; }
+
+        #sidebar {
+            min-width: 260px;
+            max-width: 260px;
+            background: var(--sidebar-dark);
+            color: #fff;
+            min-height: 100vh;
+            position: fixed;
+            transition: all 0.3s;
+            z-index: 1000;
+            border-right: 3px solid var(--accent-color);
+        }
+
+        #content {
             width: 100%;
-            text-align: left;
-            font-size: inherit;
+            padding: 30px;
+            margin-left: 260px;
+            transition: all 0.3s;
         }
-        .logout-btn:hover {
-            background-color: #f8f9fa;
-            color: #b02a37;
+
+        /* Ajuste para telas de login/register (sem sidebar) */
+        .no-sidebar #content { margin-left: 0; }
+
+        .sidebar-header { 
+            padding: 20px 15px; 
+            background: rgba(255,255,255,0.05); 
+            text-align: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
-        /* Transição suave ao atualizar (para polling do dashboard) */
-        #lista-tickets {
-            transition: opacity 0.3s ease-in-out;
+        .sidebar-logo {
+            max-height: 70px;
+            width: auto;
+            margin-bottom: 10px;
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));
         }
+
+        .sidebar-header h4 { 
+            font-weight: 700; 
+            color: #fff; 
+            margin: 0; 
+            font-size: 0.85rem; 
+            line-height: 1.2; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #sidebar ul li.small { 
+            color: rgba(255, 255, 255, 0.8) !important; 
+            font-weight: 600; 
+            margin-top: 20px; 
+            padding: 0 25px;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        #sidebar ul li a {
+            padding: 12px 25px;
+            display: block;
+            color: #d1d1e0;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        #sidebar ul li a:hover, #sidebar ul li.active > a {
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        #sidebar ul li a i { margin-right: 12px; width: 20px; text-align: center; }
+
+        .top-bar {
+            background: #fff;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bg-primary { background-color: var(--primary-color) !important; }
+        .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }
         
-        /* Efeito de destaque em tickets novos */
-        @keyframes highlight-new {
-            0% { background-color: rgba(13, 202, 240, 0.4); }
-            100% { background-color: transparent; }
+        .logout-btn-sidebar {
+            background: none; border: none; color: #f64e60 !important;
+            padding: 12px 25px; width: 100%; text-align: left; font-weight: 500;
         }
-        .ticket-novo {
-            animation: highlight-new 2s ease-out;
+
+        @media (max-width: 992px) {
+            #sidebar { margin-left: -260px; }
+            #content { margin-left: 0; }
+            #sidebar.active { margin-left: 0; }
         }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'tickets:dashboard' %}">
-                <i class="fas fa-ticket-alt me-2"></i>Sistema de Chamados
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'tickets:dashboard' %}">
-                            <i class="fas fa-home me-1"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'tickets:create' %}">
-                            <i class="fas fa-plus me-1"></i> Novo Chamado
-                        </a>
-                    </li>
-                    {% if user.is_technician %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'admin:index' %}">
-                            <i class="fas fa-cog me-1"></i> Admin
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'tickets:categorias' %}">
-                            <i class="fas fa-tags me-1"></i> Categorias
-                        </a>
-                    </li>
-                    {% if user.is_superuser %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'fila_admin' %}active{% endif %}" 
-                        href="{% url 'tickets:fila_admin' %}">
-                            <i class="fas fa-traffic-light me-1"></i> 🎛️ Fila Admin
-                        </a>
-                    </li>
-                    {% if user.is_technician %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'historico' %}active{% endif %}" 
-                        href="{% url 'tickets:historico' %}">
-                            <i class="fas fa-history me-1"></i> Histórico
-                        </a>
-                    </li>
-                    {% endif %}
-                    {% endif %}
-                    {% endif %}
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav">
-                    {% if user.is_authenticated %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" 
-                           id="navbarDropdownUser" 
-                           role="button" 
-                           data-bs-toggle="dropdown" 
-                           aria-expanded="false">
-                            <i class="fas fa-user me-1"></i> {{ user.get_full_name|default:user.username }}
-                            {% if user.is_technician %}
-                            <span class="badge bg-warning text-dark ms-1">TI</span>
-                            {% endif %}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                    <i class="fas fa-user-cog me-2"></i>Meu Perfil
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="post" action="{% url 'accounts:logout' %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="logout-btn">
-                                        <i class="fas fa-sign-out-alt me-2"></i>Sair
-                                    </button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'accounts:login' %}">
-                            <i class="fas fa-sign-in-alt me-1"></i> Entrar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'accounts:register' %}">
-                            <i class="fas fa-user-plus me-1"></i> Cadastrar
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
+<body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
+
+    <div class="wrapper">
+        {% if user.is_authenticated %}
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo">
+                
+                <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS PMM</h4>
+                
+                <small style="font-size: 0.65rem; color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
             </div>
-        </div>
-    </nav>
 
-    <!-- Mensagens -->
-    <div class="container mt-3">
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
+            <ul class="list-unstyled mt-4">
+                <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <a href="{% url 'tickets:dashboard' %}"><i class="fas fa-th-large"></i> Dashboard</a>
+                </li>
+                <li class="{% if request.resolver_match.url_name == 'create' %}active{% endif %}">
+                    <a href="{% url 'tickets:create' %}"><i class="fas fa-plus-circle"></i> Novo Chamado</a>
+                </li>
+
+                {% if user.is_technician %}
+                <li class="small">Área Técnica</li>
+                <li class="{% if request.resolver_match.url_name == 'fila_admin' %}active{% endif %}">
+                    <a href="{% url 'tickets:fila_admin' %}"><i class="fas fa-stream"></i> Fila de Chamados</a>
+                </li>
+                <li class="{% if request.resolver_match.url_name == 'categorias' %}active{% endif %}">
+                    <a href="{% url 'tickets:categorias' %}"><i class="fas fa-tags"></i> Categorias</a>
+                </li>
+                <li><a href="{% url 'tickets:historico' %}"><i class="fas fa-history"></i> Histórico</a></li>
+                <li><a href="{% url 'admin:index' %}" target="_blank"><i class="fas fa-user-shield"></i> Admin Django</a></li>
+                {% endif %}
+
+                <li class="small">Sua Conta</li>
+                <li><a href="{% url 'accounts:profile' %}"><i class="fas fa-user-circle"></i> Meu Perfil</a></li>
+                <li>
+                    <form id="logout-form" action="{% url 'accounts:logout' %}" method="POST" class="d-none">{% csrf_token %}</form>
+                    <button type="button" onclick="document.getElementById('logout-form').submit();" class="logout-btn-sidebar">
+                        <i class="fas fa-sign-out-alt"></i> Sair do Sistema
+                    </button>
+                </li>
+            </ul>
+        </nav>
         {% endif %}
-    </div>
 
-    <!-- Conteúdo Principal -->
-    <main class="container my-4">
-        {% block content %}{% endblock %}
-    </main>
+        <div id="content">
+            {% if user.is_authenticated %}
+            <div class="top-bar">
+                <div class="d-flex align-items-center">
+                    <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-3">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5 class="mb-0 fw-bold">{% block page_title %}Visão Geral{% endblock %}</h5>
+                </div>
 
-    <!-- Footer -->
-    <footer class="bg-light py-3 mt-5">
-        <div class="container text-center text-muted">
-            <small>Sistema de Chamados Interno &copy; {% now "Y" %}</small>
-        </div>
-    </footer>
-
-    <!-- Bootstrap JS (URL corrigida - sem espaços) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    {% block extra_js %}{% endblock %}
-
-    {# Notificação Sonora em Tempo Real (apenas para usuários logados) #}
-    {% if user.is_authenticated %}
-    <script>
-    // === NOTIFICAÇÃO SONORA EM TEMPO REAL ===
-    let audioTocado = false;
-
-    // Som de notificação (use um arquivo local ou URL)
-    const notificacaoAudio = new Audio('/static/audio/notificacao.wav');
-    // Alternativa online (descomente se preferir):
-    // const notificacaoAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-
-    function verificarNovosTickets() {
-        // ✅ URL usando Django tag (funciona com prefixo /tickets/)
-        fetch('{% url "tickets:check_novos" %}')
-            .then(response => {
-                if (!response.ok) throw new Error('Erro na resposta: ' + response.status);
-                return response.json();
-            })
-            .then(data => {
-                if (data.novos && !audioTocado) {
-                    // Toca o som
-                    notificacaoAudio.play().catch(e => console.log('Áudio bloqueado pelo browser:', e));
-                    
-                    // Mostra notificação visual
-                    mostrarNotificacao(`🔔 ${data.quantidade} novo(s) ticket(s)!`);
-                    
-                    // Evita tocar múltiplas vezes
-                    audioTocado = true;
-                    
-                    // Reset após 30 segundos
-                    setTimeout(() => { audioTocado = false; }, 30000);
-                }
-            })
-            .catch(err => console.error('Erro ao verificar tickets:', err));
-    }
-
-    function mostrarNotificacao(mensagem) {
-        // Cria toast de notificação
-        const toast = document.createElement('div');
-        toast.className = 'position-fixed top-0 end-0 p-3';
-        toast.style.zIndex = '9999';
-        toast.innerHTML = `
-            <div class="toast show bg-primary text-white">
-                <div class="toast-body">
-                    ${mensagem}
-                    <button type="button" class="btn-close btn-close-white float-end" onclick="this.parentElement.parentElement.remove()"></button>
+                <div class="user-badge d-flex align-items-center">
+                    <div class="text-end me-3 d-none d-md-block">
+                        <div class="fw-bold" style="font-size: 0.9rem;">{{ user.get_full_name|default:user.username }}</div>
+                        <small class="text-muted">{% if user.is_technician %}Técnico{% else %}Solicitante{% endif %}</small>
+                    </div>
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; font-weight: 700; background-color: var(--primary-color);">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
                 </div>
             </div>
-        `;
-        document.body.appendChild(toast);
-        
-        // Remove após 5 segundos
-        setTimeout(() => toast.remove(), 5000);
-    }
+            {% endif %}
 
-    // Verifica a cada 10 segundos
-    setInterval(verificarNovosTickets, 10000);
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border-0 shadow-sm" role="alert">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
 
-    // Verifica imediatamente ao carregar
-    document.addEventListener('DOMContentLoaded', verificarNovosTickets);
+            <main>{% block content %}{% endblock %}</main>
+
+            <footer class="text-center text-muted mt-5 pb-4">
+                <small>Central de Chamados PMM &bull; TI Machado &bull; by GG &copy; {% now "Y" %}</small>
+            </footer>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('sidebarCollapse')?.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
+    {% if user.is_authenticated and user.is_technician or user.is_superuser %}
+    <script>
+    (function() {
+        let audioTocado = false;
+        const notificacaoAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        function verificarNovosTickets() {
+            fetch('{% url "tickets:check_novos" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.novos && !audioTocado) {
+                        notificacaoAudio.play().catch(e => console.log('Áudio bloqueado'));
+                        mostrarNotificacao(`🔔 ${data.quantidade} novo(s) ticket(s)!`);
+                        audioTocado = true;
+                        setTimeout(() => { audioTocado = false; }, 30000);
+                    }
+                })
+                .catch(err => console.error('Erro:', err));
+        }
+
+        function mostrarNotificacao(mensagem) {
+            const toastContainer = document.createElement('div');
+            toastContainer.className = 'position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '10000';
+            toastContainer.innerHTML = `
+                <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: var(--primary-color);">
+                    <div class="toast-body p-3 d-flex justify-content-between align-items-center">
+                        <strong>${mensagem}</strong>
+                        <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toastContainer);
+            setTimeout(() => toastContainer.remove(), 6000);
+        }
+        setInterval(verificarNovosTickets, 15000);
+    })();
     </script>
     {% endif %}
 </body>

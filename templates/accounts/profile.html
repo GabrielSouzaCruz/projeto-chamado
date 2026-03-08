@@ -1,171 +1,71 @@
-{# templates/accounts/profile.html #}
-
 {% extends 'base.html' %}
-
-
 {% block title %}Meu Perfil{% endblock %}
 
-
 {% block content %}
-
 <div class="row justify-content-center">
     <div class="col-md-8">
-
-        <div class="card">
-
+        <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
-
                 <h4 class="mb-0"><i class="fas fa-user me-2"></i>Meu Perfil</h4>
-
             </div>
-
             <div class="card-body">
-
                 <form method="post">
-
                     {% csrf_token %}
-
-                    
-
                     <div class="row mb-3">
-
                         <div class="col-md-6">
-
-                            <label for="id_username" class="form-label">Nome de Usuário</label>
-
-                            <input type="text" value="{{ user.username }}" 
-
-class="form-control" disabled>
-
-                            <div class="form-text">O nome de usuário não pode ser alterado.</div>
-
+                            <label class="form-label">Nome de Usuário</label>
+                            <input type="text" value="{{ user.username }}" class="form-control bg-light" disabled>
                         </div>
-
                         <div class="col-md-6">
-
-                            <label for="id_email" class="form-label">E-mail</label>
-
-                            <input type="email" name="email" id="id_email" 
-
-class="form-control" value="{{ user.email }}" required>
-
+                            <label class="form-label">E-mail</label>
+                            <input type="email" name="email" class="form-control" value="{{ form.email.value|default_if_none:'' }}" required>
                         </div>
-
                     </div>
-
-                    
-
                     <div class="row mb-3">
-
                         <div class="col-md-6">
-
-                            <label for="id_first_name" class="form-label">Nome</label>
-
-                            <input type="text" name="first_name" id="id_first_name" 
-
-class="form-control" value="{{ user.first_name }}">
-
+                            <label class="form-label">Nome</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default_if_none:'' }}">
                         </div>
-
                         <div class="col-md-6">
-
-                            <label for="id_last_name" class="form-label">Sobrenome</label>
-
-                            <input type="text" name="last_name" id="id_last_name" 
-
-class="form-control" value="{{ user.last_name }}">
-</div>
-
+                            <label class="form-label">Sobrenome</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default_if_none:'' }}">
+                        </div>
                     </div>
-
-                    
-
                     <div class="row mb-3">
-
                         <div class="col-md-6">
-
-                            <label for="id_departamento" class="form-label">Departamento</label>
-
-                            <input type="text" name="departamento" id="id_departamento" 
-
-class="form-control" value="{{ user.departamento|default:'' }}">
-
+                            <label class="form-label">Departamento</label>
+                            <input type="text" name="departamento" class="form-control" value="{{ form.departamento.value|default_if_none:'' }}">
                         </div>
-
                         <div class="col-md-6">
-
-                            <label for="id_telefone" class="form-label">Telefone</label>
-
-                            <input type="text" name="telefone" id="id_telefone" 
-
-class="form-control" value="{{ user.telefone|default:'' }}">
-
+                            <label class="form-label">Telefone</label>
+                            <input type="text" name="telefone" class="form-control" value="{{ form.telefone.value|default_if_none:'' }}">
                         </div>
-
                     </div>
-
-                    
-
-                    {% if user.is_technician %}
-
-                    <div class="alert alert-info">
-
-                        <i class="fas fa-info-circle me-2"></i>
-
-                        Você está registrado como <strong>Técnico de TI</strong>.
-
+                    <div class="d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Salvar</button>
                     </div>
-
-                    {% endif %}
-
-                    
-
-                    <div class="d-flex justify-content-between">
-
-                        <a href="{% url 'accounts:alterar_senha' %}" class="btn btn-outline-secondary">
-
-                            <i class="fas fa-key me-1"></i> Alterar Senha
-
-                        </a>
-
-                        <button type="submit" class="btn btn-primary">
-
-                            <i class="fas fa-save me-1"></i> Salvar Alterações
-
-                        </button>
-
-                    </div>
-
                 </form>
+            </div>
+        </div>
+
+        <div class="card mt-4 shadow-sm border-0 bg-light">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h2 class="text-primary fw-bold">{{ stats.total|default:0 }}</h2>
+                        <span class="text-muted">Total de Chamados</span>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="text-success fw-bold">{{ stats.resolvidos|default:0 }}</h2>
+                        <span class="text-muted">Resolvidos</span>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="text-warning fw-bold">{{ stats.abertos|default:0 }}</h2>
+                        <span class="text-muted">Em Aberto</span>
+                    </div>
                 </div>
-
-        </div>
-
-        <!-- Estatísticas do Usuário -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Minhas Estatísticas</h5>
-    </div>
-    <div class="card-body">
-        <div class="row text-center">
-            <div class="col-md-4">
-                <h3 class="text-primary">{{ stats.total }}</h3>
-                <small class="text-muted">Total de Chamados</small>
-            </div>
-            <div class="col-md-4">
-                <h3 class="text-success">{{ stats.resolvidos }}</h3>
-                <small class="text-muted">Resolvidos</small>
-            </div>
-            <div class="col-md-4">
-                <h3 class="text-warning">{{ stats.abertos }}</h3>
-                <small class="text-muted">Em Aberto</small>
             </div>
         </div>
     </div>
 </div>
-
-    </div>
-
-</div>
-
 {% endblock %}

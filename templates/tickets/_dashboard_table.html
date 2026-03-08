@@ -1,46 +1,67 @@
-{# templates/tickets/_dashboard_table.html #}
 {# Template parcial para atualização via AJAX #}
-
 {% for ticket in tickets %}
-<tr class="{% if ticket.status == Ticket.Status.ABERTO %}table-warning{% elif ticket.status == Ticket.Status.EM_ANDAMENTO %}table-info{% elif ticket.status == Ticket.Status.RESOLVIDO %}table-success{% endif %}">
-    <td>
-        <strong>#{{ ticket.id }}</strong>
+<tr class="align-middle border-bottom">
+    <td class="ps-3">
+        <span class="text-primary fw-bold" style="font-size: 0.9rem;">#{{ ticket.id }}</span>
     </td>
     <td>
-        <a href="{% url 'tickets:detail' ticket.id %}" class="text-decoration-none">
-            {{ ticket.titulo|truncatechars:40 }}
+        <a href="{% url 'tickets:detail' ticket.id %}" class="text-decoration-none fw-semibold text-dark hover-primary">
+            {{ ticket.titulo|truncatechars:45 }}
         </a>
     </td>
-    <td>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</td>
+    <td>
+        <div class="d-flex align-items-center">
+            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 28px; height: 28px; font-size: 0.7rem; font-weight: 700;">
+                {{ ticket.solicitante.username|slice:":1"|upper }}
+            </div>
+            <span class="small">{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</span>
+        </div>
+    </td>
     <td>
         {% if is_technician %}
-        {% if ticket.tecnico_responsavel %}
-        <span class="badge bg-info text-dark">{{ ticket.tecnico_responsavel.username }}</span>
+            {% if ticket.tecnico_responsavel %}
+                <span class="badge bg-light text-primary border border-primary-subtle px-2">
+                    <i class="fas fa-user-check me-1" style="font-size: 0.7rem;"></i>{{ ticket.tecnico_responsavel.username }}
+                </span>
+            {% else %}
+                <span class="text-muted small italic">Não atribuído</span>
+            {% endif %}
+        {% endif %}
+    </td>
+    <td>
+        {% if ticket.prioridade == 'critica' or ticket.prioridade == '4' %}
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 w-100">Crítica</span>
+        {% elif ticket.prioridade == 'alta' or ticket.prioridade == '3' %}
+            <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 w-100">Alta</span>
+        {% elif ticket.prioridade == 'normal' or ticket.prioridade == '2' %}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 w-100">Normal</span>
         {% else %}
-        <span class="text-muted">—</span>
-        {% endif %}
+            <span class="badge bg-light text-secondary border px-2 w-100">Baixa</span>
         {% endif %}
     </td>
     <td>
-        <span class="badge badge-priority-{{ ticket.prioridade }}">
-            {{ ticket.get_prioridade_display }}
-        </span>
-    </td>
-    <td>
-        <span class="badge {{ ticket.status_css_class }}">
+        <span class="badge {{ ticket.status_css_class }} rounded-pill px-3">
             {{ ticket.get_status_display }}
         </span>
     </td>
-    <td>{{ ticket.categoria.nome|default:"—" }}</td>
     <td>
-        <small class="text-muted">{{ ticket.criado_em|timesince }} atrás</small>
+        <span class="text-muted small">
+            <i class="fas fa-folder-open me-1 opacity-50"></i>{{ ticket.categoria.nome|default:"—" }}
+        </span>
+    </td>
+    <td class="pe-3 text-end">
+        <small class="text-muted" title="{{ ticket.criado_em }}">
+            <i class="far fa-clock me-1"></i>{{ ticket.criado_em|timesince }}
+        </small>
     </td>
 </tr>
 {% empty %}
 <tr>
-    <td colspan="7" class="text-center py-4 text-muted">
-        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
-        Nenhum ticket encontrado
+    <td colspan="8" class="text-center py-5">
+        <div class="text-muted">
+            <i class="fas fa-inbox fa-3x mb-3 opacity-20"></i>
+            <p class="mb-0">Nenhum ticket encontrado nos filtros atuais.</p>
+        </div>
     </td>
 </tr>
 {% endfor %}

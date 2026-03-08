@@ -1,65 +1,64 @@
-{# templates/accounts/login.html #}
 {% extends 'base.html' %}
 
-{% block title %}Entrar - Sistema de Chamados{% endblock %}
+{% block title %}Entrar - Central de Chamados PMM{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center mt-5">
     <div class="col-md-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white text-center">
-                <h4 class="mb-0">
-                    <i class="fas fa-ticket-alt me-2"></i>Sistema de Chamados
+        <div class="card shadow border-0" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header text-white text-center py-4" style="background-color: var(--primary-color); border-bottom: 3px solid var(--accent-color);">
+                <h4 class="mb-0 fw-bold">
+                    <i class="fas fa-landmark me-2"></i>CENTRAL DE CHAMADOS
                 </h4>
-                <small>Entre com suas credenciais</small>
+                <p class="mb-0 opacity-75 small">Prefeitura Municipal de Machado</p>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-4 p-lg-5">
                 <form method="post">
                     {% csrf_token %}
 
                     {% if form.errors %}
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger border-0 shadow-sm">
                         <i class="fas fa-exclamation-triangle me-2"></i>
                         Usuário ou senha incorretos. Verifique seus dados.
                     </div>
                     {% endif %}
 
                     <div class="mb-3">
-                        <label for="id_username" class="form-label">
+                        <label for="id_username" class="form-label fw-bold text-muted">
                             <i class="fas fa-user me-1"></i> Usuário
                         </label>
-                        <input type="text" name="username" id="id_username"
-class="form-control form-control-lg"
-placeholder="Digite seu nome de usuário"
-value="{{ form.username.value|default:'' }}" required autofocus>
+                        <input type="text" name="username" id="id_username" 
+                               class="form-control form-control-lg border-2" 
+                               placeholder="Digite seu usuário"
+                               value="{{ form.username.value|default:'' }}" required autofocus>
                     </div>
 
                     <div class="mb-4">
-                        <label for="id_password" class="form-label">
+                        <label for="id_password" class="form-label fw-bold text-muted">
                             <i class="fas fa-lock me-1"></i> Senha
                         </label>
-                        <input type="password" name="password" id="id_password"
-class="form-control form-control-lg"
-placeholder="Digite sua senha" required>
+                        <input type="password" name="password" id="id_password" 
+                               class="form-control form-control-lg border-2" 
+                               placeholder="Digite sua senha" required>
                     </div>
 
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-sign-in-alt me-2"></i> Entrar
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                            <i class="fas fa-sign-in-alt me-2"></i> ACESSAR SISTEMA
                         </button>
                     </div>
                 </form>
             </div>
-            <div class="card-footer text-center py-3">
-                <span class="text-muted">Não tem uma conta?</span>
-                <a href="{% url 'accounts:register' %}" class="ms-1">Cadastre-se aqui</a>
+            <div class="card-footer text-center py-3 bg-light border-0">
+                <span class="text-muted">Ainda não possui acesso?</span>
+                <a href="{% url 'accounts:register' %}" class="fw-bold text-decoration-none" style="color: var(--primary-color);">Solicite cadastro</a>
             </div>
         </div>
 
         <div class="text-center mt-4">
             <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                Em caso de problemas, contate o suporte de TI.
+                <i class="fas fa-shield-halved me-1"></i>
+                Setor de TI - Prefeitura de Machado
             </small>
         </div>
     </div>

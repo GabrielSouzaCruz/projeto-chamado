@@ -1,125 +1,90 @@
-{# templates/tickets/ticket_form.html #}
-
 {% extends 'base.html' %}
 
-
-{% block title %}Novo Chamado{% endblock %}
-
+{% block title %}Novo Chamado - PMM{% endblock %}
 
 {% block content %}
-
 <div class="row justify-content-center">
-
-    <div class="col-md-8">
-
-        <div class="card">
-
-            <div class="card-header bg-primary text-white">
-
-                <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Abrir Novo Chamado</h4>
-
+    <div class="col-md-7">
+        <div class="card border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header bg-primary py-4 text-center">
+                <h3 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-headset me-2"></i>Como podemos ajudar?
+                </h3>
+                <p class="text-white-50 mb-0 mt-2">Preencha os dados abaixo para iniciar seu suporte</p>
             </div>
-
-            <div class="card-body">
-
-                <form method="post" enctype="multipart/form-data">
-
+            
+            <div class="card-body p-4 p-md-5">
+                <form method="post" enctype="multipart/form-data" id="ticketForm">
                     {% csrf_token %}
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="{{ form.titulo.id_for_label }}" class="form-label">Título *</label>
-
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="fas fa-tag me-2 text-primary"></i>Título Resumido *</label>
                         {{ form.titulo }}
-
-                        {% if form.titulo.errors %}
-
-                        <div class="text-danger small">{{ form.titulo.errors }}</div>
-
-                        {% endif %}
-
+                        <div class="form-text">Ex: "Minha impressora não liga" ou "Erro ao acessar o sistema X"</div>
                     </div>
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="{{ form.descricao.id_for_label }}" 
-                        class="form-label">Descrição *</label>
-
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="fas fa-align-left me-2 text-primary"></i>Descrição Detalhada *</label>
                         {{ form.descricao }}
-
-                        <div class="form-text">Descreva o problema detalhadamente</div>
-
-                        {% if form.descricao.errors %}
-
-                        <div class="text-danger small">{{ form.descricao.errors }}</div>
-
-                        {% endif %}
-
                     </div>
-
                     
-
-                    <div class="row">
-
-                        <div class="col-md-6 mb-3">
-
-                            <label for="{{ form.categoria.id_for_label }}" class="form-label">Categoria</label>
-
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label class="form-label fw-bold"><i class="fas fa-layer-group me-2 text-primary"></i>Categoria</label>
                             {{ form.categoria }}
-
                         </div>
-
-                        <div class="col-md-6 mb-3">
-
-                            <label for="{{ form.prioridade.id_for_label }}" class="form-label">Prioridade</label>
-
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold"><i class="fas fa-bolt me-2 text-primary"></i>Prioridade</label>
                             {{ form.prioridade }}
-
                         </div>
-
                     </div>
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="{{ form.anexo.id_for_label }}" class="form-label">Anexo (opcional)</label>
-
+                    <div class="mb-5 p-3 bg-light rounded-3 border-dashed" style="border: 2px dashed #dee2e6;">
+                        <label class="form-label fw-bold mb-1"><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Anexos ou Prints</label>
                         {{ form.anexo }}
-
-                        <div class="form-text">Formatos: PDF, PNG, JPG, DOC, XLS (máx. 5MB)</div>
-
+                        <p class="small text-muted mt-2 mb-0">
+                            Dica: Você pode <strong>colar um print (Ctrl+V)</strong> em qualquer lugar desta página para anexar automaticamente.
+                        </p>
                     </div>
-
                     
-
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-
-                        <a href="{% url 'tickets:dashboard' %}" class="btn btn-outline-secondary">
-
-                            <i class="fas fa-times me-1"></i> Cancelar
-
+                    <div class="d-flex gap-3">
+                        <a href="{% url 'tickets:dashboard' %}" class="btn btn-light border px-4 py-2 fw-bold flex-grow-1">
+                            Voltar
                         </a>
-
-                        <button type="submit" class="btn btn-primary">
-
-                            <i class="fas fa-paper-plane me-1"></i> Enviar Chamado
-                            </button>
-
+                        <button type="submit" class="btn btn-primary px-5 py-2 fw-bold flex-grow-1 shadow-sm">
+                            Abrir Chamado <i class="fas fa-paper-plane ms-2"></i>
+                        </button>
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
+<script>
+    // Script de Colar Imagem Otimizado
+    document.addEventListener('paste', function(e) {
+        const items = (e.clipboardData || window.clipboardData).items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                const file = new File([blob], "anexo_captura_" + Date.now() + ".png", { type: blob.type });
+                const inputAnexo = document.querySelector('input[type="file"]');
+                
+                if (inputAnexo) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    inputAnexo.files = dataTransfer.files;
+                    
+                    // Feedback visual
+                    inputAnexo.classList.add('is-valid');
+                    const parent = inputAnexo.closest('div');
+                    const feedback = document.createElement('div');
+                    feedback.innerHTML = '<span class="badge bg-success mt-2">📸 Imagem capturada com sucesso!</span>';
+                    parent.appendChild(feedback);
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

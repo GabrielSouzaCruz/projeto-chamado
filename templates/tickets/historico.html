@@ -1,198 +1,162 @@
 {# templates/tickets/historico.html #}
 {% extends 'base.html' %}
 
-{% block title %}📋 Histórico de Chamados{% endblock %}
+{% block title %}📋 Histórico de Chamados - PMM{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Multi-select com altura controlada */
-    select[multiple].form-select-sm {
-        min-height: 72px;
-        font-size: 0.875rem;
+    /* Refinamento dos Filtros */
+    .filter-card {
+        border-radius: 12px;
+        background-color: #fff;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     
-    /* Labels mais discretos */
     .form-label.small {
         font-size: 0.75rem;
-        font-weight: 500;
+        font-weight: 700;
+        color: var(--primary-color);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.4rem;
+    }
+
+    /* Multi-select estilizado */
+    select[multiple].form-select-sm {
+        min-height: 100px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    
+    select[multiple].form-select-sm:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.1);
+    }
+
+    /* Crachás de Status na Tabela */
+    .table thead th {
+        background-color: #f8f9fa;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
         color: #6c757d;
-        margin-bottom: 0.25rem;
+        border-top: none;
     }
-    
-    /* Inputs compactos */
-    .form-control-sm, .form-select-sm {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.875rem;
-    }
-    
-    /* Botões de filtro */
-    .btn-filter {
-        padding: 0.35rem 1rem;
-        font-size: 0.875rem;
-    }
-    
-    /* Dica de multi-select */
-    .multi-select-hint {
-        font-size: 0.7rem;
-        color: #6c757d;
-        font-style: italic;
+
+    .badge-pmm {
+        padding: 0.5em 0.8em;
+        border-radius: 6px;
+        font-weight: 600;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Cabeçalho -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="mb-1">
-            <i class="fas fa-history me-2 text-primary"></i>
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-archive me-2" style="color: var(--primary-color);"></i>
             Histórico de Chamados
         </h2>
-        <small class="text-muted">
-            <i class="fas fa-info-circle me-1"></i>
-            Consulte e exporte o histórico completo de chamados
-        </small>
+        <p class="text-muted mb-0">Relatório consolidado e exportação de dados institucionais.</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{% url 'tickets:dashboard' %}" class="btn btn-outline-secondary btn-sm">
-            <i class="fas fa-arrow-left me-1"></i> Voltar
-        </a>
         <a href="?{% for key, value in request.GET.items %}{% if key != 'export' %}{{ key }}={{ value }}&{% endif %}{% endfor %}export=csv" 
-           class="btn btn-success btn-sm">
-            <i class="fas fa-file-csv me-1"></i> Exportar CSV
+           class="btn btn-success fw-bold shadow-sm px-3">
+            <i class="fas fa-file-export me-2"></i>Exportar CSV
         </a>
     </div>
 </div>
 
-<!-- Estatísticas do Relatório -->
-<div class="row mb-4">
-    <div class="col-md-3 col-sm-6 mb-2">
-        <div class="card bg-primary text-white h-100">
-            <div class="card-body text-center py-3">
-                <h3 class="mb-0">{{ stats.total }}</h3>
-                <small>Total de Chamados</small>
-            </div>
+<div class="row mb-4 g-3">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3" style="border-bottom: 3px solid var(--primary-color) !important;">
+            <h3 class="fw-bold mb-0 text-dark">{{ stats.total }}</h3>
+            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Total no Período</small>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-2">
-        <div class="card bg-success text-white h-100">
-            <div class="card-body text-center py-3">
-                <h3 class="mb-0">{{ stats.resolvidos }}</h3>
-                <small>Resolvidos</small>
-            </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3" style="border-bottom: 3px solid #198754 !important;">
+            <h3 class="fw-bold mb-0 text-success">{{ stats.resolvidos }}</h3>
+            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Concluídos</small>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-2">
-        <div class="card bg-danger text-white h-100">
-            <div class="card-body text-center py-3">
-                <h3 class="mb-0">{{ stats.cancelados }}</h3>
-                <small>Cancelados</small>
-            </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3" style="border-bottom: 3px solid var(--danger-machado) !important;">
+            <h3 class="fw-bold mb-0 text-danger">{{ stats.cancelados }}</h3>
+            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Cancelados</small>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-2">
-        <div class="card bg-info text-white h-100">
-            <div class="card-body text-center py-3">
-                <h3 class="mb-0">
-                    {% if stats.tempo_medio_resolucao %}
-                        {{ stats.tempo_medio_resolucao|floatformat:1 }}h
-                    {% else %}
-                        —
-                    {% endif %}
-                </h3>
-                <small>Tempo Médio Resolução</small>
-            </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3" style="border-bottom: 3px solid #0dcaf0 !important;">
+            <h3 class="fw-bold mb-0 text-info">
+                {% if stats.tempo_medio_resolucao %}{{ stats.tempo_medio_resolucao|floatformat:1 }}h{% else %}—{% endif %}
+            </h3>
+            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Tempo Médio (SLA)</small>
         </div>
     </div>
 </div>
 
-<!-- Filtros Avançados - COM COLLAPSE PARA MOBILE -->
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros Avançados</h6>
-        
-        <!-- Botão Mobile: Mostrar/Ocultar Filtros -->
-        <button class="btn btn-outline-primary btn-sm d-md-none" type="button" 
-                data-bs-toggle="collapse" data-bs-target="#filtrosAvancados"
-                aria-expanded="false" aria-controls="filtrosAvancados">
-            <i class="fas fa-chevron-down me-1"></i>
-        </button>
+<div class="card filter-card mb-4">
+    <div class="card-header bg-white py-3 border-0">
+        <h6 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i>Parâmetros de Pesquisa</h6>
     </div>
-    <div class="collapse d-md-block show" id="filtrosAvancados">
-        <div class="card-body">
-            <form method="get" class="row g-2 g-md-3">
-                
-                <!-- LINHA 1: Busca + Período + Botões (total 12 colunas) -->
-                <div class="col-12 col-md-4">
-                    <label class="form-label small">🔍 Buscar</label>
-                    <input type="text" name="busca" class="form-control form-control-sm" 
-                           placeholder="Título, descrição, solicitante..." 
-                           value="{{ filtros.busca }}">
+    <div class="card-body pt-0">
+        <form method="get">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small">Palavra-chave</label>
+                    <input type="text" name="busca" class="form-control" placeholder="Título, ID ou Solicitante..." value="{{ filtros.busca }}">
                 </div>
-                
-                <div class="col-6 col-md-2">
-                    <label class="form-label small">De</label>
-                    <input type="date" name="data_inicio" class="form-control form-control-sm" 
-                           value="{{ filtros.data_inicio }}">
+                <div class="col-md-2">
+                    <label class="form-label small">Início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
                 </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small">Até</label>
-                    <input type="date" name="data_fim" class="form-control form-control-sm" 
-                           value="{{ filtros.data_fim }}">
+                <div class="col-md-2">
+                    <label class="form-label small">Fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
                 </div>
-                
-                <!-- Botões alinhados com os inputs -->
-                <div class="col-12 col-md-4 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-primary btn-filter flex-grow-1">
-                        <i class="fas fa-search me-1"></i> Filtrar
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">
+                        <i class="fas fa-search me-2"></i>Aplicar Filtros
                     </button>
-                    <a href="{% url 'tickets:historico' %}" class="btn btn-outline-secondary btn-filter" title="Limpar filtros">
-                        <i class="fas fa-times"></i>
+                    <a href="{% url 'tickets:historico' %}" class="btn btn-light border px-3" title="Limpar tudo">
+                        <i class="fas fa-undo"></i>
                     </a>
                 </div>
-                
-                <!-- LINHA 2: Filtros múltiplos (4+4+4 = 12) -->
-                <div class="col-12 col-md-4">
-                    <label class="form-label small">📊 Status</label>
-                    <select name="status" class="form-select form-select-sm" multiple size="3">
+
+                <div class="col-md-4">
+                    <label class="form-label small">Status</label>
+                    <select name="status" class="form-select form-select-sm" multiple>
                         {% for value, label in status_choices %}
-                        <option value="{{ value }}" {% if value in filtros.status %}selected{% endif %}>
-                            {{ label }}
-                        </option>
+                        <option value="{{ value }}" {% if value in filtros.status %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
-                    <div class="multi-select-hint">Ctrl+Click para múltiplos</div>
                 </div>
-                
-                <div class="col-12 col-md-4">
-                    <label class="form-label small">🔥 Prioridade</label>
-                    <select name="prioridade" class="form-select form-select-sm" multiple size="3">
+                <div class="col-md-4">
+                    <label class="form-label small">Prioridade</label>
+                    <select name="prioridade" class="form-select form-select-sm" multiple>
                         {% for value, label in prioridade_choices %}
-                        <option value="{{ value }}" {% if value in filtros.prioridade %}selected{% endif %}>
-                            {{ label }}
-                        </option>
+                        <option value="{{ value }}" {% if value in filtros.prioridade %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
-                <div class="col-12 col-md-4">
-                    <label class="form-label small">📁 Categoria</label>
-                    <select name="categoria" class="form-select form-select-sm" multiple size="3">
+                <div class="col-md-4">
+                    <label class="form-label small">Categoria</label>
+                    <select name="categoria" class="form-select form-select-sm" multiple>
                         {% for cat in categorias %}
-                        <option value="{{ cat.id }}" {% if cat.id|stringformat:"s" in filtros.categoria %}selected{% endif %}>
-                            {{ cat.nome }}
-                        </option>
+                        <option value="{{ cat.id }}" {% if cat.id|stringformat:"s" in filtros.categoria %}selected{% endif %}>{{ cat.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
-                <!-- LINHA 3: Técnico + Ordenação (6+6 = 12) -->
-                {% if tecnicos %}
-                <div class="col-12 col-md-6">
-                    <label class="form-label small">👨‍🔧 Técnico</label>
-                    <select name="tecnico" class="form-select form-select-sm">
-                        <option value="todos" {% if filtros.tecnico == 'todos' %}selected{% endif %}>Todos os técnicos</option>
+
+                <div class="col-md-6">
+                    <label class="form-label small">Técnico Responsável</label>
+                    <select name="tecnico" class="form-select">
+                        <option value="todos">Todos os colaboradores</option>
                         {% for tecnico in tecnicos %}
                         <option value="{{ tecnico.id }}" {% if filtros.tecnico == tecnico.id|stringformat:"s" %}selected{% endif %}>
                             {{ tecnico.get_full_name|default:tecnico.username }}
@@ -200,138 +164,93 @@
                         {% endfor %}
                     </select>
                 </div>
-                {% endif %}
-                
-                <div class="col-12 {% if tecnicos %}col-md-6{% else %}col-md-12{% endif %}">
-                    <label class="form-label small">🔄 Ordenar por</label>
-                    <select name="ordenar" class="form-select form-select-sm">
-                        <option value="-criado_em" {% if filtros.ordenar == '-criado_em' %}selected{% endif %}>📅 Mais recentes</option>
-                        <option value="criado_em" {% if filtros.ordenar == 'criado_em' %}selected{% endif %}>📅 Mais antigos</option>
-                        <option value="-resolvido_em" {% if filtros.ordenar == '-resolvido_em' %}selected{% endif %}>✅ Resolução (recente)</option>
-                        <option value="titulo" {% if filtros.ordenar == 'titulo' %}selected{% endif %}>🔤 Título (A-Z)</option>
+                <div class="col-md-6">
+                    <label class="form-label small">Ordenação</label>
+                    <select name="ordenar" class="form-select">
+                        <option value="-criado_em" {% if filtros.ordenar == '-criado_em' %}selected{% endif %}>Mais recentes primeiro</option>
+                        <option value="criado_em" {% if filtros.ordenar == 'criado_em' %}selected{% endif %}>Mais antigos primeiro</option>
+                        <option value="-resolvido_em" {% if filtros.ordenar == '-resolvido_em' %}selected{% endif %}>Data de Resolução</option>
                     </select>
                 </div>
-                
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Tabela de Resultados -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="mb-0">
-            <i class="fas fa-list me-2"></i>
-            Resultados ({{ tickets.count }})
-        </h6>
-        {% if tickets.paginator and tickets.paginator.num_pages > 1 %}
-        <small class="text-muted">
-            Página {{ tickets.number }} de {{ tickets.paginator.num_pages }}
-        </small>
-        {% endif %}
+<div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 12px;">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">ID</th>
+                    <th>Título do Chamado</th>
+                    <th>Solicitante</th>
+                    <th>Prioridade</th>
+                    <th>Status</th>
+                    <th>Criação</th>
+                    <th>Resolução</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td class="ps-4 fw-bold text-muted">#{{ ticket.id }}</td>
+                    <td>
+                        <div class="fw-bold text-dark">{{ ticket.titulo|truncatechars:35 }}</div>
+                        <small class="text-muted">{{ ticket.categoria.nome }}</small>
+                    </td>
+                    <td>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</td>
+                    <td>
+                        <span class="badge badge-priority-{{ ticket.prioridade }}">
+                            {{ ticket.get_prioridade_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {{ ticket.status_css_class }}">
+                            {{ ticket.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="small">{{ ticket.criado_em|date:"d/m/y H:i" }}</td>
+                    <td class="small">
+                        {% if ticket.resolvido_em %}{{ ticket.resolvido_em|date:"d/m/y H:i" }}{% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-light border shadow-sm">
+                            <i class="fas fa-eye text-primary"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-5">
+                        <img src="https://cdn-icons-png.flaticon.com/512/6134/6134065.png" width="80" class="mb-3 opacity-25">
+                        <p class="text-muted">Nenhum registro encontrado para os filtros selecionados.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0 align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>ID</th>
-                        <th>Título</th>
-                        <th>Solicitante</th>
-                        <th>Técnico</th>
-                        <th>Prioridade</th>
-                        <th>Status</th>
-                        <th>Criado em</th>
-                        <th>Resolvido em</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ticket in tickets %}
-                    <tr>
-                        <td><strong>#{{ ticket.id }}</strong></td>
-                        <td>
-                            <a href="{% url 'tickets:detail' ticket.id %}" class="text-decoration-none">
-                                {{ ticket.titulo|truncatechars:40 }}
-                            </a>
-                        </td>
-                        <td>{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</td>
-                        <td>
-                            {% if ticket.tecnico_responsavel %}
-                            <span class="badge bg-info text-dark">{{ ticket.tecnico_responsavel.username }}</span>
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge badge-priority-{{ ticket.prioridade }}">
-                                {{ ticket.get_prioridade_display }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge {{ ticket.status_css_class }}">
-                                {{ ticket.get_status_display }}
-                            </span>
-                        </td>
-                        <td>{{ ticket.criado_em|date:"d/m/Y H:i" }}</td>
-                        <td>
-                            {% if ticket.resolvido_em %}
-                            {{ ticket.resolvido_em|date:"d/m/Y H:i" }}
-                            {% else %}
-                            <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'tickets:detail' ticket.id %}" 
-                               class="btn btn-sm btn-outline-primary" title="Ver detalhes">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">
-                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                            Nenhum chamado encontrado com estes filtros.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    
-    <!-- Paginação -->
+
     {% if tickets.has_other_pages %}
-    <div class="card-footer">
+    <div class="card-footer bg-white border-0 py-3">
         <nav>
-            <ul class="pagination justify-content-center mb-0">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
                 {% if tickets.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">«</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ tickets.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">‹</a>
-                </li>
+                <li class="page-item"><a class="page-link shadow-none" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Início</a></li>
                 {% endif %}
                 
                 {% for num in tickets.paginator.page_range %}
                     {% if tickets.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    <li class="page-item active"><span class="page-link bg-primary border-primary">{{ num }}</span></li>
                     {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
-                    </li>
+                    <li class="page-item"><a class="page-link shadow-none" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a></li>
                     {% endif %}
                 {% endfor %}
                 
                 {% if tickets.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ tickets.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">›</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ tickets.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">»</a>
-                </li>
+                <li class="page-item"><a class="page-link shadow-none" href="?page={{ tickets.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Fim</a></li>
                 {% endif %}
             </ul>
         </nav>

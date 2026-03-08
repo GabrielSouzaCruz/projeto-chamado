@@ -8,7 +8,7 @@ urlpatterns = [
     # 1. ROTAS FIXAS (DEVE VIR PRIMEIRO)
     path('', views.dashboard, name='dashboard'),
     path('novo/', views.TicketCreateView.as_view(), name='create'),
-    path('historico/', views.historico_tickets, name='historico'),
+    path('historico/', views.historico, name='historico'),
     path('categorias/', views.lista_categorias, name='categorias'),
     path('categorias/nova/', views.CategoriaCreateView.as_view(), name='categoria_create'),
     path('categorias/<int:pk>/editar/', views.CategoriaUpdateView.as_view(), name='categoria_update'),

@@ -1,121 +1,83 @@
-{# templates/tickets/categoria_form.html #}
-
 {% extends 'base.html' %}
 
-
-{% block title %}{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Categoria{% endblock %}
-
+{% block title %}{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Categoria - PMM{% endblock %}
 
 {% block content %}
-
 <div class="row justify-content-center">
-
     <div class="col-md-6">
-
-        <div class="card">
-
-            <div class="card-header bg-primary text-white">
-
-                <h4 class="mb-0">
-
+        <div class="card border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header bg-primary py-4 text-center border-0">
+                <h4 class="mb-0 text-white fw-bold">
                     <i class="fas fa-tag me-2"></i>
-
                     {% if form.instance.pk %}Editar Categoria{% else %}Nova Categoria{% endif %}
-
                 </h4>
-
             </div>
-
-            <div class="card-body">
-
+            
+            <div class="card-body p-4 p-md-5">
                 <form method="post">
                     {% csrf_token %}
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="id_nome" class="form-label">Nome *</label>
-
+                    <div class="mb-4">
+                        <label for="id_nome" class="form-label fw-bold text-secondary small text-uppercase">Nome da Categoria *</label>
                         <input type="text" name="nome" id="id_nome" 
-
-class="form-control" 
-
-value="{{ form.nome.value|default:'' }}" required>
-
+                               class="form-control form-control-lg shadow-none" 
+                               placeholder="Ex: Infraestrutura, Software..."
+                               value="{{ form.nome.value|default:'' }}" required>
                     </div>
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="id_icone" class="form-label">Ícone (FontAwesome)</label>
-
-                        <input type="text" name="icone" id="id_icone" 
-
-class="form-control" 
-
-value="{{ form.icone.value|default:'' }}"
-
-placeholder="Ex: fa-desktop, fa-network-wired">
-
-                        <div class="form-text">
-
-                            Veja os ícones em: <a href="https://fontawesome.com/icons" target="_blank">FontAwesome</a>
-
+                    <div class="mb-4">
+                        <label for="id_icone" class="form-label fw-bold text-secondary small text-uppercase">Ícone (FontAwesome)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i id="preview-icon" class="fas {% if form.icone.value %}{{ form.icone.value }}{% else %}fa-tag{% endif %}"></i></span>
+                            <input type="text" name="icone" id="id_icone" 
+                                   class="form-control shadow-none" 
+                                   value="{{ form.icone.value|default:'' }}"
+                                   placeholder="Ex: fa-desktop, fa-print">
                         </div>
-
+                        <div class="form-text mt-2">
+                            <i class="fas fa-external-link-alt me-1"></i> 
+                            Encontre nomes de ícones em: <a href="https://fontawesome.com/v5/search?m=free" target="_blank" class="text-decoration-none">FontAwesome v5</a>
+                        </div>
                     </div>
-
                     
-
-                    <div class="mb-3">
-
-                        <label for="id_descricao" class="form-label">Descrição</label>
-
+                    <div class="mb-4">
+                        <label for="id_descricao" class="form-label fw-bold text-secondary small text-uppercase">Descrição</label>
                         <textarea name="descricao" id="id_descricao" 
-
-class="form-control" rows="3">{{ form.descricao.value|default:'' }}</textarea>
-
+                                  class="form-control shadow-none" rows="3"
+                                  placeholder="Para que serve esta categoria?">{{ form.descricao.value|default:'' }}</textarea>
                     </div>
-
                     
-
-                    <div class="mb-3 form-check">
-
-                        <input type="checkbox" name="ativa" id="id_ativa" 
-
-class="form-check-input"
-
-{% if form.ativa.value or not form.instance.pk %}checked{% endif %}>
-
-                        <label for="id_ativa" class="form-check-label">Categoria Ativa</label>
-
+                    <div class="mb-5">
+                        <div class="form-check form-switch custom-switch">
+                            <input type="checkbox" name="ativa" id="id_ativa" 
+                                   class="form-check-input"
+                                   {% if form.ativa.value or not form.instance.pk %}checked{% endif %}>
+                            <label for="id_ativa" class="form-check-label fw-bold">Categoria Ativa para novos chamados</label>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between">
 
-                        <a href="{% url 'tickets:categorias' %}" class="btn btn-outline-secondary">
-
-                            <i class="fas fa-arrow-left me-1"></i> Voltar
-
+                    <div class="d-flex gap-3">
+                        <a href="{% url 'tickets:categorias' %}" class="btn btn-light border px-4 py-2 fw-bold flex-grow-1">
+                            <i class="fas fa-times me-2"></i>Cancelar
                         </a>
-
-                        <button type="submit" class="btn btn-primary">
-
-                            <i class="fas fa-save me-1"></i> Salvar
-
+                        <button type="submit" class="btn btn-primary px-4 py-2 fw-bold flex-grow-1 shadow-sm">
+                            <i class="fas fa-save me-2"></i>Salvar Categoria
                         </button>
-
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
+<script>
+    // Preview de ícone em tempo real
+    const iconeInput = document.getElementById('id_icone');
+    const previewIcon = document.getElementById('preview-icon');
+
+    iconeInput.addEventListener('input', function() {
+        const val = this.value.trim();
+        previewIcon.className = 'fas ' + (val ? val : 'fa-tag');
+    });
+</script>
 {% endblock %}
