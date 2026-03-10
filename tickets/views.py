@@ -302,23 +302,21 @@ def assumir_ticket(request, pk):
 def alterar_status(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     
-    # 1. Salva quem era o técnico antes de o formulário mexer nos dados
-    tecnico_original = ticket.tecnico_responsavel
-    
     if request.method == 'POST':
-        form = TicketStatusForm(request.POST, instance=ticket)
-        if form.is_valid():
-            # 2. Prepara para salvar, mas segura um pouco (commit=False)
-            ticket_atualizado = form.save(commit=False)
+        # Pegamos o valor direto do <select name="status"> do HTML
+        novo_status = request.POST.get('status')
+        
+        if novo_status:
+            ticket.status = novo_status
             
-            # 3. Se o formulário HTML não enviou o campo do técnico, 
-            # devolvemos o técnico original para o ticket não ficar órfão.
-            if 'tecnico_responsavel' not in request.POST:
-                ticket_atualizado.tecnico_responsavel = tecnico_original
-                
-            # 4. Agora sim, salva no banco!
-            ticket_atualizado.save()
-            messages.success(request, 'Status atualizado!')
+            # Lógica extra: Se for resolvido, salva a data da resolução
+            if novo_status.upper() == 'RESOLVIDO':
+                ticket.resolvido_em = timezone.now()
+            
+            ticket.save()
+            messages.success(request, f'Status do chamado #{ticket.id} atualizado para {ticket.get_status_display()}!')
+        else:
+            messages.error(request, 'Erro ao atualizar: Status inválido.')
             
     return redirect('tickets:detail', pk=pk)
 

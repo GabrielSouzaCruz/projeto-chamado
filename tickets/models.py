@@ -147,9 +147,8 @@ class Ticket(models.Model):
     @property
     def prioridade_css_class(self):
         classes = {
-            self.Status.ABERTO: 'bg-warning text-dark',
             self.Prioridade.BAIXA: 'badge-priority-baixa',
-            self.Prioridade.MEDIA: 'badge-priority-media',
+            self.Prioridade.MEDIA: 'badge-priority-normal',
             self.Prioridade.ALTA: 'badge-priority-alta',
             self.Prioridade.CRITICA: 'badge-priority-critica',
         }
@@ -183,7 +182,12 @@ class Comentario(models.Model):
         verbose_name='Autor'
     )
     
-    mensagem = models.TextField(verbose_name='Mensagem')
+    # 🔥 GRAU AQUI: null=True, blank=True para permitir envio só com anexo (sem dar erro)
+    mensagem = models.TextField(
+        verbose_name='Mensagem', 
+        null=True, 
+        blank=True
+    )
     
     interno = models.BooleanField(
         default=False,

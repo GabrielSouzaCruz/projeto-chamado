@@ -119,9 +119,9 @@
         </div>
         
         <div class="card shadow-sm overflow-hidden border-0">
-            <div class="card-header bg-white py-3 border-0 d-flex align-items-center">
-                <i class="fas fa-comments text-primary me-2"></i>
-                <h6 class="mb-0 fw-bold">Interações do Chamado</h6>
+            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold"><i class="fas fa-comments text-primary me-2"></i>Interações do Chamado</h6>
+                <small id="sync-status" class="text-muted" style="font-size: 0.7rem;"><i class="fas fa-sync fa-spin"></i> Online</small>
             </div>
             
             <div id="comentarios-container">
@@ -168,13 +168,33 @@
                 <h6 class="mb-0 fw-bold"><i class="fas fa-cog me-2"></i>Controle Operacional</h6>
             </div>
             <div class="card-body bg-light border-0">
+                
+                {% if not ticket.tecnico_responsavel %}
+                <div class="alert alert-warning border-0 shadow-sm mb-3 text-center">
+                    <p class="small fw-bold mb-2">Este chamado não tem responsável.</p>
+                    <form method="post" action="{% url 'tickets:take' ticket.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">
+                            <i class="fas fa-hand-paper me-2"></i>Assumir Chamado
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="mb-3 p-2 bg-white rounded shadow-sm border-start border-info border-4">
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">TÉCNICO RESPONSÁVEL</small>
+                    <span class="fw-bold">{{ ticket.tecnico_responsavel.get_full_name|default:ticket.tecnico_responsavel.username }}</span>
+                </div>
+                {% endif %}
+
                 <form method="post" action="{% url 'tickets:change_status' ticket.id %}">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-uppercase">Alterar Status</label>
                         <select name="status" class="form-select shadow-none">
                             {% for value, label in ticket.Status.choices %}
-                            <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>{{ label }}</option>
+                                <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -197,13 +217,13 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="small text-muted">Prioridade:</span>
                         {% if ticket.prioridade == 'baixa' or ticket.prioridade == '1' %}
-                            <span class="badge" style="background-color: #e9ecef; color: #495057; border: 1px solid #dee2e6;">{{ ticket.get_prioridade_display }}</span>
+                            <span class="badge badge-priority-baixa">{{ ticket.get_prioridade_display }}</span>
                         {% elif ticket.prioridade == 'normal' or ticket.prioridade == '2' %}
-                            <span class="badge bg-primary text-white">{{ ticket.get_prioridade_display }}</span>
+                            <span class="badge badge-priority-normal">{{ ticket.get_prioridade_display }}</span>
                         {% elif ticket.prioridade == 'alta' or ticket.prioridade == '3' %}
-                            <span class="badge bg-warning text-dark">{{ ticket.get_prioridade_display }}</span>
+                            <span class="badge badge-priority-alta">{{ ticket.get_prioridade_display }}</span>
                         {% elif ticket.prioridade == 'critica' or ticket.prioridade == '4' %}
-                            <span class="badge bg-danger text-white">{{ ticket.get_prioridade_display }}</span>
+                            <span class="badge badge-priority-critica">{{ ticket.get_prioridade_display }}</span>
                         {% else %}
                             <span class="badge bg-secondary">{{ ticket.get_prioridade_display }}</span>
                         {% endif %}
@@ -218,29 +238,91 @@
 
 {% block extra_js %}
 <script>
-    // Mostrar nome do arquivo selecionado
-    document.getElementById('chat-file').addEventListener('change', function() {
+    // Referências aos elementos principais
+    const fileInput = document.getElementById('chat-file');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const chatInput = document.getElementById('chat-input');
+    const chatForm = document.getElementById('chat-form');
+    const container = document.getElementById('comentarios-container');
+    const btnEnviar = document.getElementById('btn-enviar');
+
+    // Função de Rolagem
+    function scrollToBottom() {
+        container.scrollTop = container.scrollHeight;
+    }
+    scrollToBottom();
+
+    // Lógica 1: Mostrar nome do arquivo selecionado
+    fileInput.addEventListener('change', function() {
         const fileName = this.files[0] ? this.files[0].name : "";
-        document.getElementById('file-name-display').textContent = fileName ? '📎 ' + fileName : "";
+        fileNameDisplay.textContent = fileName ? '📎 ' + fileName : "";
     });
 
-    // Auto-scroll para o fim do chat ao carregar
-    const container = document.getElementById('comentarios-container');
-    container.scrollTop = container.scrollHeight;
+    // Lógica 2: Atualizar chat via Polling
+    function atualizarChat() {
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const novoConteudo = doc.getElementById('comentarios-container').innerHTML;
+                
+                if (container.innerHTML.trim() !== novoConteudo.trim()) {
+                    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+                    container.innerHTML = novoConteudo;
+                    if (isAtBottom) scrollToBottom();
+                }
+            })
+            .catch(err => console.error("Erro na sincronização:", err));
+    }
+    setInterval(atualizarChat, 5000);
 
-    // Suporte para Ctrl+V (Print Screen)
-    document.getElementById('chat-input').addEventListener('paste', function(e) {
+    // Lógica 3: Envio de Mensagem AJAX (Completo)
+    chatForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!chatInput.value.trim() && !fileInput.files.length) {
+            return;
+        }
+
+        const conteudoOriginal = btnEnviar.innerHTML;
+        btnEnviar.disabled = true;
+        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+
+        try {
+            const response = await fetch(chatForm.action, {
+                method: 'POST',
+                body: new FormData(chatForm),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (response.ok) {
+                chatInput.value = '';
+                fileInput.value = '';
+                fileNameDisplay.textContent = '';
+                atualizarChat();
+                setTimeout(scrollToBottom, 300);
+            } else {
+                alert("Erro ao enviar. Verifique sua conexão.");
+            }
+        } catch (error) {
+            console.error("Erro no envio AJAX:", error);
+        } finally {
+            btnEnviar.disabled = false;
+            btnEnviar.innerHTML = conteudoOriginal;
+        }
+    });
+
+    // Lógica 4: Suporte para Ctrl+V (Print Screen)
+    chatInput.addEventListener('paste', function(e) {
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (let index in items) {
             const item = items[index];
             if (item.kind === 'file') {
                 const blob = item.getAsFile();
-                const fileInput = document.getElementById('chat-file');
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(blob);
                 fileInput.files = dataTransfer.files;
-                
-                // Disparar o evento de mudança para atualizar o nome na tela
                 fileInput.dispatchEvent(new Event('change'));
             }
         }
