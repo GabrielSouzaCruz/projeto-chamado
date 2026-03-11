@@ -3,32 +3,24 @@ import logging
 from datetime import datetime
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Avg, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
-from django.views.generic import CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
+from django.views.generic import DetailView, CreateView, UpdateView, DeleteView
 
-from accounts.mixins import TecnicoRequiredMixin, ProprietarioOrTecnicoMixin
+from accounts.mixins import ProprietarioOrTecnicoMixin
 from accounts.decorators import tecnico_required, admin_required
 from accounts.models import User
-from .models import Ticket, Categoria, Comentario
 
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Comentario, Categoria
-
-from django.db.models import Q, Avg, F
-from django.utils.timezone import now
-import csv
-from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +87,66 @@ def check_novos_tickets(request):
     
     request.session['ultimo_check_tickets'] = timezone.now().isoformat()
     return JsonResponse({'novos': novos_tickets > 0, 'quantidade': novos_tickets})
+
+
+@login_required
+def notificacoes_globais(request):
+    """
+    API para verificar mensagens e tickets novos.
+    Técnicos recebem avisos de tudo (menos as próprias mensagens).
+    Usuários comuns só recebem avisos dos próprios chamados (menos de si mesmos).
+    """
+    ultimo_check = request.session.get('ultimo_check_global')
+    agora = timezone.now()
+    
+    # Se não tem último check, define a primeira vez para não apitar o que é antigo
+    if not ultimo_check:
+        request.session['ultimo_check_global'] = agora.isoformat()
+        return JsonResponse({'notificar': False})
+        
+    try:
+        ultimo_check_dt = datetime.fromisoformat(ultimo_check)
+    except (ValueError, TypeError):
+        request.session['ultimo_check_global'] = agora.isoformat()
+        return JsonResponse({'notificar': False})
+
+    user = request.user
+    is_tech = getattr(user, 'is_technician', False) or user.is_superuser
+    
+    novos_tickets = 0
+    novos_comentarios = 0
+    
+    if is_tech:
+        # Técnico vê chamados novos e mensagens de outras pessoas
+        novos_tickets = Ticket.objects.filter(criado_em__gt=ultimo_check_dt).exclude(solicitante=user).count()
+        novos_comentarios = Comentario.objects.filter(criado_em__gt=ultimo_check_dt).exclude(autor=user).count()
+    else:
+        # Usuário normal só vê mensagens novas enviadas para os chamados DELE (e que não foi ele que enviou)
+        novos_comentarios = Comentario.objects.filter(
+            criado_em__gt=ultimo_check_dt, 
+            ticket__solicitante=user
+        ).exclude(autor=user).count()
+        
+    total = novos_tickets + novos_comentarios
+    
+    if total > 0:
+        request.session['ultimo_check_global'] = agora.isoformat()
+        
+        # Monta a mensagem bonitinha dependendo do que chegou
+        msg = ""
+        if novos_tickets > 0 and novos_comentarios > 0:
+            msg = f"{novos_tickets} novo(s) chamado(s) e {novos_comentarios} mensagem(ns)!"
+        elif novos_tickets > 0:
+            msg = f"{novos_tickets} novo(s) chamado(s) na fila!"
+        elif novos_comentarios > 0:
+            msg = f"Você recebeu {novos_comentarios} nova(s) mensagem(ns)!"
+            
+        return JsonResponse({'notificar': True, 'mensagem': msg})
+        
+    # Se não teve nada de novo, atualiza a data para a próxima checagem e vida que segue
+    request.session['ultimo_check_global'] = agora.isoformat()
+    return JsonResponse({'notificar': False})
+
 
 @login_required
 @never_cache
@@ -341,28 +393,6 @@ def cancelar_ticket(request, pk):
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
 
-class CategoriaCreateView(CreateView):
-    model = Categoria
-    fields = ['nome'] # ou os campos que sua categoria tiver
-    template_name = 'tickets/categoria_form.html'
-    success_url = reverse_lazy('tickets:categorias')
-
-class CategoriaCreateView(CreateView):
-    model = Categoria
-    fields = ['nome', 'descricao'] # Ajuste conforme os campos do seu modelo
-    template_name = 'tickets/categoria_form.html'
-    success_url = reverse_lazy('tickets:categorias')
-
-class CategoriaUpdateView(UpdateView):
-    model = Categoria
-    fields = ['nome', 'descricao']
-    template_name = 'tickets/categoria_form.html'
-    success_url = reverse_lazy('tickets:categorias')
-
-class CategoriaDeleteView(DeleteView):
-    model = Categoria
-    template_name = 'tickets/categoria_confirm_delete.html'
-    success_url = reverse_lazy('tickets:categorias')
 
 # =============================================================================
 # HISTÓRICO, FILA E CATEGORIAS

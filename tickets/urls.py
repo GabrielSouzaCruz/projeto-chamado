@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/dashboard/', views.api_dashboard_update, name='api_dashboard_update'),
     path('api/fila-admin/', views.api_fila_admin_update, name='api_fila_admin_update'),
     path('api/comentarios/<int:ticket_id>/', views.api_comentarios_update, name='api_comentarios_update'),
+    path('api/notificacoes-globais/', views.notificacoes_globais, name='notificacoes_globais'), # <--- NOVA ROTA ADICIONADA AQUI
     
     # 3. ROTAS COM ID (SEMELHANTES DEVEM FICAR JUNTAS NO FINAL)
     path('<int:pk>/', views.TicketDetailView.as_view(), name='detail'),
