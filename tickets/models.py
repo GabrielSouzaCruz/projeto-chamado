@@ -47,9 +47,7 @@ class Ticket(models.Model):
     class Status(models.TextChoices):
         ABERTO = 'aberto', 'Aberto'
         EM_ANDAMENTO = 'em_andamento', 'Em Andamento'
-        AGUARDANDO = 'aguardando', 'Aguardando Resposta'
         RESOLVIDO = 'resolvido', 'Resolvido'
-        FECHADO = 'fechado', 'Fechado'
         CANCELADO = 'cancelado', 'Cancelado'
     
     class Prioridade(models.TextChoices):
@@ -137,9 +135,7 @@ class Ticket(models.Model):
         classes = {
             self.Status.ABERTO: 'bg-warning text-dark',
             self.Status.EM_ANDAMENTO: 'bg-info text-white',
-            self.Status.AGUARDANDO: 'bg-secondary text-white',
             self.Status.RESOLVIDO: 'bg-success text-white',
-            self.Status.FECHADO: 'bg-dark text-white',
             self.Status.CANCELADO: 'bg-danger text-white',
         }
         return classes.get(self.status, 'bg-secondary text-white')
