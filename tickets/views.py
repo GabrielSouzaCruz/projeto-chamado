@@ -298,12 +298,15 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
     model = Ticket
     form_class = TicketForm
     template_name = 'tickets/ticket_form.html'
-    success_url = reverse_lazy('tickets:dashboard')
     
     def form_valid(self, form):
         form.instance.solicitante = self.request.user
         messages.success(self.request, 'Chamado criado com sucesso!')
         return super().form_valid(form)
+
+    # NOVO: Esta função pega o ID do chamado recém-criado e manda direto pra ele!
+    def get_success_url(self):
+        return reverse_lazy('tickets:detail', kwargs={'pk': self.object.pk})
 
 class TicketDetailView(ProprietarioOrTecnicoMixin, DetailView):
     model = Ticket
