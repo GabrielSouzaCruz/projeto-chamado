@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Chamado #{{ ticket.id }} - PMM{% endblock %}
+{% block title %}Chamado: {{ ticket.titulo }} - PMM{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -158,7 +158,7 @@
         <div class="card border-0 shadow-sm mb-3" style="border-left: 5px solid var(--primary-color) !important;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h4 class="fw-bold mb-0 text-break">#{{ ticket.id }} - {{ ticket.titulo }}</h4>
+                    <h4 class="fw-bold mb-0 text-break">{{ ticket.titulo }}</h4>
                     <span id="ticket-status-badge" class="badge {{ ticket.status_css_class }} px-3 py-2 ms-2 text-nowrap" style="font-size: 0.8rem;">
                         {{ ticket.get_status_display }}
                     </span>
