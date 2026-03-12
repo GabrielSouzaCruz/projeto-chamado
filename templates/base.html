@@ -46,7 +46,6 @@
             transition: all 0.3s;
         }
 
-        /* Ajuste para telas de login/register (sem sidebar) */
         .no-sidebar #content { margin-left: 0; }
 
         .sidebar-header { 
@@ -135,9 +134,7 @@
         <nav id="sidebar">
             <div class="sidebar-header">
                 <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo">
-                
                 <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS</h4>
-                
                 <small style="font-size: 0.65rem; color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
             </div>
 
@@ -224,44 +221,47 @@
 
     {% if user.is_authenticated %}
     <script>
-    (function() {
-        let audioTocado = false;
+        // Objeto de áudio global
         const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
-        function verificarNovasMensagens() {
-            fetch('{% url "tickets:notificacoes_globais" %}')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.notificar && !audioTocado) {
-                        notificacaoAudio.play().catch(e => console.log('Áudio bloqueado pelo navegador'));
-                        mostrarNotificacao(`🔔 ${data.mensagem}`);
-                        audioTocado = true;
-                        // Reseta a trava do áudio após 10 segundos
-                        setTimeout(() => { audioTocado = false; }, 10000);
-                    }
-                })
-                .catch(err => console.error('Erro na notificação:', err));
-        }
+        (function() {
+            let audioTocado = false;
 
-        function mostrarNotificacao(mensagem) {
-            const toastContainer = document.createElement('div');
-            toastContainer.className = 'position-fixed top-0 end-0 p-3';
-            toastContainer.style.zIndex = '10000';
-            toastContainer.innerHTML = `
-                <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: var(--primary-color);">
-                    <div class="toast-body p-3 d-flex justify-content-between align-items-center">
-                        <strong>${mensagem}</strong>
-                        <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
+            function verificarNovasMensagens() {
+                fetch('{% url "tickets:notificacoes_globais" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Não toca som global se estiver na fila (a fila tem som próprio por contagem)
+                        const naFilaAdmin = window.location.href.includes('fila-admin');
+
+                        if (data.notificar && !audioTocado && !naFilaAdmin) {
+                            notificacaoAudio.play().catch(e => console.log('Aguardando clique para liberar som'));
+                            mostrarNotificacao(`🔔 ${data.mensagem}`);
+                            audioTocado = true;
+                            setTimeout(() => { audioTocado = false; }, 10000);
+                        }
+                    })
+                    .catch(err => console.error('Erro na notificação:', err));
+            }
+
+            function mostrarNotificacao(mensagem) {
+                const toastContainer = document.createElement('div');
+                toastContainer.className = 'position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '10000';
+                toastContainer.innerHTML = `
+                    <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: var(--primary-color);">
+                        <div class="toast-body p-3 d-flex justify-content-between align-items-center">
+                            <strong>${mensagem}</strong>
+                            <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
+                        </div>
                     </div>
-                </div>
-            `;
-            document.body.appendChild(toastContainer);
-            setTimeout(() => toastContainer.remove(), 6000);
-        }
-        
-        // Verifica a cada 5 segundos (Estilo WhatsApp Web)
-        setInterval(verificarNovasMensagens, 5000);
-    })();
+                `;
+                document.body.appendChild(toastContainer);
+                setTimeout(() => toastContainer.remove(), 6000);
+            }
+            
+            setInterval(verificarNovasMensagens, 5000);
+        })();
     </script>
     {% endif %}
 </body>

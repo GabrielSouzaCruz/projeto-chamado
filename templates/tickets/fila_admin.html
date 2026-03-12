@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Fila de Chamados - Gestão Técnica{% endblock %}
 
@@ -121,6 +122,9 @@ function atualizarFilaAdmin() {
     const indicador = document.getElementById('indicador-atualizacao');
     const countTickets = document.getElementById('count-tickets');
     
+    // Captura o total atual antes do fetch
+    const totalAntes = parseInt(countTickets.textContent) || 0;
+    
     const statusVal = document.getElementById('filtro-status')?.value || 'todos';
     const catVal = document.getElementById('filtro-categoria')?.value || '';
     
@@ -135,12 +139,22 @@ function atualizarFilaAdmin() {
         .then(res => res.json())
         .then(data => {
             if (data.html && tbody) tbody.innerHTML = data.html;
+            
+            // Lógica do Som: se o número de tickets aumentou, toca o áudio definido no base.html
+            const totalDepois = data.count || 0;
+            if (totalDepois > totalAntes) {
+                console.log("Novo ticket detectado! Acionando som...");
+                if (typeof notificacaoAudio !== 'undefined') {
+                    notificacaoAudio.play().catch(e => console.log("Aba silenciada. Clique na tela!"));
+                }
+            }
+
             if (data.stats) {
                 document.getElementById('stat-total-hoje').textContent = data.stats.total_hoje;
                 document.getElementById('stat-sem-tecnico').textContent = data.stats.sem_tecnico;
                 document.getElementById('stat-criticos').textContent = data.stats.criticos;
             }
-            if (countTickets) countTickets.textContent = data.count || '0';
+            if (countTickets) countTickets.textContent = totalDepois;
             indicador.innerHTML = `<i class="fas fa-check-circle text-success"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
         })
         .catch(() => { indicador.innerHTML = '<i class="fas fa-times-circle text-danger"></i> Erro'; });
@@ -150,6 +164,8 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarFilaAdmin();
     document.getElementById('filtro-status').onchange = atualizarFilaAdmin;
     document.getElementById('filtro-categoria').onchange = atualizarFilaAdmin;
+    
+    // Intervalo de 5 segundos para a fila
     setInterval(atualizarFilaAdmin, 5000);
 });
 </script>
