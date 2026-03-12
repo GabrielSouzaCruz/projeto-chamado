@@ -29,4 +29,5 @@ urlpatterns = [
     path('<int:pk>/status/', views.alterar_status, name='change_status'),
     path('<int:pk>/editar/', views.TicketUpdateView.as_view(), name='update'),
     path('<int:pk>/cancelar/', views.cancelar_ticket, name='cancelar'),
+    path('<int:pk>/apagar/', views.apagar_ticket, name='apagar'),
 ]

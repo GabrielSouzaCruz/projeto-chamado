@@ -24,7 +24,7 @@
         color: white !important; 
     }
 
-    /* Área de Conversa */
+    /* Área de Conversa Base (Para Monitores Grandes) */
     #comentarios-container {
         height: 500px;
         background-color: #f8f9fa;
@@ -92,6 +92,62 @@
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
+
+    /* ========================================================= */
+    /* BREAKPOINTS RESPONSIVOS (Otimização Ecrãs Menores)      */
+    /* ========================================================= */
+
+    /* Para Portáteis comuns (ex: 1366x768 ou 1440x900) */
+    @media (max-width: 1400px) {
+        #comentarios-container {
+            height: 400px; /* Evita que o input suma no fundo do ecrã */
+        }
+        .chat-bubble { max-width: 85%; }
+    }
+
+    /* Para Laptops menores ou Tablets em Modo Paisagem (1024px) */
+    @media (max-width: 1100px) {
+        #comentarios-container {
+            height: 350px; 
+            padding: 15px;
+        }
+    }
+
+    /* Para Tablets em Modo Retrato e Ecrãs < 992px */
+    @media (max-width: 992px) {
+        #comentarios-container {
+            height: 50vh; /* Usa metade do ecrã disponível */
+        }
+        .chat-bubble { max-width: 90%; }
+    }
+
+    /* Para Telemóveis e Ecrãs muito pequenos */
+    @media (max-width: 768px) {
+        #comentarios-container {
+            height: 55vh; 
+            padding: 10px;
+        }
+        .chat-bubble {
+            max-width: 95%;
+            font-size: 0.9rem;
+            padding: 10px 14px;
+        }
+        .chat-input-area {
+            padding: 10px;
+        }
+        /* Ajusta a barra de botões do chat (Anexar e Enviar) */
+        .chat-action-bar {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 10px;
+        }
+        .chat-action-bar > div {
+            justify-content: space-between;
+        }
+        #btn-enviar {
+            width: 100%;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -102,8 +158,8 @@
         <div class="card border-0 shadow-sm mb-3" style="border-left: 5px solid var(--primary-color) !important;">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h4 class="fw-bold mb-0">#{{ ticket.id }} - {{ ticket.titulo }}</h4>
-                    <span class="badge {{ ticket.status_css_class }} px-3 py-2" style="font-size: 0.8rem;">
+                    <h4 class="fw-bold mb-0 text-break">#{{ ticket.id }} - {{ ticket.titulo }}</h4>
+                    <span id="ticket-status-badge" class="badge {{ ticket.status_css_class }} px-3 py-2 ms-2 text-nowrap" style="font-size: 0.8rem;">
                         {{ ticket.get_status_display }}
                     </span>
                 </div>
@@ -120,6 +176,24 @@
                     </a>
                 </div>
                 {% endif %}
+
+                {# --- BOTÕES DE AÇÃO (CANCELAR E APAGAR) --- #}
+                <div class="mt-4 pt-3 border-top d-flex flex-wrap gap-2">
+                    {# Botão Cancelar: Apenas para o Solicitante #}
+                    {% if request.user == ticket.solicitante and ticket.status|upper != 'RESOLVIDO' and ticket.status|upper != 'CANCELADO' %}
+                        <button type="button" class="btn btn-sm btn-outline-danger shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCancelarTicket">
+                            <i class="fas fa-ban me-1"></i> Cancelar Chamado
+                        </button>
+                    {% endif %}
+
+                    {# Botão Apagar: Apenas para o SuperAdmin #}
+                    {% if request.user.is_superuser %}
+                        <button type="button" class="btn btn-sm btn-danger shadow-sm" data-bs-toggle="modal" data-bs-target="#modalApagarTicket">
+                            <i class="fas fa-trash-alt me-1"></i> Apagar Definitivamente
+                        </button>
+                    {% endif %}
+                </div>
+                {# --------------------------------------- #}
             </div>
         </div>
         
@@ -137,27 +211,27 @@
                 <form id="chat-form" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     <textarea name="mensagem" id="chat-input" class="form-control mb-3 shadow-none" rows="2" 
-                              placeholder="Digite sua mensagem... (Cole imagens com Ctrl+V)"></textarea>
+                              placeholder="Digite a sua mensagem... (Pode colar imagens com Ctrl+V)"></textarea>
                     
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex gap-2 align-items-center">
-                            <label for="chat-file" class="btn btn-outline-primary border-2 btn-sm px-3 d-flex align-items-center justify-content-center" title="Anexar arquivo" style="cursor: pointer; transition: 0.3s;">
+                    <div class="d-flex justify-content-between align-items-center chat-action-bar">
+                        <div class="d-flex gap-2 align-items-center w-100">
+                            <label for="chat-file" class="btn btn-outline-primary border-2 btn-sm px-3 mb-0 d-flex align-items-center justify-content-center" title="Anexar ficheiro" style="cursor: pointer; transition: 0.3s; height: 38px;">
                                 <i class="fas fa-paperclip me-1"></i>
                                 <span class="small fw-bold">Anexar</span>
                             </label>
                             <input type="file" name="anexo" id="chat-file" class="d-none">
-                            <span id="file-name-display" class="small text-muted align-self-center"></span>
+                            <span id="file-name-display" class="small text-muted align-self-center text-truncate" style="max-width: 150px;"></span>
 
                             {% if user.is_technician %}
-                            <div class="form-check form-switch ms-3 d-flex align-items-center">
-                                <input class="form-check-input" type="checkbox" name="interno" id="id_interno">
-                                <label class="form-check-label small text-warning fw-bold ms-2" for="id_interno">
+                            <div class="form-check form-switch ms-auto d-flex align-items-center mb-0">
+                                <input class="form-check-input mt-0" type="checkbox" name="interno" id="id_interno">
+                                <label class="form-check-label small text-warning fw-bold ms-2 text-nowrap" for="id_interno">
                                     <i class="fas fa-lock me-1"></i>Nota Interna
                                 </label>
                             </div>
                             {% endif %}
                         </div>
-                        <button type="submit" id="btn-enviar" class="btn btn-primary px-4 fw-bold shadow-sm">
+                        <button type="submit" id="btn-enviar" class="btn btn-primary px-4 fw-bold shadow-sm" style="height: 38px;">
                             Enviar <i class="fas fa-paper-plane ms-2"></i>
                         </button>
                     </div>
@@ -213,12 +287,12 @@
                 <div class="info-meta">
                     <div class="d-flex justify-content-between mb-2">
                         <span class="small text-muted">Solicitante:</span>
-                        <span class="small fw-bold">{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</span>
+                        <span class="small fw-bold text-end">{{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}</span>
                     </div>
 
                     <div class="d-flex justify-content-between mb-2">
                         <span class="small text-muted">Setor:</span>
-                        <span class="small fw-bold">{{ ticket.solicitante.departamento|default:"Não informado" }}</span>
+                        <span class="small fw-bold text-end">{{ ticket.solicitante.departamento|default:"Não informado" }}</span>
                     </div>
 
                     <div class="d-flex justify-content-between mb-2">
@@ -245,6 +319,58 @@
     </div>
     {% endif %}
 </div>
+
+<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-labelledby="modalCancelarTicketLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-danger" id="modalCancelarTicketLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Cancelar Chamado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem a certeza que deseja cancelar este chamado?</p>
+                <p class="small text-muted mb-0">Esta ação mudará o status para "Cancelado" e informará a equipa técnica que o suporte já não é necessário.</p>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Voltar</button>
+                <form method="post" action="{% url 'tickets:cancelar' ticket.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger fw-bold shadow-sm">Sim, Cancelar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalApagarTicket" tabindex="-1" aria-labelledby="modalApagarTicketLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-bottom-0">
+                <h5 class="modal-title fw-bold" id="modalApagarTicketLabel">
+                    <i class="fas fa-skull-crossbones me-2"></i>Exclusão Permanente
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <p class="fw-bold">Atenção Administrador!</p>
+                <p>Está prestes a excluir este chamado da base de dados.</p>
+                <div class="alert alert-danger p-2 mb-0 small">
+                    <i class="fas fa-exclamation-circle me-1"></i> <strong>CUIDADO:</strong> Todas as mensagens, anexos e o histórico vinculado a este ticket serão destruídos para sempre e não poderão ser recuperados.
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-3">
+                <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Abortar</button>
+                <form method="post" action="{% url 'tickets:apagar' ticket.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger fw-bold shadow-sm">Confirmar Exclusão</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -257,8 +383,7 @@
     const container = document.getElementById('comentarios-container');
     const btnEnviar = document.getElementById('btn-enviar');
 
-    // Áudio de notificação (Demanda 2)
-    const audioNotificacao = new Audio("{% static 'audio/notificacao.wav' %}");
+    // Áudio de notificação (Global, definido no base.html)
     let silenciarProximaNotificacao = false;
 
     // Função de Rolagem
@@ -267,19 +392,30 @@
     }
     scrollToBottom();
 
-    // Lógica 1: Mostrar nome do arquivo selecionado
+    // Lógica 1: Mostrar nome do ficheiro selecionado
     fileInput.addEventListener('change', function() {
         const fileName = this.files[0] ? this.files[0].name : "";
         fileNameDisplay.textContent = fileName ? '📎 ' + fileName : "";
     });
 
-    // Lógica 2: Atualizar chat via Polling e tocar notificação
+    // Lógica 2: Atualizar chat via Polling, status e tocar notificação
     function atualizarChat() {
         fetch(window.location.href)
             .then(response => response.text())
             .then(html => {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
+                
+                // --- Atualiza o Status do Ticket (A cor e o texto ali no topo) ---
+                const novoStatusBadge = doc.getElementById('ticket-status-badge');
+                if (novoStatusBadge) {
+                    const statusBadgeAtual = document.getElementById('ticket-status-badge');
+                    if (statusBadgeAtual && statusBadgeAtual.outerHTML !== novoStatusBadge.outerHTML) {
+                        statusBadgeAtual.outerHTML = novoStatusBadge.outerHTML;
+                    }
+                }
+
+                // --- Atualiza as mensagens do Chat ---
                 const novoConteudo = doc.getElementById('comentarios-container').innerHTML;
                 
                 if (container.innerHTML.trim() !== novoConteudo.trim()) {
@@ -288,7 +424,9 @@
                     
                     // Toca a notificação apenas se a atualização não veio do nosso próprio envio
                     if (!silenciarProximaNotificacao) {
-                        audioNotificacao.play().catch(err => console.log("Áudio bloqueado pelo navegador até interação do usuário."));
+                        if (typeof notificacaoAudio !== 'undefined') {
+                            notificacaoAudio.play().catch(err => console.log("Áudio aguardando interação no chat."));
+                        }
                     }
                     silenciarProximaNotificacao = false;
 
@@ -309,7 +447,7 @@
 
         const conteudoOriginal = btnEnviar.innerHTML;
         btnEnviar.disabled = true;
-        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>A enviar...';
 
         try {
             const response = await fetch(chatForm.action, {
@@ -329,7 +467,7 @@
                 atualizarChat();
                 setTimeout(scrollToBottom, 300);
             } else {
-                alert("Erro ao enviar. Verifique sua conexão.");
+                alert("Erro ao enviar. Verifique a sua ligação.");
             }
         } catch (error) {
             console.error("Erro no envio AJAX:", error);

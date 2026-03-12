@@ -396,6 +396,20 @@ def cancelar_ticket(request, pk):
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
 
+@login_required
+def apagar_ticket(request, pk):
+    # Trava de segurança máxima: Apenas superusers
+    if not request.user.is_superuser:
+        messages.error(request, "Acesso Negado: Apenas administradores podem apagar chamados do banco de dados.")
+        return redirect('tickets:detail', pk=pk)
+    
+    ticket = get_object_or_404(Ticket, pk=pk)
+    ticket_id = ticket.id
+    ticket.delete() # Apaga o ticket, os comentários e os arquivos vinculados
+    
+    messages.success(request, f"Ticket #{ticket_id} foi apagado permanentemente com sucesso.")
+    return redirect('tickets:dashboard')
+
 
 # =============================================================================
 # HISTÓRICO, FILA E CATEGORIAS
