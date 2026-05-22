@@ -78,9 +78,9 @@ class Ticket(models.Model):
     
     categoria = models.ForeignKey(
         Categoria,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
+        null=False,
+        blank=False,
         verbose_name='Categoria'
     )
     
@@ -98,6 +98,8 @@ class Ticket(models.Model):
         choices=Prioridade.choices,
         default=Prioridade.MEDIA,
         verbose_name='Prioridade',
+        null=False, 
+        blank=False,
         db_index=True  # 🔥 Otimiza filtros de Prioridade e Ordenação
     )
     
@@ -125,11 +127,6 @@ class Ticket(models.Model):
     def __str__(self):
         return f'#{self.pk} - {self.titulo}'
     
-    def save(self, *args, **kwargs):
-        if self.status == self.Status.RESOLVIDO and not self.resolvido_em:
-            self.resolvido_em = timezone.now()
-        super().save(*args, **kwargs)
-    
     @property
     def status_css_class(self):
         classes = {
@@ -150,15 +147,6 @@ class Ticket(models.Model):
         }
         return classes.get(self.prioridade, 'badge-priority-baixa')
     
-    def cancelar(self):
-        self.status = self.Status.CANCELADO
-        self.save()
-    
-    def assumir(self, tecnico):
-        self.tecnico_responsavel = tecnico
-        if self.status == self.Status.ABERTO:
-            self.status = self.Status.EM_ANDAMENTO
-        self.save()
 
 
 class Comentario(models.Model):

@@ -17,14 +17,14 @@
                     {% csrf_token %}
 
                     {% if form.errors %}
-                    <div class="alert alert-danger border-0 shadow-sm">
+                    <div class="alert alert-danger border-0 shadow-sm" role="alert">
                         <i class="fas fa-exclamation-triangle me-2"></i>
                         Usuário ou senha incorretos. Verifique seus dados.
                     </div>
                     {% endif %}
 
                     <div class="mb-3">
-                        <label for="id_username" class="form-label fw-bold text-muted">
+                        <label for="id_username" class="form-label fw-bold text-muted" aria-required="true">
                             <i class="fas fa-user me-1"></i> Usuário
                         </label>
                         <input type="text" name="username" id="id_username" 
@@ -34,7 +34,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="id_password" class="form-label fw-bold text-muted">
+                        <label for="id_password" class="form-label fw-bold text-muted" aria-required="true">
                             <i class="fas fa-lock me-1"></i> Senha
                         </label>
                         <input type="password" name="password" id="id_password" 
@@ -43,7 +43,7 @@
                     </div>
 
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm" aria-label="Acessar o sistema com suas credenciais">
                             <i class="fas fa-sign-in-alt me-2"></i> ACESSAR SISTEMA
                         </button>
                     </div>

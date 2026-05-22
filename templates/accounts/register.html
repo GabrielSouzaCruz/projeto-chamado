@@ -23,27 +23,33 @@
                 <form method="post" id="form-cadastro">
                     {% csrf_token %}
 
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for error in form.non_field_errors %}<p class="mb-1">{{ error }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
+
                     <div class="row">
                         <div class="col-md-12 mb-3">
-                            <label for="id_email" class="form-label fw-bold">E-mail Institucional *</label>
+                            <label for="{{ form.email.id_for_label }}" class="form-label fw-bold" aria-required="true">E-mail Institucional *</label>
                             <input type="email" name="email" id="id_email" 
                                    class="form-control border-2 {% if form.email.errors %}is-invalid{% endif %}"
                                    placeholder="exemplo@machado.mg.gov.br"
                                    value="{{ form.email.value|default:'' }}" required>
                             {% if form.email.errors %}
-                                <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
+                                <div class="invalid-feedback" role="alert">{{ form.email.errors.0 }}</div>
                             {% endif %}
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="id_first_name" class="form-label fw-bold">Nome *</label>
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label fw-bold" aria-required="true">Nome *</label>
                             <input type="text" name="first_name" id="id_first_name" 
                                    class="form-control border-2" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="id_last_name" class="form-label fw-bold">Sobrenome *</label>
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label fw-bold" aria-required="true">Sobrenome *</label>
                             <input type="text" name="last_name" id="id_last_name" 
                                    class="form-control border-2" required>
                         </div>
@@ -51,18 +57,18 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="id_departamento" class="form-label fw-bold">Secretaria / Setor *</label>
+                            <label for="{{ form.departamento.id_for_label }}" class="form-label fw-bold" aria-required="true">Secretaria / Setor *</label>
                             <input type="text" name="departamento" id="id_departamento" 
                                    class="form-control border-2"
                                    value="{{ form.departamento.value|default:'' }}"
-                                   placeholder="Ex: Saúde, Educação...">
+                                   placeholder="Ex: Saúde, Educação..." required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="id_telefone" class="form-label fw-bold">Ramal ou Telefone *</label>
+                            <label for="{{ form.telefone.id_for_label }}" class="form-label fw-bold" aria-required="true">Ramal ou Telefone *</label>
                             <input type="text" name="telefone" id="id_telefone" 
                                    class="form-control border-2"
                                    value="{{ form.telefone.value|default:'' }}"
-                                   placeholder="(35) 0000-0000">
+                                   placeholder="(35) 0000-0000" required>
                         </div>
                     </div>
 
@@ -70,9 +76,12 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="id_password1" class="form-label fw-bold">Definir Senha *</label>
+                            <label for="{{ form.password1.id_for_label }}" class="form-label fw-bold" aria-required="true">Definir Senha *</label>
                             <input type="password" name="password1" id="id_password1" 
                                    class="form-control border-2 {% if form.password1.errors %}is-invalid{% endif %}" required>
+                            {% if form.password1.errors %}
+                                <div class="invalid-feedback" role="alert">{{ form.password1.errors.0 }}</div>
+                            {% endif %}
                             <div id="senha-feedback" class="form-text"></div>
                             <div class="progress mt-1" style="height: 4px;">
                                 <div id="senha-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
@@ -80,9 +89,12 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="id_password2" class="form-label fw-bold">Repetir Senha *</label>
+                            <label for="{{ form.password2.id_for_label }}" class="form-label fw-bold" aria-required="true">Repetir Senha *</label>
                             <input type="password" name="password2" id="id_password2" 
                                    class="form-control border-2 {% if form.password2.errors %}is-invalid{% endif %}" required>
+                            {% if form.password2.errors %}
+                                <div class="invalid-feedback" role="alert">{{ form.password2.errors.0 }}</div>
+                            {% endif %}
                             <div id="confirmacao-feedback" class="form-text"></div>
                         </div>
                     </div>

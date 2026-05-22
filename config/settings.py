@@ -18,10 +18,9 @@ Para produção, ajuste: DEBUG=False, ALLOWED_HOSTS, DATABASES, etc.
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 
-# Carrega variáveis de ambiente do arquivo .env
+# Carrega o arquivo .env da raiz do projeto
 load_dotenv()
 
 # =============================================================================
@@ -30,19 +29,13 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ⚠️ SEGURANÇA: Em produção, gere uma chave única e mantenha secreta
-# Comando para gerar: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-if not SECRET_KEY and DEBUG:
-    # Fallback apenas para desenvolvimento (nunca use em produção)
-    SECRET_KEY = 'django-insecure-dev-key-change-in-production'
+# SECRET_KEY segura (via .env)
+SECRET_KEY = os.getenv('SECRET_KEY', 'uma-chave-padrao-para-dev-apenas')
 
-# ⚠️ SEGURANÇA: Nunca deixe DEBUG=True em produção
-DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+# DEBUG seguro: converte string para booleano real
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# ⚠️ SEGURANÇA: Em produção, especifique os domínios reais
-# Ex: ALLOWED_HOSTS = ['192.168.0.123', 'chamados.empresa.com']
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 # =============================================================================
 # APPS INSTALADOS
@@ -137,8 +130,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # INTERNACIONALIZAÇÃO
 # =============================================================================
 
+# Force UTC para evitar anomalias de fuso horário
 LANGUAGE_CODE = 'pt-br'
-TIME_ZONE = 'America/Sao_Paulo'
+TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 

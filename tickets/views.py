@@ -21,6 +21,8 @@ from accounts.models import User
 
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Comentario, Categoria
+from . import services
+from . import selectors
 
 logger = logging.getLogger(__name__)
 
@@ -30,43 +32,22 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
-    # Definir se é técnico/admin
-    is_team = request.user.is_technician or request.user.is_superuser
-    
-    # Base de tickets (Filtro de segurança)
-    if is_team:
-        tickets_base = Ticket.objects.all()
-    else:
-        tickets_base = Ticket.objects.filter(solicitante=request.user)
-
-    # Capturar busca e filtros da URL
+    # Capturar busca e filtros
     busca = request.GET.get('busca')
     status_filtro = request.GET.get('status')
 
-    if busca:
-        tickets_base = tickets_base.filter(
-            Q(titulo__icontains=busca) | 
-            Q(descricao__icontains=busca) | 
-            Q(id__icontains=busca)
-        )
-    
-    if status_filtro:
-        tickets_base = tickets_base.filter(status=status_filtro)
-
-    # Cálculo das métricas (Stats)
-    stats = {
-        'total': tickets_base.count(),
-        'abertos': tickets_base.filter(status='aberto').count(),
-        'em_andamento': tickets_base.filter(status='em_andamento').count(),
-        'resolvidos': tickets_base.filter(status='resolvido').count(),
-    }
-
-    tickets = tickets_base.order_by('-criado_em')
+    tickets = selectors.get_tickets_dashboard(
+        usuario=request.user,
+        busca=busca,
+        status=status_filtro
+    )
+    stats = selectors.get_estatisticas_dashboard(usuario=request.user)
+    is_team = getattr(request.user, 'is_technician', False) or request.user.is_superuser
 
     return render(request, 'tickets/dashboard.html', {
         'tickets': tickets,
         'is_technician': is_team,
-        'stats': stats  # Enviando os números para o HTML
+        'stats': stats
     })
 
 # =============================================================================
@@ -332,47 +313,34 @@ def adicionar_comentario(request, pk):
         form = ComentarioForm(request.POST, request.FILES, usuario=request.user) 
         
         if form.is_valid():
-            comentario = form.save(commit=False)
-            comentario.ticket = ticket
-            comentario.autor = request.user
-            comentario.save()
+            services.adicionar_comentario_service(
+                ticket_id=pk,
+                autor=request.user,
+                dados_comentario=form.cleaned_data,
+                arquivos=request.FILES
+            )
             messages.success(request, "Comentário adicionado!")
     return redirect('tickets:detail', pk=pk)
 
 @login_required
 def assumir_ticket(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk)
     if not request.user.is_technician:
         messages.error(request, "Apenas técnicos podem assumir chamados.")
         return redirect('tickets:dashboard')
 
-    ticket.tecnico_responsavel = request.user
-    # AJUSTE AQUI: Usando a constante do Model em vez de string "SOLTA"
-    ticket.status = Ticket.Status.EM_ANDAMENTO 
-    ticket.save()
-    messages.success(request, f"Você assumiu o chamado #{ticket.id}")
+    services.assumir_ticket_service(ticket_id=pk, tecnico=request.user)
+    messages.success(request, f"Você assumiu o chamado #{pk}")
     return redirect('tickets:detail', pk=pk)
 
 @tecnico_required
 def alterar_status(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk)
-    
     if request.method == 'POST':
-        # Pegamos o valor direto do <select name="status"> do HTML
         novo_status = request.POST.get('status')
-        
         if novo_status:
-            ticket.status = novo_status
-            
-            # Lógica extra: Se for resolvido, salva a data da resolução
-            if novo_status.upper() == 'RESOLVIDO':
-                ticket.resolvido_em = timezone.now()
-            
-            ticket.save()
-            messages.success(request, f'Status do chamado #{ticket.id} atualizado para {ticket.get_status_display()}!')
+            services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
+            messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
         else:
             messages.error(request, 'Erro ao atualizar: Status inválido.')
-            
     return redirect('tickets:detail', pk=pk)
 
 class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
@@ -389,10 +357,7 @@ def cancelar_ticket(request, pk):
     if ticket.solicitante != request.user and not request.user.is_superuser:
         messages.error(request, "Você não tem permissão para cancelar este ticket.")
         return redirect('tickets:detail', pk=pk)
-    
-    # AJUSTE AQUI: Usando a constante do Model
-    ticket.status = Ticket.Status.CANCELADO
-    ticket.save()
+    services.cancelar_ticket_service(ticket_id=pk)
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
 
@@ -402,12 +367,8 @@ def apagar_ticket(request, pk):
     if not request.user.is_superuser:
         messages.error(request, "Acesso Negado: Apenas administradores podem apagar chamados do banco de dados.")
         return redirect('tickets:detail', pk=pk)
-    
-    ticket = get_object_or_404(Ticket, pk=pk)
-    ticket_id = ticket.id
-    ticket.delete() # Apaga o ticket, os comentários e os arquivos vinculados
-    
-    messages.success(request, f"Ticket #{ticket_id} foi apagado permanentemente com sucesso.")
+    services.apagar_ticket_service(ticket_id=pk)
+    messages.success(request, f"Ticket #{pk} foi apagado permanentemente com sucesso.")
     return redirect('tickets:dashboard')
 
 
@@ -417,52 +378,27 @@ def apagar_ticket(request, pk):
 
 @login_required
 def historico(request):
-    # Segurança: Apenas técnicos e admins acessam o histórico completo
+    # Segurança: Apenas técnicos e admins acessam
     if not (request.user.is_technician or request.user.is_superuser):
         messages.error(request, "Acesso negado.")
         return redirect('tickets:dashboard')
 
-    tickets_qs = Ticket.objects.all()
+    # 1. Agrupamos a entrada de dados (o que veio da URL)
+    filtros = {
+        'busca': request.GET.get('busca', ''),
+        'data_inicio': request.GET.get('data_inicio'),
+        'data_fim': request.GET.get('data_fim'),
+        'status': request.GET.getlist('status'),
+        'prioridade': request.GET.getlist('prioridade'),
+        'categoria': request.GET.getlist('categoria'),
+        'tecnico': request.GET.get('tecnico'),
+        'ordenar': request.GET.get('ordenar', '-criado_em'),
+    }
 
-    # --- CAPTURA DE FILTROS ---
-    busca = request.GET.get('busca', '')
-    data_inicio = request.GET.get('data_inicio')
-    data_fim = request.GET.get('data_fim')
-    status_selecionados = request.GET.getlist('status')
-    prioridades_selecionadas = request.GET.getlist('prioridade')
-    categorias_selecionadas = request.GET.getlist('categoria')
-    tecnico_id = request.GET.get('tecnico')
-    ordenar = request.GET.get('ordenar', '-criado_em')
+    # 2. Delegamos a leitura para o Selector
+    tickets_qs = selectors.get_historico_tickets(filtros)
 
-    # --- APLICAÇÃO DOS FILTROS ---
-    if busca:
-        tickets_qs = tickets_qs.filter(
-            Q(titulo__icontains=busca) | 
-            Q(descricao__icontains=busca) |
-            Q(solicitante__username__icontains=busca) |
-            Q(id__icontains=busca)
-        )
-
-    if data_inicio:
-        tickets_qs = tickets_qs.filter(criado_em__date__gte=data_inicio)
-    if data_fim:
-        tickets_qs = tickets_qs.filter(criado_em__date__lte=data_fim)
-    
-    if status_selecionados:
-        tickets_qs = tickets_qs.filter(status__in=status_selecionados)
-    
-    if prioridades_selecionadas:
-        tickets_qs = tickets_qs.filter(prioridade__in=prioridades_selecionadas)
-    
-    if categorias_selecionadas:
-        tickets_qs = tickets_qs.filter(categoria_id__in=categorias_selecionadas)
-    
-    if tecnico_id and tecnico_id != 'todos':
-        tickets_qs = tickets_qs.filter(tecnico_responsavel_id=tecnico_id)
-
-    tickets_qs = tickets_qs.order_by(ordenar)
-
-    # --- EXPORTAÇÃO CSV ---
+    # 3. Lógica de apresentação (Exportação CSV mantém-se na View)
     if request.GET.get('export') == 'csv':
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="historico_{now().strftime("%Y%m%d")}.csv"'
@@ -472,44 +408,17 @@ def historico(request):
             writer.writerow([t.id, t.titulo, t.solicitante.username, t.status, t.prioridade, t.criado_em])
         return response
 
-    # --- ESTATÍSTICAS DO RELATÓRIO ---
-    stats = {
-        'total': tickets_qs.count(),
-        'resolvidos': tickets_qs.filter(status__iexact='RESOLVIDO').count(),
-        'cancelados': tickets_qs.filter(status__iexact='CANCELADO').count(),
-        'tempo_medio_resolucao': None
-    }
-    
-    # Cálculo do Tempo Médio (apenas se houver resolvidos para não dar erro de divisão)
-    tickets_resolvidos = tickets_qs.filter(status__iexact='RESOLVIDO', resolvido_em__isnull=False)
-    
-    if tickets_resolvidos.exists():
-        # Calculamos a diferença entre resolvido_em e criado_em
-        media = tickets_resolvidos.annotate(
-            duracao=F('resolvido_em') - F('criado_em')
-        ).aggregate(Avg('duracao'))['duracao__avg']
-        
-        if media:
-            # Converte o timedelta para horas decimais
-            stats['tempo_medio_resolucao'] = media.total_seconds() / 3600
+    # 4. Delegamos os cálculos matemáticos para o Selector
+    stats = selectors.get_estatisticas_historico(tickets_qs)
 
     context = {
-        'tickets': tickets_qs, # Adicione paginação aqui se desejar
+        'tickets': tickets_qs,
         'stats': stats,
         'categorias': Categoria.objects.all(),
         'tecnicos': User.objects.filter(Q(is_technician=True) | Q(is_superuser=True)),
         'status_choices': Ticket.Status.choices,
         'prioridade_choices': Ticket.Prioridade.choices,
-        'filtros': {
-            'busca': busca,
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'status': status_selecionados,
-            'prioridade': prioridades_selecionadas,
-            'categoria': categorias_selecionadas,
-            'tecnico': tecnico_id,
-            'ordenar': ordenar,
-        }
+        'filtros': filtros # Devolvemos os filtros para o HTML manter os campos preenchidos
     }
     return render(request, 'tickets/historico.html', context)
 
