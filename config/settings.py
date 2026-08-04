@@ -215,17 +215,24 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
 
-# =============================================================================
+# ========================a=====================================================
 # CHANNELS (WEBSOCKETS)
 # =============================================================================
+# Puxa a URL do Upstash. Se não achar, usa a local padrão.
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
+            "hosts": [REDIS_URL],
         },
     },
 }
+
+# Se for a URL segura do Upstash (com dois 's'), desativa a exigência de certificado local
+if REDIS_URL.startswith('rediss://'):
+    CHANNEL_LAYERS['default']['CONFIG']['ssl_cert_reqs'] = None
 
 # =============================================================================
 # LOGGING (Opcional - para debug em produção)
