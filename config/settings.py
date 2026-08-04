@@ -19,6 +19,7 @@ Para produção, ajuste: DEBUG=False, ALLOWED_HOSTS, DATABASES, etc.
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Carrega o arquivo .env da raiz do projeto
 load_dotenv()
@@ -103,14 +104,11 @@ TEMPLATES = [
 # ✅ SQLite para desenvolvimento (simples, sem configuração)
 # ⚠️ Para produção, use PostgreSQL ou MySQL
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        # Otimizações para SQLite
-        'OPTIONS': {
-            'timeout': 20,  # Timeout para locks (evita "database is locked")
-        },
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True
+    )
 }
 
 # =============================================================================
