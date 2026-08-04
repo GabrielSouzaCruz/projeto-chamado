@@ -150,6 +150,12 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']  # Pasta para coletar com collectstatic
 STATIC_ROOT = BASE_DIR / 'staticfiles'    # Pasta para produção (Nginx serve daqui)
 
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 # Arquivos de mídia (uploads dos usuários: anexos de tickets)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
