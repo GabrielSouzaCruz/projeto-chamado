@@ -212,7 +212,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 # EMAIL_HOST_USER = 'seu-email@gmail.com'
 # EMAIL_HOST_PASSWORD = 'sua-senha'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
 
 # =============================================================================
