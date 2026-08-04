@@ -272,82 +272,90 @@
     {% block extra_js %}{% endblock %}
 
 {% if user.is_authenticated %}
-    <script>
-        // 1. Objeto de áudio global
-        const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
+<script>
+    // 1. Objeto de áudio global
+    const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
-        // NOVO: 2. Pedir permissão para Notificações do Windows/Navegador assim que abrir o site
-        document.addEventListener('DOMContentLoaded', function() {
-            if ("Notification" in window) {
-                if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                    Notification.requestPermission();
-                }
+    // 2. Pedir permissão para Notificações do Windows/Navegador
+    document.addEventListener('DOMContentLoaded', function() {
+        if ("Notification" in window) {
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
             }
-        });
+        }
+    });
 
-        // 3. Conexão com o WebSocket (tempo real)
-        const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
-        const notificacaoSocket = new WebSocket(
-            ws_scheme + '://' + window.location.host + '/ws/notificacoes/'
-        );
+    // 3. Conexão com o WebSocket (tempo real)
+    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const notificacaoSocket = new WebSocket(
+        ws_scheme + '://' + window.location.host + '/ws/notificacoes/'
+    );
 
-        // 4. Função do Toast interno bonito (com cores dinâmicas)
-        function mostrarNotificacao(mensagem, tipo) {
-            const toastContainer = document.createElement('div');
-            toastContainer.className = 'position-fixed top-0 end-0 p-3';
-            toastContainer.style.zIndex = '10000';
-            
-            const corFundo = tipo === 'success' ? '#198754' : 'var(--primary-color)';
+    // 4. Função do Toast interno bonito
+    function mostrarNotificacao(mensagem, tipo) {
+        const toastContainer = document.createElement('div');
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '10000';
+        
+        const corFundo = tipo === 'success' ? '#198754' : 'var(--primary-color)';
 
-            toastContainer.innerHTML = `
-                <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: ${corFundo};">
-                    <div class="toast-body p-3 d-flex justify-content-between align-items-center">
-                        <strong>${mensagem}</strong>
-                        <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
-                    </div>
+        toastContainer.innerHTML = `
+            <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: ${corFundo};">
+                <div class="toast-body p-3 d-flex justify-content-between align-items-center">
+                    <strong>${mensagem}</strong>
+                    <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
                 </div>
-            `;
-            document.body.appendChild(toastContainer);
-            setTimeout(() => toastContainer.remove(), 6000);
+            </div>
+        `;
+        document.body.appendChild(toastContainer);
+        setTimeout(() => toastContainer.remove(), 6000);
+    }
+
+    // 5. Recebendo a notificação instantânea do servidor
+    notificacaoSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        const mensagem = data.mensagem;
+        const tipo = data.tipo; 
+        
+        const path = window.location.pathname;
+        const naFilaAdmin = path.includes('fila') || path.includes('admin');
+        const noDashboard = path.includes('dashboard') || path === '/tickets/' || path === '/tickets';
+        
+        // Toca o som de alerta
+        notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
+
+        // Mostra o Toast visual
+        mostrarNotificacao(`🔔 ` + mensagem, tipo);
+
+        // Notificação Nativa do Sistema Operacional
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Central de Chamados PMM", {
+                body: mensagem,
+                icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
+                badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
+            });
+        }
+        
+        // Dispara a atualização inteligente baseada na página atual
+        if (naFilaAdmin && typeof window.atualizarFilaAdmin === 'function') {
+            window.atualizarFilaAdmin();
+        } 
+        
+        if (noDashboard && typeof window.atualizarDashboard === 'function') {
+            window.atualizarDashboard();
         }
 
-        // 5. Recebendo a notificação instantânea do servidor
-        notificacaoSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            const mensagem = data.mensagem;
-            const tipo = data.tipo; 
-            
-            const naFilaAdmin = window.location.pathname.includes('fila');
-            
-            // Toca o som (se não estiver na fila)
-            if (!naFilaAdmin) {
-                notificacaoAudio.play().catch(e => console.log('Aguardando clique para liberar som'));
-            }
+        // Caso seja a tela de detalhes de um ticket específico (chat), recarrega os comentários se houver função ou fetch
+        const chatContainer = document.getElementById('comentarios-container');
+        if (chatContainer && typeof window.atualizarChat === 'function') {
+            window.atualizarChat();
+        }
+    };
 
-            // Mostra o Toast dentro do site
-            mostrarNotificacao(`🔔 ` + mensagem, tipo);
-
-            // NOVO: Dispara a notificação Nativa do Windows/Mac (se tiver permissão)
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("Central de Chamados PMM", {
-                    body: mensagem,
-                    icon: URL_LOGO_MACHADO,
-                    badge: URL_FAVICON,
-                });
-            }
-            
-            // Atualiza as tabelas via AJAX sem recarregar a página
-            if (naFilaAdmin && typeof window.atualizarFilaAdmin === 'function') {
-                window.atualizarFilaAdmin();
-            } else if (typeof window.atualizarDashboard === 'function') {
-                window.atualizarDashboard();
-            }
-        };
-
-        notificacaoSocket.onclose = function(e) {
-            console.error('O WebSocket foi fechado inesperadamente.');
-        };
-    </script>
+    notificacaoSocket.onclose = function(e) {
+        console.error('O WebSocket foi fechado inesperadamente.');
+    };
+</script>
     {% endif %}
 </body>
 </html>
