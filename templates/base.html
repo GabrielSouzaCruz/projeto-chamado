@@ -129,7 +129,7 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
-    <link rel="icon" type="image/x-icon" href="{% static 'image/favicon.png' %}">
+    <link rel="icon" type="image/x-icon" href="${URL_FAVICON}">
 </head>
 <body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
 
@@ -137,7 +137,7 @@
         {% if user.is_authenticated %}
         <nav id="sidebar">
             <div class="sidebar-header">
-                <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo">
+                <img src="${URL_LOGO_MACHADO}" alt="Prefeitura de Machado" class="sidebar-logo">
                 <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS</h4>
                 <small style="font-size: 0.65rem; color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
             </div>
@@ -283,8 +283,8 @@
             if ("Notification" in window && Notification.permission === "granted") {
                 new Notification("Central de Chamados PMM", {
                     body: mensagem,
-                    icon: "{% static 'image/machado.png' %}", // Usa a logo que você já tem no projeto!
-                    badge: "{% static 'image/favicon.png' %}"
+                    icon: URL_LOGO_MACHADO,
+                    badge: URL_FAVICON,
                 });
             }
             
