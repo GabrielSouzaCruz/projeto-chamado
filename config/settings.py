@@ -69,6 +69,7 @@ INSTALLED_APPS = [
 # bottom-to-top na response. SecurityMiddleware deve vir primeiro.
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
