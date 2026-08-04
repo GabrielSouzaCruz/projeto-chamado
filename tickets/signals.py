@@ -1,36 +1,47 @@
-# tickets/signals.py
-"""
-Signals do app tickets.
-
-Nota: Notificações por e-mail estão desabilitadas intencionalmente.
-Para reativar: descomente as funções de envio e os receivers correspondentes.
-"""
-
-from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from .models import Ticket, Comentario
 
-from .models import Ticket
-
-
-@receiver(pre_save, sender=Ticket)
-def salvar_status_antigo(sender, instance, **kwargs):
-    """
-    Armazena o status anterior do ticket antes de salvar.
+@receiver(post_save, sender=Ticket)
+def notificar_ticket_event(sender, instance, created, **kwargs):
+    channel_layer = get_channel_layer()
     
-    Por que isso é necessário?
-    - Django não fornece nativamente acesso ao valor antigo de um campo
-    - Este signal permite comparar status_antigo vs status_novo em post_save
-    - Usado para detectar mudanças de status sem bibliotecas extras
-    
-    Funcionamento:
-    1. Executa ANTES do save() do modelo
-    2. Busca o registro atual no banco (se já existir)
-    3. Armazena o status antigo em instance._status_antigo (atributo temporário)
-    4. O valor fica disponível para outros signals ou lógica pós-save
-    """
-    if instance.pk:
-        try:
-            antigo = Ticket.objects.get(pk=instance.pk)
-            instance._status_antigo = antigo.status
-        except Ticket.DoesNotExist:
-            instance._status_antigo = None
+    if created:
+        # Quando um novo ticket é criado
+        mensagem = f"Novo chamado aberto: #{instance.id} - {instance.titulo}"
+        tipo = 'info'
+    else:
+        # Quando um ticket existente é alterado (ex: cancelado, assumido, status mudou)
+        if instance.status == 'cancelado':
+            mensagem = f"O chamado #{instance.id} foi cancelado!"
+            tipo = 'danger'
+        else:
+            mensagem = f"O chamado #{instance.id} foi atualizado ({instance.get_status_display()})."
+            tipo = 'info'
+
+    # Dispara para todo mundo via WebSocket
+    async_to_sync(channel_layer.group_send)(
+        'notificacoes_globais',
+        {
+            'type': 'enviar_alerta',
+            'mensagem': mensagem,
+            'tipo': tipo
+        }
+    )
+
+@receiver(post_save, sender=Comentario)
+def notificar_novo_comentario(sender, instance, created, **kwargs):
+    if created:
+        channel_layer = get_channel_layer()
+        mensagem = f"Nova mensagem no chamado #{instance.ticket.id} por {instance.autor.username}"
+        
+        async_to_sync(channel_layer.group_send)(
+            'notificacoes_globais',
+            {
+                'type': 'enviar_alerta',
+                'mensagem': mensagem,
+                'tipo': 'success'
+            }
+        )

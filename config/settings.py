@@ -42,6 +42,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 # =============================================================================
 
 INSTALLED_APPS = [
+    'daphne',
     # Django contrib (ordem importa: auth antes de admin)
     'django.contrib.admin',
     'django.contrib.auth',
@@ -73,6 +74,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 # =============================================================================
 # TEMPLATES
@@ -203,6 +205,15 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
+
+# =============================================================================
+# CHANNELS (WEBSOCKETS)
+# =============================================================================
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 # =============================================================================
 # LOGGING (Opcional - para debug em produção)

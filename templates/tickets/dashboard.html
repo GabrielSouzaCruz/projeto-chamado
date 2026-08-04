@@ -108,22 +108,28 @@
 
 {% block extra_js %}
 <script>
-// A lógica de JS foi preservada exatamente como no seu original, 
-// apenas removi comentários desnecessários para performance.
-document.addEventListener('DOMContentLoaded', function() {
-    function configurarModais() {
-        document.querySelectorAll('[data-bs-target="#modalCancelarTicket"]').forEach(btn => {
-            btn.onclick = function() {
-                const form = document.getElementById('formCancelarTicket');
-                const actionUrl = this.getAttribute('data-action');
-                if (form) form.action = actionUrl;
-            };
-        });
-    }
+let ultimaSincronizacao = new Date();
 
-    function atualizarDashboard() {
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. DELEGAÇÃO DE EVENTOS PARA O MODAL (Garante que botões novos abram o modal)
+    document.addEventListener('click', function(e) {
+        const btnCancelar = e.target.closest('[data-bs-target="#modalCancelarTicket"]');
+        if (btnCancelar) {
+            const form = document.getElementById('formCancelarTicket');
+            const actionUrl = btnCancelar.getAttribute('data-action');
+            if (form) {
+                form.action = actionUrl;
+            }
+        }
+    });
+
+    // 2. FUNÇÃO GLOBAL DE ATUALIZAÇÃO (Sincroniza sem recarregar a tela)
+    window.atualizarDashboard = function() {
         const lista = document.getElementById('lista-tickets');
         const indicador = document.getElementById('indicador-atualizacao');
+        
+        // Pega os parâmetros atuais da URL (mantém a sua busca e filtros ativos!)
         const params = new URLSearchParams(window.location.search);
         params.append('_t', Date.now());
 
@@ -132,24 +138,58 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('{% url "tickets:api_dashboard_update" %}?' + params.toString())
             .then(res => res.json())
             .then(data => {
+                // Injeta os cards novos
                 if (data.html && lista) {
                     lista.innerHTML = data.html;
-                    configurarModais(); 
+                    
+                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                    [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
                 }
+                
+                // Atualiza as estatísticas no topo
                 if (data.stats) {
-                    const ids = ['stat-total', 'stat-abertos', 'stat-andamento', 'stat-resolvidos'];
-                    ids.forEach(id => {
+                    const idMapping = {
+                        'stat-total': data.stats.total,
+                        'stat-abertos': data.stats.abertos,
+                        'stat-andamento': data.stats.em_andamento,
+                        'stat-resolvidos': data.stats.resolvidos
+                    };
+                    
+                    for (const [id, value] of Object.entries(idMapping)) {
                         const el = document.getElementById(id);
-                        if(el) el.textContent = data.stats[id.replace('stat-', '').replace('abertos', 'abertos').replace('andamento', 'em_andamento')];
-                    });
+                        if (el && value !== undefined) el.textContent = value;
+                    }
                 }
-                if (indicador) indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado às ' + new Date().toLocaleTimeString();
+                
+                ultimaSincronizacao = new Date();
+                if (indicador) indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
             })
             .catch(err => console.error('Erro na atualização:', err));
-    }
+    };
 
-    setInterval(atualizarDashboard, 20000);
-    configurarModais();
+    // Ativa os tooltips da primeira vez
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+    // Descomente a linha abaixo se quiser que a página já faça um "fetch" logo ao abrir
+    // window.atualizarDashboard();
+
+    // Relógio Digital
+    setInterval(() => {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador && !indicador.innerHTML.includes('spinner') && !indicador.innerHTML.includes('Atualizado agora')) {
+            const horaAtual = new Date().toLocaleTimeString('pt-BR');
+            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${horaAtual}`;
+        }
+    }, 1000);
+    
+    // Remove o "Atualizado agora" após 15 segundos
+    setInterval(() => {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador && indicador.innerHTML.includes('Atualizado agora')) {
+            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
+        }
+    }, 1000);
 });
 </script>
 {% endblock %}

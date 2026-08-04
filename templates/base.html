@@ -210,7 +210,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.getElementById('sidebarCollapse')?.addEventListener('click', function() {
             document.getElementById('sidebar').classList.toggle('active');
@@ -219,49 +219,82 @@
 
     {% block extra_js %}{% endblock %}
 
-    {% if user.is_authenticated %}
+{% if user.is_authenticated %}
     <script>
-        // Objeto de áudio global
+        // 1. Objeto de áudio global
         const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
-        (function() {
-            let audioTocado = false;
+        // NOVO: 2. Pedir permissão para Notificações do Windows/Navegador assim que abrir o site
+        document.addEventListener('DOMContentLoaded', function() {
+            if ("Notification" in window) {
+                if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+            }
+        });
 
-            function verificarNovasMensagens() {
-                fetch('{% url "tickets:notificacoes_globais" %}')
-                    .then(response => response.json())
-                    .then(data => {
-                        // Não toca som global se estiver na fila (a fila tem som próprio por contagem)
-                        const naFilaAdmin = window.location.href.includes('fila-admin');
+        // 3. Conexão com o WebSocket (tempo real)
+        const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const notificacaoSocket = new WebSocket(
+            ws_scheme + '://' + window.location.host + '/ws/notificacoes/'
+        );
 
-                        if (data.notificar && !audioTocado && !naFilaAdmin) {
-                            notificacaoAudio.play().catch(e => console.log('Aguardando clique para liberar som'));
-                            mostrarNotificacao(`🔔 ${data.mensagem}`);
-                            audioTocado = true;
-                            setTimeout(() => { audioTocado = false; }, 10000);
-                        }
-                    })
-                    .catch(err => console.error('Erro na notificação:', err));
+        // 4. Função do Toast interno bonito (com cores dinâmicas)
+        function mostrarNotificacao(mensagem, tipo) {
+            const toastContainer = document.createElement('div');
+            toastContainer.className = 'position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '10000';
+            
+            const corFundo = tipo === 'success' ? '#198754' : 'var(--primary-color)';
+
+            toastContainer.innerHTML = `
+                <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: ${corFundo};">
+                    <div class="toast-body p-3 d-flex justify-content-between align-items-center">
+                        <strong>${mensagem}</strong>
+                        <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toastContainer);
+            setTimeout(() => toastContainer.remove(), 6000);
+        }
+
+        // 5. Recebendo a notificação instantânea do servidor
+        notificacaoSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const mensagem = data.mensagem;
+            const tipo = data.tipo; 
+            
+            const naFilaAdmin = window.location.pathname.includes('fila');
+            
+            // Toca o som (se não estiver na fila)
+            if (!naFilaAdmin) {
+                notificacaoAudio.play().catch(e => console.log('Aguardando clique para liberar som'));
             }
 
-            function mostrarNotificacao(mensagem) {
-                const toastContainer = document.createElement('div');
-                toastContainer.className = 'position-fixed top-0 end-0 p-3';
-                toastContainer.style.zIndex = '10000';
-                toastContainer.innerHTML = `
-                    <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: var(--primary-color);">
-                        <div class="toast-body p-3 d-flex justify-content-between align-items-center">
-                            <strong>${mensagem}</strong>
-                            <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(toastContainer);
-                setTimeout(() => toastContainer.remove(), 6000);
+            // Mostra o Toast dentro do site
+            mostrarNotificacao(`🔔 ` + mensagem, tipo);
+
+            // NOVO: Dispara a notificação Nativa do Windows/Mac (se tiver permissão)
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Central de Chamados PMM", {
+                    body: mensagem,
+                    icon: "{% static 'image/machado.png' %}", // Usa a logo que você já tem no projeto!
+                    badge: "{% static 'image/favicon.png' %}"
+                });
             }
             
-            setInterval(verificarNovasMensagens, 5000);
-        })();
+            // Atualiza as tabelas via AJAX sem recarregar a página
+            if (naFilaAdmin && typeof window.atualizarFilaAdmin === 'function') {
+                window.atualizarFilaAdmin();
+            } else if (typeof window.atualizarDashboard === 'function') {
+                window.atualizarDashboard();
+            }
+        };
+
+        notificacaoSocket.onclose = function(e) {
+            console.error('O WebSocket foi fechado inesperadamente.');
+        };
     </script>
     {% endif %}
 </body>

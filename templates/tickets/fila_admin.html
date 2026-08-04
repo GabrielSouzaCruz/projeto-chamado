@@ -24,7 +24,7 @@
                     <i class="fas fa-calendar-check fa-lg text-primary"></i>
                 </div>
                 <div>
-                    <h4 class="fw-bold mb-0" id="stat-total-hoje">{{ stats.total_hoje }}</h4>
+                    <h4 class="fw-bold mb-0" id="stat-total-hoje">{{ stats.total_hoje|default:0 }}</h4>
                     <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Chamados Hoje</small>
                 </div>
             </div>
@@ -37,7 +37,7 @@
                     <i class="fas fa-user-plus fa-lg text-warning"></i>
                 </div>
                 <div>
-                    <h4 class="fw-bold mb-0 text-dark" id="stat-sem-tecnico">{{ stats.sem_tecnico }}</h4>
+                    <h4 class="fw-bold mb-0 text-dark" id="stat-sem-tecnico">{{ stats.sem_tecnico|default:0 }}</h4>
                     <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Sem Atribuição</small>
                 </div>
             </div>
@@ -50,7 +50,7 @@
                     <i class="fas fa-fire-alt fa-lg text-danger"></i>
                 </div>
                 <div>
-                    <h4 class="fw-bold mb-0 text-danger" id="stat-criticos">{{ stats.criticos }}</h4>
+                    <h4 class="fw-bold mb-0 text-danger" id="stat-criticos">{{ stats.criticos|default:0 }}</h4>
                     <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Críticos Pendentes</small>
                 </div>
             </div>
@@ -65,21 +65,26 @@
                 <label class="form-label small fw-bold text-muted">Status do Ticket</label>
                 <select name="status" id="filtro-status" class="form-select border-2">
                     <option value="todos">Todos os Ativos</option>
-                    <option value="aberto">Abertos</option>
-                    <option value="em_andamento">Em Andamento</option>
-                    <option value="resolvido">Resolvidos</option>
+                    <option value="aberto" {% if request.GET.status == 'aberto' %}selected{% endif %}>Abertos</option>
+                    <option value="em_andamento" {% if request.GET.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
+                    <option value="resolvido" {% if request.GET.status == 'resolvido' %}selected{% endif %}>Resolvidos</option>
                 </select>
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold text-muted">Por Categoria</label>
                 <select name="categoria" id="filtro-categoria" class="form-select border-2">
                     <option value="">Todas as Categorias</option>
-                    {% for cat in categorias %}<option value="{{ cat.id }}">{{ cat.nome }}</option>{% endfor %}
+                    {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nome }}</option>
+                    {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-light w-100 border-2 fw-bold text-muted">
-                    <i class="fas fa-filter-circle-xmark me-2"></i>Limpar Filtros
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold border-2">
+                    <i class="fas fa-search me-2"></i>Filtrar
+                </button>
+                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-light border-2 fw-bold text-muted px-4" title="Limpar Filtros">
+                    <i class="fas fa-filter-circle-xmark"></i>
                 </a>
             </div>
         </form>
@@ -89,7 +94,7 @@
 <div class="card shadow-sm border-0 overflow-hidden" style="border-radius: 12px;">
     <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
         <h6 class="mb-0 fw-bold text-primary">
-            <i class="fas fa-list-ul me-2"></i>Fila de Chamados (<span id="count-tickets">{{ tickets.count }}</span>)
+            <i class="fas fa-list-ul me-2"></i>Fila de Chamados (<span id="count-tickets">{{ tickets.count|default:0 }}</span>)
         </h6>
         <div id="indicador-atualizacao" class="small text-muted">Sincronizado</div>
     </div>
@@ -117,56 +122,87 @@
 
 {% block extra_js %}
 <script>
-function atualizarFilaAdmin() {
-    const tbody = document.getElementById('fila-tbody');
-    const indicador = document.getElementById('indicador-atualizacao');
-    const countTickets = document.getElementById('count-tickets');
-    
-    // Captura o total atual antes do fetch
-    const totalAntes = parseInt(countTickets.textContent) || 0;
-    
-    const statusVal = document.getElementById('filtro-status')?.value || 'todos';
-    const catVal = document.getElementById('filtro-categoria')?.value || '';
-    
-    const params = new URLSearchParams();
-    params.append('status', statusVal);
-    if(catVal) params.append('categoria', catVal);
-    params.append('_t', Date.now());
-
-    indicador.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-    fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
-        .then(res => res.json())
-        .then(data => {
-            if (data.html && tbody) tbody.innerHTML = data.html;
-            
-            // Lógica do Som: se o número de tickets aumentou, toca o áudio definido no base.html
-            const totalDepois = data.count || 0;
-            if (totalDepois > totalAntes) {
-                console.log("Novo ticket detectado! Acionando som...");
-                if (typeof notificacaoAudio !== 'undefined') {
-                    notificacaoAudio.play().catch(e => console.log("Aba silenciada. Clique na tela!"));
-                }
-            }
-
-            if (data.stats) {
-                document.getElementById('stat-total-hoje').textContent = data.stats.total_hoje;
-                document.getElementById('stat-sem-tecnico').textContent = data.stats.sem_tecnico;
-                document.getElementById('stat-criticos').textContent = data.stats.criticos;
-            }
-            if (countTickets) countTickets.textContent = totalDepois;
-            indicador.innerHTML = `<i class="fas fa-check-circle text-success"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
-        })
-        .catch(() => { indicador.innerHTML = '<i class="fas fa-times-circle text-danger"></i> Erro'; });
-}
+let ultimaSincronizacao = new Date();
 
 document.addEventListener('DOMContentLoaded', function() {
-    atualizarFilaAdmin();
-    document.getElementById('filtro-status').onchange = atualizarFilaAdmin;
-    document.getElementById('filtro-categoria').onchange = atualizarFilaAdmin;
     
-    // Intervalo de 5 segundos para a fila
-    setInterval(atualizarFilaAdmin, 5000);
+    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN
+    window.atualizarFilaAdmin = function() {
+        const tbody = document.getElementById('fila-tbody');
+        const indicador = document.getElementById('indicador-atualizacao');
+        const countLabel = document.getElementById('count-tickets');
+        
+        // Puxa os filtros ativos na tela
+        const params = new URLSearchParams(window.location.search);
+        params.append('_t', Date.now()); // Previne cache do navegador
+
+        if (indicador) indicador.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando...';
+
+        fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
+            .then(res => res.json())
+            .then(data => {
+                // Atualiza a tabela HTML com a view parcial
+                if (data.html && tbody) {
+                    tbody.innerHTML = data.html;
+                    
+                    // Reativa os tooltips
+                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                    [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+                }
+                
+                // Atualiza os cartões de estatísticas (Total hoje, Sem técnico, Críticos)
+                if (data.stats) {
+                    const idMapping = {
+                        'stat-total-hoje': data.stats.total_hoje,
+                        'stat-sem-tecnico': data.stats.sem_tecnico,
+                        'stat-criticos': data.stats.criticos
+                    };
+                    
+                    for (const [id, value] of Object.entries(idMapping)) {
+                        const el = document.getElementById(id);
+                        if (el && value !== undefined) el.textContent = value;
+                    }
+                }
+
+                // Atualiza o contador de tickets no cabeçalho da tabela
+                if (data.count !== undefined && countLabel) {
+                    countLabel.textContent = data.count;
+                }
+                
+                ultimaSincronizacao = new Date();
+                if (indicador) indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
+            })
+            .catch(err => console.error('Erro na atualização da fila:', err));
+    };
+
+    // Filtros reativos (opcional): se o usuário mudar o select, já submete o form automaticamente
+    const filtros = document.querySelectorAll('#form-filtros-admin select');
+    filtros.forEach(select => {
+        select.addEventListener('change', () => {
+            document.getElementById('form-filtros-admin').submit();
+        });
+    });
+
+    // Ativa tooltips da primeira vez
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+    // Relógio Digital
+    setInterval(() => {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador && !indicador.innerHTML.includes('spinner') && !indicador.innerHTML.includes('Atualizado agora')) {
+            const horaAtual = new Date().toLocaleTimeString('pt-BR');
+            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${horaAtual}`;
+        }
+    }, 1000);
+    
+    // Remove "Atualizado agora" após 15 segundos
+    setInterval(() => {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador && indicador.innerHTML.includes('Atualizado agora')) {
+            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
+        }
+    }, 1000);
 });
 </script>
 {% endblock %}
