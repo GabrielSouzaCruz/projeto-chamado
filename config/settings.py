@@ -36,7 +36,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'uma-chave-padrao-para-dev-apenas')
 # DEBUG seguro: converte string para booleano real
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = ['projeto-chamado.onrender.com', '127.0.0.1', 'localhost']
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://projeto-chamado.onrender.com',
+]
 
 # =============================================================================
 # APPS INSTALADOS
