@@ -215,14 +215,20 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
 
-# ========================a=====================================================
+# =============================================================================
 # CHANNELS (WEBSOCKETS)
 # =============================================================================
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
+            "options": {
+                "socket_timeout": 30,
+                "socket_connect_timeout": 30,
+                "health_check_interval": 20,
+            },
         },
     },
 }
