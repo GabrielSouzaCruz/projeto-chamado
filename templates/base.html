@@ -127,11 +127,43 @@
             #content { margin-left: 0; }
             #sidebar.active { margin-left: 0; }
         }
+
+        /* Tela de Carregamento */
+    #loader-global {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.8);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    #loader-global.show {
+        visibility: visible;
+        opacity: 1;
+    }
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        color: var(--primary-color);
+    }
     </style>
     {% block extra_css %}{% endblock %}
     <link rel="icon" href="{% static 'image/favicon.png' %}">
 </head>
 <body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
+
+    <div id="loader-global">
+        <div class="spinner-border" role="status"></div>
+        <strong class="mt-2" style="color: var(--primary-color);">Carregando...</strong>
+    </div>
 
     <div class="wrapper">
         {% if user.is_authenticated %}
@@ -219,6 +251,23 @@
         document.getElementById('sidebarCollapse')?.addEventListener('click', function() {
             document.getElementById('sidebar').classList.toggle('active');
         });
+
+        // Mostra o loader quando formulários forem enviados
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            document.getElementById('loader-global').classList.add('show');
+        });
+    });
+
+    // Mostra o loader quando clicar em links do menu lateral
+    document.querySelectorAll('#sidebar a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Ignora links vazios ou que abrem em nova aba
+            if (this.getAttribute('href') !== '#' && this.target !== '_blank') {
+                document.getElementById('loader-global').classList.add('show');
+            }
+        });
+    });
     </script>
 
     {% block extra_js %}{% endblock %}
