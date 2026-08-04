@@ -170,6 +170,33 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => console.error('Erro na atualização da fila:', err));
     };
 
+    // ==========================================
+    // CONEXÃO WEBSOCKET PARA ATUALIZAR EM TEMPO REAL
+    // ==========================================
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const notificacaoSocket = new WebSocket(
+        wsScheme + '://' + window.location.host + '/ws/notificacoes/'
+    );
+
+    notificacaoSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        // 1. Toca o som de notificação (se houver o elemento de áudio na página)
+        const audio = document.getElementById('notificacao-audio');
+        if (audio) {
+            audio.play().catch(e => console.log("Áudio bloqueado pelo navegador", e));
+        }
+
+        // 2. Dispara a atualização automática da tabela da fila admin!
+        if (typeof window.atualizarFilaAdmin === 'function') {
+            window.atualizarFilaAdmin();
+        }
+    };
+
+    notificacaoSocket.onclose = function(e) {
+        console.error('O WebSocket foi fechado inesperadamente.');
+    };
+
     // Filtros reativos nos selects
     const filtros = document.querySelectorAll('#form-filtros-admin select');
     filtros.forEach(select => {
@@ -191,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 1000);
     
-    // Correção do intervalo de remoção do "Atualizado agora" para 15 segundos
     setInterval(() => {
         const indicador = document.getElementById('indicador-atualizacao');
         if (indicador && indicador.innerHTML.includes('Atualizado agora')) {
