@@ -224,11 +224,6 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
-            "options": {
-                "socket_timeout": 30,
-                "socket_connect_timeout": 30,
-                "health_check_interval": 20,
-            },
         },
     },
 }
