@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/dashboard/table/', views.api_dashboard_table, name='api_dashboard_table'),
     path('api/fila-admin/rows/', views.api_fila_admin_rows, name='api_fila_admin_rows'),
     path('<int:ticket_id>/comentarios/', views.ticket_comentarios_partial, name='ticket_comentarios_partial'),
+    path('<int:pk>/status-badge/', views.ticket_status_badge_partial, name='ticket_status_badge_partial'),
 
     # 4. CRUD DE CATEGORIAS
     path('categorias/', views.lista_categorias, name='categorias'),

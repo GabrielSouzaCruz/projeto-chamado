@@ -346,6 +346,14 @@ def api_comentarios_update(request, ticket_id):
     return JsonResponse({'html': html, 'count': ticket.comentarios.count()})
 
 @login_required
+def ticket_status_badge_partial(request, pk):
+    """Mini-API: devolve apenas o badge de status atualizado do ticket."""
+    ticket = get_object_or_404(Ticket, pk=pk)
+    if not request.user.is_technician and ticket.solicitante != request.user:
+        return JsonResponse({'error': 'Sem permissão'}, status=403)
+    return render(request, 'tickets/_ticket_status_badge.html', {'ticket': ticket})
+
+@login_required
 def ticket_comentarios_partial(request, ticket_id):
     """
     Mini-API que devolve apenas o HTML limpo da lista de comentários.
@@ -427,23 +435,38 @@ def adicionar_comentario(request, pk):
 
 @login_required
 def assumir_ticket(request, pk):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if not request.user.is_technician:
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'mensagem': 'Apenas técnicos podem assumir chamados.'}, status=403)
         messages.error(request, "Apenas técnicos podem assumir chamados.")
         return redirect('tickets:dashboard')
 
     services.assumir_ticket_service(ticket_id=pk, tecnico=request.user)
     messages.success(request, f"Você assumiu o chamado #{pk}")
+
+    if is_ajax:
+        return JsonResponse({'status': 'success'})
+
     return redirect('tickets:detail', pk=pk)
 
 @tecnico_required
 def alterar_status(request, pk):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         novo_status = request.POST.get('status')
         if novo_status:
             services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
             messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
+            if is_ajax:
+                return JsonResponse({'status': 'success'})
         else:
             messages.error(request, 'Erro ao atualizar: Status inválido.')
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
+
     return redirect('tickets:detail', pk=pk)
 
 class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):

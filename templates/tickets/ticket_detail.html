@@ -11,11 +11,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h1 class="h3 fw-bold mb-0">{{ ticket.titulo }}</h1>
-                        <span class="badge {{ ticket.status_css_class }} px-3 py-2" 
-                              role="status" 
-                              aria-live="polite">
-                            {{ ticket.get_status_display }}
-                        </span>
+                        {% include 'tickets/_ticket_status_badge.html' %}
                     </div>
                     <p class="text-secondary">{{ ticket.descricao|linebreaks }}</p>
                 </div>
@@ -55,7 +51,16 @@
                     <h2 class="h6 mb-0 fw-bold">Controle Operacional</h2>
                 </div>
                 <div class="card-body">
-                    <form method="post" action="{% url 'tickets:change_status' ticket.id %}">
+                    {% if user.is_technician and not ticket.tecnico_responsavel and ticket.status == 'aberto' %}
+                    <form id="form-assumir" method="post" action="{% url 'tickets:take' ticket.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary w-100 mb-3">
+                            <i class="fas fa-hand-paper me-1" aria-hidden="true"></i> Assumir Chamado
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <form id="form-status" method="post" action="{% url 'tickets:change_status' ticket.id %}">
                         {% csrf_token %}
                         <label for="status-select" class="form-label small fw-bold">Alterar Status</label>
                         <select name="status" id="status-select" class="form-select mb-3">
@@ -134,6 +139,83 @@ document.addEventListener("DOMContentLoaded", function() {
             chatBox.scrollTop = chatBox.scrollHeight;
         })
         .catch(error => console.error("Erro ao atualizar o chat:", error));
+    };
+
+    // 3. AÇÃO RÁPIDA: ALTERAR STATUS (via fetch, sem recarregar)
+    const formStatus = document.getElementById("form-status");
+    if (formStatus) {
+        formStatus.addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            fetch(this.action, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.atualizarStatusTicket(); // Puxa o badge novo via mini-API
+                } else {
+                    console.error("Erro ao alterar status:", data.mensagem || "");
+                }
+            })
+            .finally(() => {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+        });
+    }
+
+    // 4. AÇÃO RÁPIDA: ASSUMIR CHAMADO (via fetch, sem recarregar)
+    const formAssumir = document.getElementById("form-assumir");
+    if (formAssumir) {
+        formAssumir.addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            fetch(this.action, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove o botão de assumir (o chamado já tem dono) e atualiza o badge
+                    formAssumir.remove();
+                    window.atualizarStatusTicket();
+                } else {
+                    console.error("Erro ao assumir chamado:", data.mensagem || "");
+                }
+            })
+            .finally(() => {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+        });
+    }
+
+    // 5. MINI-API: atualiza apenas o badge de status (HTML-over-the-wire)
+    window.atualizarStatusTicket = function() {
+        const badgeContainer = document.getElementById("ticket-header-status");
+        if (!badgeContainer) return;
+
+        fetch("{% url 'tickets:ticket_status_badge_partial' ticket.id %}")
+            .then(res => res.text())
+            .then(html => {
+                badgeContainer.outerHTML = html;
+            })
+            .catch(err => console.error("Erro ao atualizar status:", err));
     };
 });
 </script>
