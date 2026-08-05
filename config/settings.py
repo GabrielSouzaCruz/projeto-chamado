@@ -222,7 +222,7 @@ DEFAULT_FROM_EMAIL = 'sistema@localhost'
 REDIS_URL = os.environ.get('REDIS_URL')
 
 if REDIS_URL:
-    # PRODUÇÃO: Usa o Upstash (Render) com proteção anti-queda para channels_redis 4.3.0+
+    # PRODUÇÃO: Usa o Upstash com reconexão agressiva
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -230,8 +230,9 @@ if REDIS_URL:
                 "hosts": [
                     {
                         "address": REDIS_URL,
-                        "health_check_interval": 20, # Envia um PING a cada 20s para o Upstash não fechar a porta
-                        "socket_keepalive": True,    # Força o SO a manter o túnel TCP aberto
+                        "health_check_interval": 10,   # Ping a cada 10 segundos (mais rápido)
+                        "socket_keepalive": True,
+                        "retry_on_timeout": True,      # A Mágica: Reconecta sozinho se o Upstash derrubar!
                     }
                 ],
             },
