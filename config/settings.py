@@ -230,9 +230,12 @@ if REDIS_URL:
                 "hosts": [
                     {
                         "address": REDIS_URL,
-                        "health_check_interval": 10,   # Ping a cada 10 segundos (mais rápido)
-                        "socket_keepalive": True,
-                        "retry_on_timeout": True,      # A Mágica: Reconecta sozinho se o Upstash derrubar!
+                        # --- BLINDAGEM CONTRA TIMEOUT DO REDIS CLOUD ---
+                        "socket_connect_timeout": 10,   # Até 10s para conectar
+                        "socket_timeout": 10,           # Até 10s por resposta de leitura
+                        "socket_keepalive": True,       # Mantém o túnel TCP aberto
+                        "retry_on_timeout": True,       # Reconecta sozinho se derrubar
+                        "health_check_interval": 5,     # Ping a cada 5s para não "dormir"
                     }
                 ],
             },
