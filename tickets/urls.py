@@ -20,12 +20,8 @@ urlpatterns = [
     path('<int:pk>/cancelar/', views.cancelar_ticket, name='cancelar'),
     path('<int:pk>/apagar/', views.apagar_ticket, name='apagar'),
 
-    # 3. ROTAS DE API (ESSENCIAIS PARA O WEBSOCKET E JAVASCRIPT)
-    path('api/dashboard/', views.api_dashboard_update, name='api_dashboard_update'),
-    path('api/fila-admin/', views.api_fila_admin_update, name='api_fila_admin_update'),
-    path('api/comentarios/<int:ticket_id>/', views.api_comentarios_update, name='api_comentarios_update'),
-
-    # 3.1. NOVAS ROTAS OTIMIZADAS (Mini-APIs HTML)
+    # 3. ROTAS DE API (MINI-APIs HTML PARA O JAVASCRIPT/WEBSOCKET)
+    # 3.1. MINI-APIs OTIMIZADAS
     path('api/dashboard/cards/', views.api_dashboard_cards, name='api_dashboard_cards'),
     path('api/dashboard/table/', views.api_dashboard_table, name='api_dashboard_table'),
     path('api/fila-admin/rows/', views.api_fila_admin_rows, name='api_fila_admin_rows'),

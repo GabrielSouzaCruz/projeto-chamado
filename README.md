@@ -100,6 +100,30 @@ Acesse em: `http://127.0.0.1:8000`
 
 ---
 
+## 🧪 Testes Automatizados
+
+A suíte de testes valida as principais regras de negócio: sinais (`signals`), service layer
+e o controle de acesso das mini-APIs de HTML-over-the-wire.
+
+Para executar os testes, utilize o arquivo de configuração isolada (SQLite em memória +
+channel layer em memória) — ele garante que os testes sejam rápidos, determinísticos e **não
+toquem** o banco Neon/Postgres nem o Redis de produção:
+
+```bash
+python manage.py test --settings=config.test_settings
+```
+
+Para executar apenas o app `tickets`, acrescente o rótulo ao final do comando:
+
+```bash
+python manage.py test tickets --settings=config.test_settings
+```
+
+> **Nota técnica:** o arquivo `config/test_settings.py` sobrescreve `DATABASES` (SQLite
+> `:memory:`) e `CHANNEL_LAYERS` (em memória) herdando dos settings padrão.
+
+---
+
 ## 📧 Notificações
 
 O sistema está preparado para enviar notificações automáticas via E-mail (HTML e Texto) para:

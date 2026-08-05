@@ -1,26 +1,24 @@
 import csv
 import logging
-from datetime import datetime
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q, Count, Avg, F
+from django.db.models import Q, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.generic import DetailView, CreateView, UpdateView, DeleteView
 
-from accounts.mixins import ProprietarioOrTecnicoMixin
+from accounts.mixins import ProprietarioOrTecnicoMixin, TecnicoOrStaffRequiredMixin
 from accounts.decorators import tecnico_required, admin_required
 from accounts.models import User
 
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
-from .models import Ticket, Comentario, Categoria
+from .models import Ticket, Categoria
 from . import services
 from . import selectors
 
@@ -48,197 +46,6 @@ def dashboard(request):
         'tickets': tickets,
         'is_technician': is_team,
         'stats': stats
-    })
-
-# =============================================================================
-# APIs PARA POLLING EM TEMPO REAL
-# =============================================================================
-
-@login_required
-def check_novos_tickets(request):
-    ultimo_check = request.session.get('ultimo_check_tickets')
-    if ultimo_check:
-        try:
-            ultimo_check_dt = datetime.fromisoformat(ultimo_check)
-            novos_tickets = Ticket.objects.filter(criado_em__gt=ultimo_check_dt).count()
-        except (ValueError, TypeError):
-            novos_tickets = 0
-    else:
-        novos_tickets = 0
-    
-    request.session['ultimo_check_tickets'] = timezone.now().isoformat()
-    return JsonResponse({'novos': novos_tickets > 0, 'quantidade': novos_tickets})
-
-
-@login_required
-def notificacoes_globais(request):
-    """
-    API para verificar mensagens e tickets novos.
-    Técnicos recebem avisos de tudo (menos as próprias mensagens).
-    Usuários comuns só recebem avisos dos próprios chamados (menos de si mesmos).
-    """
-    ultimo_check = request.session.get('ultimo_check_global')
-    agora = timezone.now()
-    
-    # Se não tem último check, define a primeira vez para não apitar o que é antigo
-    if not ultimo_check:
-        request.session['ultimo_check_global'] = agora.isoformat()
-        return JsonResponse({'notificar': False})
-        
-    try:
-        ultimo_check_dt = datetime.fromisoformat(ultimo_check)
-    except (ValueError, TypeError):
-        request.session['ultimo_check_global'] = agora.isoformat()
-        return JsonResponse({'notificar': False})
-
-    user = request.user
-    is_tech = getattr(user, 'is_technician', False) or user.is_superuser
-    
-    novos_tickets = 0
-    novos_comentarios = 0
-    
-    if is_tech:
-        # Técnico vê chamados novos e mensagens de outras pessoas
-        novos_tickets = Ticket.objects.filter(criado_em__gt=ultimo_check_dt).exclude(solicitante=user).count()
-        novos_comentarios = Comentario.objects.filter(criado_em__gt=ultimo_check_dt).exclude(autor=user).count()
-    else:
-        # Usuário normal só vê mensagens novas enviadas para os chamados DELE (e que não foi ele que enviou)
-        novos_comentarios = Comentario.objects.filter(
-            criado_em__gt=ultimo_check_dt, 
-            ticket__solicitante=user
-        ).exclude(autor=user).count()
-        
-    total = novos_tickets + novos_comentarios
-    
-    if total > 0:
-        request.session['ultimo_check_global'] = agora.isoformat()
-        
-        # Monta a mensagem bonitinha dependendo do que chegou
-        msg = ""
-        if novos_tickets > 0 and novos_comentarios > 0:
-            msg = f"{novos_tickets} novo(s) chamado(s) e {novos_comentarios} mensagem(ns)!"
-        elif novos_tickets > 0:
-            msg = f"{novos_tickets} novo(s) chamado(s) na fila!"
-        elif novos_comentarios > 0:
-            msg = f"Você recebeu {novos_comentarios} nova(s) mensagem(ns)!"
-            
-        return JsonResponse({'notificar': True, 'mensagem': msg})
-        
-    # Se não teve nada de novo, atualiza a data para a próxima checagem e vida que segue
-    request.session['ultimo_check_global'] = agora.isoformat()
-    return JsonResponse({'notificar': False})
-
-
-@login_required
-@never_cache
-def api_dashboard_update(request):
-    try:
-        user = request.user
-        is_tech_attr = getattr(user, 'is_technician', False)
-        is_admin = user.is_superuser
-        sou_tecnico = is_tech_attr or is_admin
-
-        # 1. DEFINE A BASE DE DADOS (A trava de segurança que você já tem)
-        if sou_tecnico:
-            # TÉCNICO VÊ TUDO DA EMPRESA
-            queryset_para_stats = Ticket.objects.all()
-        else:
-            # USUÁRIO COMUM VÊ SÓ OS DELE
-            queryset_para_stats = Ticket.objects.filter(solicitante=user)
-
-        # 2. CÁLCULO DE ESTATÍSTICAS (Sempre baseadas na visão geral permitida)
-        # Calculamos as stats ANTES de aplicar os filtros de busca da tela
-        stats = {
-            'total': queryset_para_stats.count(),
-            'abertos': queryset_para_stats.filter(status='ABERTO').count(),
-            'em_andamento': queryset_para_stats.filter(status='EM_ANDAMENTO').count(),
-            'resolvidos': queryset_para_stats.filter(status='RESOLVIDO').count(),
-        }
-
-        # 3. APLICAÇÃO DE FILTROS PARA A LISTA DE CARDS (O que aparece embaixo)
-        tickets_list_query = queryset_para_stats
-        
-        status_req = request.GET.get('status', '').upper()
-        if status_req and status_req != 'TODOS':
-            tickets_list_query = tickets_list_query.filter(status=status_req)
-
-        busca = request.GET.get('busca')
-        if busca:
-            from django.db.models import Q
-            tickets_list_query = tickets_list_query.filter(
-                Q(titulo__icontains=busca) | 
-                Q(descricao__icontains=busca) | 
-                Q(id__icontains=busca)
-            )
-
-        # 4. BUSCA DOS DADOS PARA O HTML
-        tickets_final = tickets_list_query.select_related(
-            'solicitante', 'tecnico_responsavel', 'categoria'
-        ).order_by('-criado_em')[:20]
-
-        # 5. RENDERIZAÇÃO
-        html = render_to_string('tickets/_dashboard_cards.html', {
-            'tickets': tickets_final,
-            'is_technician': sou_tecnico,
-        }, request=request)
-        
-        return JsonResponse({
-            'html': html, 
-            'stats': stats, # Agora os stats são o total da visão (geral ou pessoal)
-            'debug_user': user.username,
-            'debug_is_tech': sou_tecnico
-        })
-
-    except Exception as e:
-        import traceback
-        print(traceback.format_exc())
-        return JsonResponse({'error': str(e)}, status=500)
-    
-
-@login_required
-@user_passes_test(lambda u: u.is_staff or getattr(u, 'is_technician', False))
-@never_cache
-def api_fila_admin_update(request):
-    # 1. Pegamos todos os tickets para começar
-    tickets_base = Ticket.objects.all()
-    
-    # 2. Captura os filtros da URL (Garante que venham em minúsculo para comparar)
-    status_f = request.GET.get('status', 'todos').strip().lower()
-    cat_f = request.GET.get('categoria', '').strip()
-
-    # 3. LÓGICA DE FILTRO DE STATUS (Onde está o erro)
-    if status_f and status_f != 'todos':
-        # Tentamos filtrar tanto em maiúsculo quanto minúsculo para não ter erro
-        # O __iexact ignora se é maiúsculo ou minúsculo no banco
-        tickets_base = tickets_base.filter(status__iexact=status_f)
-    else:
-        # No "Todos", mostramos apenas o que não foi finalizado para a fila não ficar infinita
-        tickets_base = tickets_base.exclude(status__iexact='RESOLVIDO').exclude(status__iexact='CANCELADO').exclude(status__iexact='FECHADO')
-
-    # 4. Filtro de Categoria
-    if cat_f and cat_f.isdigit():
-        tickets_base = tickets_base.filter(categoria_id=cat_f)
-
-    # 5. Estatísticas (Calculadas de forma independente)
-    hoje = timezone.now().date()
-    stats = {
-        'total_hoje': Ticket.objects.filter(criado_em__date=hoje).count(),
-        'sem_tecnico': Ticket.objects.filter(tecnico_responsavel__isnull=True).exclude(status__iexact='CANCELADO').count(),
-        'criticos': Ticket.objects.filter(prioridade__iexact='critica').exclude(status__iexact='RESOLVIDO').count(),
-    }
-    
-    # 6. Ordenação: O mais novo SEMPRE no topo para o Admin ver
-    tickets = tickets_base.select_related('solicitante', 'tecnico_responsavel', 'categoria').order_by('-criado_em')[:50]
-    
-    # 7. Renderização com o request para garantir permissões
-    html = render_to_string('tickets/_fila_table.html', {
-        'tickets': tickets,
-    }, request=request)
-    
-    return JsonResponse({
-        'html': html, 
-        'stats': stats,
-        'count': tickets_base.count() 
     })
 
 # =============================================================================
@@ -297,8 +104,7 @@ def api_dashboard_table(request):
     })
 
 
-@login_required
-@user_passes_test(lambda u: u.is_staff or getattr(u, 'is_technician', False))
+@tecnico_required
 @never_cache
 def api_fila_admin_rows(request):
     """Devolve apenas as linhas (<tr>) atualizadas da Fila Admin."""
@@ -333,23 +139,10 @@ def api_fila_admin_rows(request):
 # =============================================================================
 
 @login_required
-def api_comentarios_update(request, ticket_id):
-    ticket = get_object_or_404(Ticket, id=ticket_id)
-    if not request.user.is_technician and ticket.solicitante != request.user:
-        return JsonResponse({'error': 'Sem permissão'}, status=403)
-    
-    html = render_to_string('tickets/_comentarios_list.html', {
-        'ticket': ticket,
-        'comentarios': ticket.comentarios.select_related('autor').order_by('criado_em'),
-        'request': request,
-    })
-    return JsonResponse({'html': html, 'count': ticket.comentarios.count()})
-
-@login_required
 def ticket_status_badge_partial(request, pk):
     """Mini-API: devolve apenas o badge de status atualizado do ticket."""
     ticket = get_object_or_404(Ticket, pk=pk)
-    if not request.user.is_technician and ticket.solicitante != request.user:
+    if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         return JsonResponse({'error': 'Sem permissão'}, status=403)
     return render(request, 'tickets/_ticket_status_badge.html', {'ticket': ticket})
 
@@ -359,7 +152,7 @@ def ticket_comentarios_partial(request, ticket_id):
     Mini-API que devolve apenas o HTML limpo da lista de comentários.
     """
     ticket = get_object_or_404(Ticket, id=ticket_id)
-    if not request.user.is_technician and ticket.solicitante != request.user:
+    if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         return JsonResponse({'error': 'Sem permissão'}, status=403)
 
     comentarios = ticket.comentarios.select_related('autor').order_by('criado_em')
@@ -367,19 +160,6 @@ def ticket_comentarios_partial(request, ticket_id):
     return render(request, 'tickets/_comentarios_list.html', {
         'ticket': ticket,
         'comentarios': comentarios,
-    })
-
-@login_required
-def ticket_detail_ajax(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk)
-    if not request.user.is_technician and ticket.solicitante != request.user:
-        return JsonResponse({'error': 'Acesso negado'}, status=403)
-    
-    return JsonResponse({
-        'titulo': ticket.titulo,
-        'status': ticket.get_status_display(),
-        'prioridade': ticket.get_prioridade_display(),
-        'descricao': ticket.descricao,
     })
 
 # =============================================================================
@@ -573,19 +353,19 @@ def lista_categorias(request):
     categorias = Categoria.objects.all().annotate(total_tickets=Count('ticket')).order_by('nome')
     return render(request, 'tickets/categoria_list.html', {'categorias': categorias})
 
-class CategoriaCreateView(CreateView):
+class CategoriaCreateView(TecnicoOrStaffRequiredMixin, CreateView):
     model = Categoria
     fields = ['nome', 'descricao']
     template_name = 'tickets/categoria_form.html'
     success_url = reverse_lazy('tickets:categorias')
 
-class CategoriaUpdateView(UpdateView):
+class CategoriaUpdateView(TecnicoOrStaffRequiredMixin, UpdateView):
     model = Categoria
     fields = ['nome', 'descricao']
     template_name = 'tickets/categoria_form.html'
     success_url = reverse_lazy('tickets:categorias')
 
-class CategoriaDeleteView(DeleteView):
+class CategoriaDeleteView(TecnicoOrStaffRequiredMixin, DeleteView):
     model = Categoria
     template_name = 'tickets/categoria_confirm_delete.html'
     success_url = reverse_lazy('tickets:categorias')

@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.shortcuts import redirect
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 class TecnicoRequiredMixin(LoginRequiredMixin):
     """Mixin que restringe o acesso apenas a utilizadores com is_technician=True."""
@@ -9,6 +9,16 @@ class TecnicoRequiredMixin(LoginRequiredMixin):
             messages.error(request, 'Acesso restrito a técnicos de TI.')
             return redirect('tickets:dashboard')
         return super().dispatch(request, *args, **kwargs)
+
+class TecnicoOrStaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Restringe o acesso a técnicos, staff ou superusuários.
+
+    - Usuários anônimos: redirecionados para o login (LoginRequiredMixin).
+    - Usuários comuns autenticados: recebem 403 (PermissionDenied).
+    """
+    def test_func(self):
+        user = self.request.user
+        return user.is_staff or getattr(user, 'is_technician', False)
 
 class ProprietarioOrTecnicoMixin(LoginRequiredMixin):
     """Mixin que permite acesso ao dono do ticket, técnicos ou superusuários."""
