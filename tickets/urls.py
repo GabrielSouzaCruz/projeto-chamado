@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/dashboard/', views.api_dashboard_update, name='api_dashboard_update'),
     path('api/fila-admin/', views.api_fila_admin_update, name='api_fila_admin_update'),
     path('api/comentarios/<int:ticket_id>/', views.api_comentarios_update, name='api_comentarios_update'),
+    path('<int:ticket_id>/comentarios/', views.ticket_comentarios_partial, name='ticket_comentarios_partial'),
 
     # 4. CRUD DE CATEGORIAS
     path('categorias/', views.lista_categorias, name='categorias'),

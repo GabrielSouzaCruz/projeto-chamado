@@ -26,12 +26,12 @@
                     <h2 id="historico-header" class="h6 mb-0 fw-bold">Interações e Histórico</h2>
                 </div>
                 
-                <div id="comentarios-container" aria-live="polite" role="log" aria-relevant="additions">
+                <div id="chat-box" style="max-height: 400px; overflow-y: auto;" aria-live="polite" role="log" aria-relevant="additions">
                     {% include 'tickets/_comentarios_list.html' %}
                 </div>
 
                 <div class="chat-input-area p-3 bg-light border-top">
-                    <form id="chat-form" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
+                    <form id="form-comentario" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
                         {% csrf_token %}
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
                         <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." required></textarea>
@@ -71,4 +71,70 @@
         </aside>
     </div>
 </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const formComentario = document.getElementById("form-comentario");
+    const chatBox = document.getElementById("chat-box");
+
+    // Mantém o scroll no final quando a página carrega
+    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+
+    // 1. INTERCEPTAR O ENVIO DO FORMULÁRIO (Fim dos recarregamentos!)
+    if (formComentario) {
+        formComentario.addEventListener("submit", function(e) {
+            e.preventDefault(); // O segredo que impede a página de piscar/recarregar
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+
+            // Desabilita o botão para evitar cliques duplos rápidos
+            if (submitBtn) submitBtn.disabled = true;
+
+            fetch(this.action, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    this.reset(); // Limpa a caixa de texto
+                    window.atualizarChat(); // Puxa a nova mensagem suavemente
+                } else {
+                    console.error("Erro ao enviar mensagem.");
+                }
+            })
+            .finally(() => {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+        });
+    }
+
+    // 2. ATUALIZAR O CHAT SILENCIOSAMENTE E COM ALTA PERFORMANCE
+    window.atualizarChat = function() {
+        if (!chatBox) return;
+
+
+        // Puxa APENAS o HTML dos comentários através da nossa nova mini-API
+        const urlApi = "{% url 'tickets:ticket_comentarios_partial' ticket.id %}";
+
+
+        fetch(urlApi)
+        .then(response => response.text())
+        .then(html => {
+            // Como a API já devolve só os comentários, é só injetar direto!
+            chatBox.innerHTML = html;
+
+
+            // Rola automaticamente para a última mensagem
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(error => console.error("Erro ao atualizar o chat:", error));
+    };
+});
+</script>
 {% endblock %}

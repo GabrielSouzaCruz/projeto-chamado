@@ -259,6 +259,22 @@ def api_comentarios_update(request, ticket_id):
     return JsonResponse({'html': html, 'count': ticket.comentarios.count()})
 
 @login_required
+def ticket_comentarios_partial(request, ticket_id):
+    """
+    Mini-API que devolve apenas o HTML limpo da lista de comentários.
+    """
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+    if not request.user.is_technician and ticket.solicitante != request.user:
+        return JsonResponse({'error': 'Sem permissão'}, status=403)
+
+    comentarios = ticket.comentarios.select_related('autor').order_by('criado_em')
+
+    return render(request, 'tickets/_comentarios_list.html', {
+        'ticket': ticket,
+        'comentarios': comentarios,
+    })
+
+@login_required
 def ticket_detail_ajax(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     if not request.user.is_technician and ticket.solicitante != request.user:
