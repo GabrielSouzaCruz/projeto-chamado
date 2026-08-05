@@ -242,6 +242,79 @@ def api_fila_admin_update(request):
     })
 
 # =============================================================================
+# MINI-APIs HTML (FAST PATHS PARA O JAVASCRIPT)
+# =============================================================================
+
+@login_required
+@never_cache
+def api_dashboard_cards(request):
+    """Devolve apenas o HTML dos cartões de contagem do Dashboard."""
+    user = request.user
+    sou_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
+
+    qs = Ticket.objects.all() if sou_tecnico else Ticket.objects.filter(solicitante=user)
+
+    stats = {
+        'total': qs.count(),
+        'abertos': qs.filter(status__iexact='aberto').count(),
+        'em_andamento': qs.filter(status__iexact='em_andamento').count(),
+        'resolvidos': qs.filter(status__iexact='resolvido').count(),
+    }
+
+    return render(request, 'tickets/_dashboard_stats.html', {'stats': stats})
+
+
+@login_required
+@never_cache
+def api_dashboard_table(request):
+    """Devolve apenas o HTML da lista de chamados do Dashboard."""
+    user = request.user
+    sou_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
+
+    qs = Ticket.objects.all() if sou_tecnico else Ticket.objects.filter(solicitante=user)
+
+    status_req = request.GET.get('status', '').upper()
+    if status_req and status_req != 'TODOS':
+        qs = qs.filter(status__iexact=status_req)
+
+    busca = request.GET.get('busca')
+    if busca:
+        qs = qs.filter(
+            Q(titulo__icontains=busca) |
+            Q(descricao__icontains=busca) |
+            Q(id__icontains=busca)
+        )
+
+    tickets = qs.select_related('solicitante', 'tecnico_responsavel', 'categoria').order_by('-criado_em')[:20]
+
+    return render(request, 'tickets/_dashboard_cards.html', {
+        'tickets': tickets,
+        'is_technician': sou_tecnico,
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff or getattr(u, 'is_technician', False))
+@never_cache
+def api_fila_admin_rows(request):
+    """Devolve apenas as linhas (<tr>) atualizadas da Fila Admin."""
+    tickets_base = Ticket.objects.all()
+
+    status_f = request.GET.get('status', 'todos').strip().lower()
+    if status_f and status_f != 'todos':
+        tickets_base = tickets_base.filter(status__iexact=status_f)
+    else:
+        tickets_base = tickets_base.exclude(status__iexact='RESOLVIDO').exclude(status__iexact='CANCELADO').exclude(status__iexact='FECHADO')
+
+    cat_f = request.GET.get('categoria', '').strip()
+    if cat_f and cat_f.isdigit():
+        tickets_base = tickets_base.filter(categoria_id=cat_f)
+
+    tickets = tickets_base.select_related('solicitante', 'tecnico_responsavel', 'categoria').order_by('-criado_em')[:50]
+
+    return render(request, 'tickets/_fila_table.html', {'tickets': tickets})
+
+# =============================================================================
 # APIs DE TICKET (DETALHES E COMENTÁRIOS AJAX)
 # =============================================================================
 

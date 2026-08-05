@@ -126,48 +126,36 @@ let ultimaSincronizacao = new Date();
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN
+    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML)
     window.atualizarFilaAdmin = function() {
-        const tbody = document.getElementById('fila-tbody');
-        const indicador = document.getElementById('indicador-atualizacao');
-        const countLabel = document.getElementById('count-tickets');
-        
-        const params = new URLSearchParams(window.location.search);
-        params.append('_t', Date.now());
+        const tbodyFila = document.getElementById("fila-tbody");
 
-        if (indicador) indicador.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando...';
+        if (tbodyFila) {
+            const params = new URLSearchParams(window.location.search);
+            params.append('_t', Date.now());
 
-        fetch('{% url "tickets:api_fila_admin_update" %}?' + params.toString())
-            .then(res => res.json())
-            .then(data => {
-                if (data.html && tbody) {
-                    tbody.innerHTML = data.html;
-                    
+            fetch("{% url 'tickets:api_fila_admin_rows' %}?" + params.toString())
+                .then(res => res.text())
+                .then(html => {
+                    // Injeta diretamente as novas linhas na tabela!
+                    tbodyFila.innerHTML = html;
+
                     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
                     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-                }
-                
-                if (data.stats) {
-                    const idMapping = {
-                        'stat-total-hoje': data.stats.total_hoje,
-                        'stat-sem-tecnico': data.stats.sem_tecnico,
-                        'stat-criticos': data.stats.criticos
-                    };
-                    
-                    for (const [id, value] of Object.entries(idMapping)) {
-                        const el = document.getElementById(id);
-                        if (el && value !== undefined) el.textContent = value;
-                    }
-                }
 
-                if (data.count !== undefined && countLabel) {
-                    countLabel.textContent = data.count;
-                }
-                
-                ultimaSincronizacao = new Date();
-                if (indicador) indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
-            })
-            .catch(err => console.error('Erro na atualização da fila:', err));
+                    mostrarAvisoAtualizacao();
+                })
+                .catch(err => console.error('Erro na atualização da fila:', err));
+        }
+    };
+
+    // Selo "Atualizado agora" (estilo do código antigo)
+    function mostrarAvisoAtualizacao() {
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador) {
+            ultimaSincronizacao = new Date();
+            indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
+        }
     };
 
     // Filtros reativos nos selects
