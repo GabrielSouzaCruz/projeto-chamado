@@ -296,37 +296,37 @@
         const mensagem = data.mensagem;
         const tipo = data.tipo; 
         
-        const path = window.location.pathname;
-        const naFilaAdmin = path.includes('fila') || path.includes('admin');
-        const noDashboard = path.includes('dashboard') || path === '/tickets/' || path === '/tickets';
-        
         // Toca o som de alerta
         notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
+
 
         // Mostra o Toast visual
         mostrarNotificacao(`🔔 ` + mensagem, tipo);
 
+
         // Notificação Nativa do Sistema Operacional
         if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Central de Chamados PMM", {
+            new Notification("Central de Chamados", {
                 body: mensagem,
                 icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
                 badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
             });
         }
         
-        // Dispara a atualização inteligente baseada na página atual
-        if (naFilaAdmin && typeof window.atualizarFilaAdmin === 'function') {
+        // --- A MÁGICA ACONTECE AQUI ---
+        // Em vez de checar a URL, o JavaScript simplesmente pergunta: 
+        // "A função de atualizar existe nesta tela? Se sim, executa!"
+        
+        if (typeof window.atualizarFilaAdmin === 'function') {
             window.atualizarFilaAdmin();
         } 
         
-        if (noDashboard && typeof window.atualizarDashboard === 'function') {
+        if (typeof window.atualizarDashboard === 'function') {
             window.atualizarDashboard();
         }
 
-        // Caso seja a tela de detalhes de um ticket específico (chat), recarrega os comentários se houver função ou fetch
-        const chatContainer = document.getElementById('comentarios-container');
-        if (chatContainer && typeof window.atualizarChat === 'function') {
+
+        if (typeof window.atualizarChat === 'function') {
             window.atualizarChat();
         }
     };
