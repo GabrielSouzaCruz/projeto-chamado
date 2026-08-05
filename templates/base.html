@@ -318,7 +318,7 @@
         // "A função de atualizar existe nesta tela? Se sim, executa!"
         
         if (typeof window.atualizarFilaAdmin === 'function') {
-            window.atualizarFilaAdmin();
+            window.atualizarFilaAdmin(data.ticket_id);
         } 
         
         if (typeof window.atualizarDashboard === 'function') {

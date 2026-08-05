@@ -127,14 +127,21 @@ let ultimaSincronizacao = new Date();
 document.addEventListener('DOMContentLoaded', function() {
     
     // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML)
-    window.atualizarFilaAdmin = function() {
+    window.atualizarFilaAdmin = function(ticketIdRecebido = null) {
         const tbodyFila = document.getElementById("fila-tbody");
 
         if (tbodyFila) {
             const params = new URLSearchParams(window.location.search);
             params.append('_t', Date.now());
 
-            fetch("{% url 'tickets:api_fila_admin_rows' %}?" + params.toString())
+            // Se recebeu um ID novo do WebSocket, coloca na URL para destacar a linha!
+            if (ticketIdRecebido) {
+                params.append('novo_id', ticketIdRecebido);
+            }
+
+            let url = "{% url 'tickets:api_fila_admin_rows' %}?" + params.toString();
+
+            fetch(url)
                 .then(res => res.text())
                 .then(html => {
                     // Injeta diretamente as novas linhas na tabela!

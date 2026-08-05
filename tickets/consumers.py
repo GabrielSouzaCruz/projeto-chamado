@@ -32,5 +32,6 @@ class NotificacaoConsumer(AsyncWebsocketConsumer):
         # Envia a mensagem de volta para o navegador em formato JSON
         await self.send(text_data=json.dumps({
             'mensagem': mensagem,
-            'tipo': tipo_alerta
+            'tipo': tipo_alerta,
+            'ticket_id': event.get('ticket_id'),
         }))

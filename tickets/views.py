@@ -252,6 +252,7 @@ def api_dashboard_cards(request):
     user = request.user
     sou_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
 
+    # .count() faz um SELECT COUNT direto no banco (já otimizado)
     qs = Ticket.objects.all() if sou_tecnico else Ticket.objects.filter(solicitante=user)
 
     stats = {
@@ -285,10 +286,13 @@ def api_dashboard_table(request):
             Q(id__icontains=busca)
         )
 
-    tickets = qs.select_related('solicitante', 'tecnico_responsavel', 'categoria').order_by('-criado_em')[:20]
+    # O MÁGICO select_related: 1 única consulta (JOIN) em vez de dezenas!
+    tickets_recentes = qs.select_related(
+        'solicitante', 'tecnico_responsavel', 'categoria'
+    ).order_by('-criado_em')[:20]
 
     return render(request, 'tickets/_dashboard_cards.html', {
-        'tickets': tickets,
+        'tickets': tickets_recentes,
         'is_technician': sou_tecnico,
     })
 
@@ -310,9 +314,19 @@ def api_fila_admin_rows(request):
     if cat_f and cat_f.isdigit():
         tickets_base = tickets_base.filter(categoria_id=cat_f)
 
-    tickets = tickets_base.select_related('solicitante', 'tecnico_responsavel', 'categoria').order_by('-criado_em')[:50]
+    # O MÁGICO select_related aplicado aqui também
+    tickets = tickets_base.select_related(
+        'solicitante', 'tecnico_responsavel', 'categoria'
+    ).order_by('-criado_em')[:50]
 
-    return render(request, 'tickets/_fila_table.html', {'tickets': tickets})
+    # SUA IDEIA APLICADA: se o JS mandar '?novo_id=X', passamos para o template destacar!
+    novo_id = request.GET.get('novo_id')
+    tickets_novos_ids = [int(novo_id)] if novo_id and novo_id.isdigit() else []
+
+    return render(request, 'tickets/_fila_table.html', {
+        'tickets': tickets,
+        'tickets_novos_ids': tickets_novos_ids,
+    })
 
 # =============================================================================
 # APIs DE TICKET (DETALHES E COMENTÁRIOS AJAX)

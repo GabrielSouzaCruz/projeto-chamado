@@ -27,7 +27,8 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
         {
             'type': 'enviar_alerta',
             'mensagem': mensagem,
-            'tipo': tipo
+            'tipo': tipo,
+            'ticket_id': instance.id  # 💡 A PEÇA QUE FALTAVA!
         }
     )
 
@@ -42,6 +43,7 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
             {
                 'type': 'enviar_alerta',
                 'mensagem': mensagem,
-                'tipo': 'success'
+                'tipo': 'success',
+                'ticket_id': instance.ticket.id  # 💡 AQUI TAMBÉM (via relação)
             }
         )
