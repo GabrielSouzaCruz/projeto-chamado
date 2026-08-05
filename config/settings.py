@@ -219,19 +219,31 @@ DEFAULT_FROM_EMAIL = 'sistema@localhost'
 # CHANNELS (WEBSOCKETS)
 # =============================================================================
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [
-                os.environ.get(
-                    'REDIS_URL', 
-                    'rediss://default:gQAAAAAAAe7qAAIgcDI2ZDgxMDRjYmUwODk0YjBjYmJkZmE1NGU3YWYzYjhmYQ@capital-bat-126698.upstash.io:6379'
-                )
-            ],
+REDIS_URL = os.environ.get('REDIS_URL')
+
+if REDIS_URL:
+    # PRODUÇÃO: Usa o Upstash (Render) com proteção anti-queda para channels_redis 4.3.0+
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [
+                    {
+                        "address": REDIS_URL,
+                        "health_check_interval": 20, # Envia um PING a cada 20s para o Upstash não fechar a porta
+                        "socket_keepalive": True,    # Força o SO a manter o túnel TCP aberto
+                    }
+                ],
+            },
         },
-    },
-}
+    }
+else:
+    # DESENVOLVIMENTO: Usa a memória local (Seu computador)
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
 # =============================================================================
 # LOGGING (Opcional - para debug em produção)
