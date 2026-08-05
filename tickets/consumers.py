@@ -24,6 +24,21 @@ class NotificacaoConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
 
+    async def receive(self, text_data=None, bytes_data=None):
+        # Responde ao 'ping' do heartbeat do cliente para manter a conexão
+        # Redis/ASGI ativa. Mensagens vazias ou desconhecidas são ignoradas
+        # para que o canal nunca engasgue com pacotes vazios.
+        if not text_data:
+            return
+
+        try:
+            data = json.loads(text_data)
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        if data.get('type') == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+
     # Esta função é chamada quando o servidor quer enviar um alerta para o navegador
     async def enviar_alerta(self, event):
         mensagem = event['mensagem']
