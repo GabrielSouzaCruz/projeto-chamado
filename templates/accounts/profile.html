@@ -3,69 +3,153 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="fas fa-user me-2"></i>Meu Perfil</h4>
+    <div class="col-md-8 col-lg-6">
+
+        <!-- Card Principal de Perfil -->
+        <div class="card shadow-sm border-0" style="border-radius: 16px; overflow: hidden;">
+
+            <!-- Profile Header -->
+            <div class="card-header bg-primary text-white text-center py-4 border-0">
+                <div class="avatar-circle mx-auto d-flex align-items-center justify-content-center"
+                     style="width: 84px; height: 84px; border-radius: 50%; background-color: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.6); font-size: 1.8rem; font-weight: 700;">
+                    {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
+                </div>
+                <h4 class="mb-1 mt-3 fw-bold">{{ user.get_full_name|default:user.username }}</h4>
+                <div>
+                    <span class="badge rounded-pill text-white" style="background-color: rgba(255,255,255,0.25);">
+                        <i class="fas {{ user.is_technician|yesno:'fa-wrench,fa-user' }} me-1"></i>
+                        {% if user.is_technician %}Técnico de TI{% else %}Solicitante{% endif %}
+                    </span>
+                </div>
             </div>
-            <div class="card-body">
-                <form method="post">
+
+            <div class="card-body p-4">
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'success' }} alert-dismissible fade show shadow-sm" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2" role="alert">
+                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" id="profile-form">
                     {% csrf_token %}
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Nome de Usuário</label>
+                            <label class="form-label fw-semibold">Nome de Usuário</label>
                             <input type="text" value="{{ user.username }}" class="form-control bg-light" disabled>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">E-mail</label>
-                            <input type="email" name="email" class="form-control" value="{{ form.email.value|default_if_none:'' }}" required>
+                            <label class="form-label fw-semibold">E-mail</label>
+                            <input type="email" name="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}" value="{{ form.email.value|default_if_none:'' }}" required>
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Nome</label>
-                            <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default_if_none:'' }}">
+                            <label class="form-label fw-semibold">Nome</label>
+                            <input type="text" name="first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" value="{{ form.first_name.value|default_if_none:'' }}">
+                            {% if form.first_name.errors %}
+                                <div class="invalid-feedback">{{ form.first_name.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Sobrenome</label>
-                            <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default_if_none:'' }}">
+                            <label class="form-label fw-semibold">Sobrenome</label>
+                            <input type="text" name="last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" value="{{ form.last_name.value|default_if_none:'' }}">
+                            {% if form.last_name.errors %}
+                                <div class="invalid-feedback">{{ form.last_name.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Departamento</label>
-                            <input type="text" name="departamento" class="form-control" value="{{ form.departamento.value|default_if_none:'' }}">
+                            <label class="form-label fw-semibold">Departamento</label>
+                            <input type="text" name="departamento" class="form-control {% if form.departamento.errors %}is-invalid{% endif %}" value="{{ form.departamento.value|default_if_none:'' }}">
+                            {% if form.departamento.errors %}
+                                <div class="invalid-feedback">{{ form.departamento.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" name="telefone" class="form-control" value="{{ form.telefone.value|default_if_none:'' }}">
+                            <label class="form-label fw-semibold">Telefone</label>
+                            <input type="text" name="telefone" class="form-control {% if form.telefone.errors %}is-invalid{% endif %}" value="{{ form.telefone.value|default_if_none:'' }}">
+                            {% if form.telefone.errors %}
+                                <div class="invalid-feedback">{{ form.telefone.errors.0 }}</div>
+                            {% endif %}
                         </div>
                     </div>
+                    {% for hidden in form.hidden_fields %}
+                        {{ hidden }}
+                    {% endfor %}
+
                     <div class="d-flex justify-content-end mt-4">
-                        <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Salvar</button>
+                        <button type="submit" id="save-btn" class="btn btn-primary px-4 shadow-sm" style="border-radius: 12px;">
+                            <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            <i class="fas fa-save me-1"></i><span class="btn-text">Salvar</span>
+                        </button>
                     </div>
                 </form>
             </div>
+
+            <div class="card-footer bg-light border-0 py-3">
+                <div class="d-flex justify-content-between align-items-center fw-semibold">
+                    <a href="{% url 'accounts:alterar_senha' %}" class="text-decoration-none text-muted small">
+                        <i class="fas fa-key me-1"></i>Alterar minha senha
+                    </a>
+                </div>
+            </div>
         </div>
 
-        <div class="card mt-4 shadow-sm border-0 bg-light">
+        <!-- Stats de Chamados -->
+        <div class="card mt-4 shadow-sm border-0" style="border-radius: 16px;">
             <div class="card-body">
-                <div class="row text-center">
+                <div class="row text-center g-3">
                     <div class="col-md-4">
-                        <h2 class="text-primary fw-bold">{{ stats.total|default:0 }}</h2>
-                        <span class="text-muted">Total de Chamados</span>
+                        <h2 class="text-primary fw-bold mb-0">{{ stats.total|default:0 }}</h2>
+                        <span class="text-muted small">Total de Chamados</span>
                     </div>
                     <div class="col-md-4">
-                        <h2 class="text-success fw-bold">{{ stats.resolvidos|default:0 }}</h2>
-                        <span class="text-muted">Resolvidos</span>
+                        <h2 class="text-success fw-bold mb-0">{{ stats.resolvidos|default:0 }}</h2>
+                        <span class="text-muted small">Resolvidos</span>
                     </div>
                     <div class="col-md-4">
-                        <h2 class="text-warning fw-bold">{{ stats.abertos|default:0 }}</h2>
-                        <span class="text-muted">Em Aberto</span>
+                        <h2 class="text-warning fw-bold mb-0">{{ stats.abertos|default:0 }}</h2>
+                        <span class="text-muted small">Em Aberto</span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('profile-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+        const btn = document.getElementById('save-btn');
+        if (btn) {
+            setTimeout(function () {
+                btn.disabled = true;
+                const spinner = btn.querySelector('.spinner-border');
+                const text = btn.querySelector('.btn-text');
+                const icon = btn.querySelector('i');
+                if (spinner) spinner.classList.remove('d-none');
+                if (icon) icon.classList.add('d-none');
+                if (text) text.textContent = ' A salvar...';
+            }, 0);
+        }
+    });
+});
 {% endblock %}

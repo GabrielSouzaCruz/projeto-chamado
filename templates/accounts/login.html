@@ -13,7 +13,7 @@
                 <p class="mb-0 opacity-75 small">Prefeitura Municipal de Machado</p>
             </div>
             <div class="card-body p-4 p-lg-5">
-                <form method="post">
+                <form method="post" id="login-form">
                     {% csrf_token %}
 
                     {% if form.errors %}
@@ -43,7 +43,7 @@
                     </div>
 
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm" aria-label="Acessar o sistema com suas credenciais">
+                        <button type="submit" id="login-btn" class="btn btn-primary btn-lg fw-bold shadow-sm" aria-label="Acessar o sistema com suas credenciais">
                             <i class="fas fa-sign-in-alt me-2"></i> ACESSAR SISTEMA
                         </button>
                     </div>
@@ -63,4 +63,22 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('login-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function () {
+        const btn = document.getElementById('login-btn');
+        if (!btn) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A autenticar...';
+        btn.setAttribute('aria-busy', 'true');
+    });
+});
+</script>
 {% endblock %}

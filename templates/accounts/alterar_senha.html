@@ -16,7 +16,7 @@
                     <small><i class="fas fa-info-circle me-1"></i> Por segurança, escolha uma senha forte que você não use em outros sites.</small>
                 </div>
 
-                <form method="post">
+                <form method="post" id="password-change-form">
                     {% csrf_token %}
 
                     <div class="mb-3">
@@ -61,7 +61,7 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary fw-bold py-2 shadow-sm rounded-pill">
+                        <button type="submit" id="password-change-btn" class="btn btn-primary fw-bold py-2 shadow-sm rounded-pill">
                             <i class="fas fa-save me-1"></i> Atualizar Senha
                         </button>
                         <a href="{% url 'accounts:profile' %}" class="btn btn-link text-muted text-decoration-none small">
@@ -73,4 +73,22 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('password-change-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function () {
+        const btn = document.getElementById('password-change-btn');
+        if (!btn) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A atualizar...';
+        btn.setAttribute('aria-busy', 'true');
+    });
+});
+</script>
 {% endblock %}
