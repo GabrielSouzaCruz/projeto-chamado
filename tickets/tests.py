@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 
 from .models import Categoria, Comentario, Ticket
@@ -14,23 +15,17 @@ from .services import (
 
 User = get_user_model()
 
-# Usa o channel layer em memória para os testes não dependerem de Redis.
-MEMORIA_CHANNEL_LAYERS = {
-    'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}
-}
 
-
-class FakeChannelLayer:
-    """Channel layer fake cujo group_send é async (como no Redis de verdade)."""
+class FakePusherClient:
+    """Fake do client do Pusher, cujo trigger() registra os disparos."""
 
     def __init__(self):
         self.calls = []
 
-    async def group_send(self, group, message):
-        self.calls.append((group, message))
+    def trigger(self, canais, evento, dados):
+        self.calls.append((canais, evento, dados))
 
 
-@override_settings(CHANNEL_LAYERS=MEMORIA_CHANNEL_LAYERS)
 class BaseChamadoTest(TestCase):
     """Configuração comum: usuários, categoria e criação de chamados."""
 
@@ -56,48 +51,65 @@ class BaseChamadoTest(TestCase):
 
 
 class TesteSinais(BaseChamadoTest):
-    """Valida que os signals disparam corretamente via WebSocket."""
+    """Valida que os signals disparam eventos corretamente no Pusher."""
 
-    def test_ticket_criado_dispara_notificacao_globais(self):
-        fake = FakeChannelLayer()
-        with patch('tickets.signals.get_channel_layer', return_value=fake):
+    def _com_pusher(self, fake):
+        return patch.object(settings, 'PUSHER_CLIENT', fake)
+
+    def test_ticket_criado_dispara_novo_ticket(self):
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
             ticket = self.criar_ticket()
 
         self.assertEqual(len(fake.calls), 1)
-        grupo, mensagem = fake.calls[0]
-        self.assertEqual(grupo, 'notificacoes_globais')
-        self.assertEqual(mensagem['type'], 'enviar_alerta')
-        self.assertEqual(mensagem['tipo'], 'info')
-        self.assertEqual(mensagem['ticket_id'], ticket.id)
-        self.assertIn(ticket.titulo, mensagem['mensagem'])
+        canais, evento, dados = fake.calls[0]
+        self.assertEqual(canais, ['fila-global'])
+        self.assertEqual(evento, 'novo_ticket')
+        self.assertEqual(dados['ticket_id'], ticket.id)
+        self.assertEqual(dados['action'], 'novo_ticket')
 
-    def test_ticket_cancelado_dispara_tipo_danger(self):
+    def test_ticket_cancelado_dispara_nos_canais_global_e_do_ticket(self):
         ticket = self.criar_ticket()
-        fake = FakeChannelLayer()
-        with patch('tickets.signals.get_channel_layer', return_value=fake):
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
             ticket.status = Ticket.Status.CANCELADO
             ticket.save()
 
         self.assertEqual(len(fake.calls), 1)
-        grupo, mensagem = fake.calls[0]
-        self.assertEqual(grupo, 'notificacoes_globais')
-        self.assertEqual(mensagem['tipo'], 'danger')
-        self.assertEqual(mensagem['ticket_id'], ticket.id)
+        canais, evento, dados = fake.calls[0]
+        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
+        self.assertEqual(evento, 'ticket_cancelado')
+        self.assertEqual(dados['ticket_id'], ticket.id)
+        self.assertEqual(dados['action'], 'ticket_cancelado')
 
-    def test_comentario_criado_dispara_notificacao_com_ticket_id(self):
+    def test_ticket_atualizado_dispara_ticket_atualizado(self):
+        ticket = self.criar_ticket(status=Ticket.Status.EM_ANDAMENTO)
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
+            ticket.status = Ticket.Status.RESOLVIDO
+            ticket.save()
+
+        self.assertEqual(len(fake.calls), 1)
+        canais, evento, dados = fake.calls[0]
+        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
+        self.assertEqual(evento, 'ticket_atualizado')
+        self.assertEqual(dados['action'], 'ticket_atualizado')
+        self.assertEqual(dados['status'], Ticket.Status.RESOLVIDO)
+
+    def test_comentario_criado_dispara_novo_comentario_no_canal_do_ticket(self):
         ticket = self.criar_ticket()
-        fake = FakeChannelLayer()
-        with patch('tickets.signals.get_channel_layer', return_value=fake):
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
             Comentario.objects.create(
                 ticket=ticket, autor=self.solicitante, mensagem='Preciso de ajuda.'
             )
 
         self.assertEqual(len(fake.calls), 1)
-        grupo, mensagem = fake.calls[0]
-        self.assertEqual(grupo, 'notificacoes_globais')
-        self.assertEqual(mensagem['tipo'], 'success')
-        self.assertEqual(mensagem['ticket_id'], ticket.id)
-        self.assertIn(str(ticket.id), mensagem['mensagem'])
+        canais, evento, dados = fake.calls[0]
+        self.assertEqual(canais, [f'ticket-{ticket.id}'])
+        self.assertEqual(evento, 'novo_comentario')
+        self.assertEqual(dados['ticket_id'], ticket.id)
+        self.assertEqual(dados['action'], 'novo_comentario')
 
 
 class TesteServicos(BaseChamadoTest):

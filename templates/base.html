@@ -252,10 +252,9 @@
 
 {% if user.is_authenticated %}
 <script>
-    // 1. Objeto de áudio global
+    // 1. Áudio global + permissão de Notificação
     const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
-    // 2. Pedir permissão para Notificações do Windows/Navegador
     document.addEventListener('DOMContentLoaded', function() {
         if ("Notification" in window) {
             if (Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -264,111 +263,13 @@
         }
     });
 
-    // 3. Conexão com o WebSocket (tempo real) com reconexão automática e heartbeat
-    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const MAX_TEMPO_RECONEXAO = 30000;  // teto de 30s
-    const INTERVALO_HEARTBEAT = 25000;  // 25s
-    let notificacaoSocket = null;
-    let tentativaReconexao = 0;
-    let heartbeatIntervalo = null;
-
-    // Reconexão Exponencial: 1s, 2s, 4s... até o teto de 30s
-    function calcularTempoReconexao() {
-        const atraso = Math.min(1000 * Math.pow(2, tentativaReconexao), MAX_TEMPO_RECONEXAO);
-        tentativaReconexao += 1;
-        return atraso;
-    }
-
-    function conectarNotificacoes() {
-        notificacaoSocket = new WebSocket(
-            ws_scheme + '://' + window.location.host + '/ws/notificacoes/'
-        );
-
-        notificacaoSocket.onopen = function() {
-            // Conexão ok: zera o contador do backoff
-            tentativaReconexao = 0;
-
-            // Heartbeat: mantém a conexão Redis/ASGI sempre ativa
-            if (heartbeatIntervalo) {
-                clearInterval(heartbeatIntervalo);
-            }
-            heartbeatIntervalo = setInterval(function() {
-                if (notificacaoSocket && notificacaoSocket.readyState === WebSocket.OPEN) {
-                    notificacaoSocket.send(JSON.stringify({ type: 'ping' }));
-                }
-            }, INTERVALO_HEARTBEAT);
-        };
-
-        // 5. Recebendo a notificação instantânea do servidor
-        notificacaoSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-
-            // Resposta de 'pong' ao heartbeat (apenas mantém a conexão viva)
-            if (data.type === 'pong') {
-                return;
-            }
-
-            const mensagem = data.mensagem;
-            const tipo = data.tipo; 
-
-            // Toca o som de alerta
-            notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
-
-
-            // Mostra o Toast visual
-            mostrarNotificacao(`🔔 ` + mensagem, tipo);
-
-
-            // Notificação Nativa do Sistema Operacional
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("Central de Chamados", {
-                    body: mensagem,
-                    icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
-                    badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
-                });
-            }
-
-            // --- A MÁGICA ACONTECE AQUI ---
-            // Em vez de checar a URL, o JavaScript simplesmente pergunta:
-            // "A função de atualizar existe nesta tela? Se sim, executa!"
-
-            if (typeof window.atualizarFilaAdmin === 'function') {
-                window.atualizarFilaAdmin(data.ticket_id);
-            } 
-
-            if (typeof window.atualizarDashboard === 'function') {
-                window.atualizarDashboard();
-            }
-
-
-            if (typeof window.atualizarChat === 'function') {
-                window.atualizarChat();
-            }
-        };
-
-        notificacaoSocket.onclose = function(e) {
-            // Para o heartbeat antes de tentar reconectar
-            if (heartbeatIntervalo) {
-                clearInterval(heartbeatIntervalo);
-                heartbeatIntervalo = null;
-            }
-
-            if (!e.wasClean) {
-                console.error('O WebSocket foi fechado inesperadamente. Tentando reconectar...');
-            }
-
-            // Tenta reconectar com backoff exponencial (1s, 2s, 4s...) até 30s
-            setTimeout(conectarNotificacoes, calcularTempoReconexao());
-        };
-    }
-
-    // 4. Função do Toast interno bonito
+    // 2. Toast visual interno
     function mostrarNotificacao(mensagem, tipo) {
         const toastContainer = document.createElement('div');
         toastContainer.className = 'position-fixed top-0 end-0 p-3';
         toastContainer.style.zIndex = '10000';
-        
-        const corFundo = tipo === 'success' ? '#198754' : 'var(--primary-color)';
+
+        const corFundo = tipo === 'success' ? '#198754' : (tipo === 'danger' ? '#dc3545' : 'var(--primary-color)');
 
         toastContainer.innerHTML = `
             <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: ${corFundo};">
@@ -381,10 +282,85 @@
         document.body.appendChild(toastContainer);
         setTimeout(() => toastContainer.remove(), 6000);
     }
-
-    // Inicia a conexão WebSocket (com suporte à reconexão automática por backoff)
-    conectarNotificacoes();
 </script>
-    {% endif %}
+{% endif %}
+
+{% if user.is_authenticated and PUSHER_ENABLED %}
+<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+<script>
+    // 3. Tempo real via Pusher (o servidor envia só metadados; HTML/refresh é local)
+    const pusher = new Pusher("{{ PUSHER_KEY }}", {
+        cluster: "{{ PUSHER_CLUSTER }}",
+        forceTLS: true,
+        // Plano gratuito: apenas WebSocket (sem fallback HTTP que infla conexões/mensagens)
+        enabledTransports: ["ws", "wss"],
+    });
+
+    // 4. Política da Aba Fantasma (Page Visibility API): aba oculta não paga conexão
+    document.addEventListener("visibilitychange", function() {
+        if (document.hidden) {
+            pusher.disconnect();
+        } else if (pusher.connection.state !== "connected" && pusher.connection.state !== "connecting") {
+            pusher.connect();
+        }
+    });
+
+    // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor)
+    function textoEvento(data) {
+        const acoes = {
+            novo_ticket: "Novo chamado aberto",
+            ticket_atualizado: "Chamado atualizado",
+            ticket_cancelado: "Chamado cancelado",
+            novo_comentario: "Nova mensagem no chamado",
+        };
+        const prefixo = acoes[data.action] || "Atualização no chamado";
+        return "🔔 " + prefixo + " #" + data.ticket_id;
+    }
+
+    function tratarEvento(data) {
+        // Áudio
+        notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
+
+        // Toast visual
+        const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
+        mostrarNotificacao(textoEvento(data), tipo);
+
+        // Notificação nativa do sistema
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Central de Chamados", {
+                body: textoEvento(data),
+                icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
+                badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
+            });
+        }
+
+        // 6. Reaproveita as funções locais de refresh (existem apenas nas telas certas)
+        if (typeof window.atualizarFilaAdmin === 'function') {
+            window.atualizarFilaAdmin(data.ticket_id);
+        }
+        if (typeof window.atualizarDashboard === 'function') {
+            window.atualizarDashboard();
+        }
+        if (typeof window.atualizarChat === 'function') {
+            window.atualizarChat();
+        }
+    }
+
+    // 7. Canais: fila global + canal específico do chamado em exibição
+    const canais = ["fila-global"];
+    const urlMatch = window.location.pathname.match(/^\/tickets\/(\d+)/);
+    if (urlMatch) {
+        canais.push("ticket-" + urlMatch[1]);
+    }
+
+    canais.forEach(function(nome) {
+        const canal = pusher.subscribe(nome);
+        canal.bind("novo_ticket", tratarEvento);
+        canal.bind("ticket_atualizado", tratarEvento);
+        canal.bind("ticket_cancelado", tratarEvento);
+        canal.bind("novo_comentario", tratarEvento);
+    });
+</script>
+{% endif %}
 </body>
 </html>
