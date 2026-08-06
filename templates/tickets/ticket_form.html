@@ -104,12 +104,12 @@
 
                     <div class="mb-4 p-4 border rounded-3 bg-light text-center border-dashed">
                         <i class="fas fa-cloud-upload-alt fa-3x text-secondary mb-3" aria-hidden="true"></i>
-                        <label for="{{ form.anexo.id_for_label }}" class="form-label fw-bold d-block">Anexar Ficheiro ou Captura de Ecrã (Opcional)</label>
+                        <legend class="form-label fw-bold d-block">Anexar Ficheiro ou Captura de Ecrã (Opcional)</legend>
                         <div class="d-flex justify-content-center flex-column align-items-center gap-2">
                             {{ form.anexo }}
                             <span id="wizard-file-name" class="small text-muted">Também podes colar uma imagem com Ctrl+V nesta etapa.</span>
                         </div>
-                        <div class="form-text mt-2">Envie imagens, PDFs ou documentos que ajudem a equipa de TI a entender o problema.</div>
+                        <div class="form-text mt-2">Apenas imagens ou PDF, no máximo 2MB. Anexos são removidos automaticamente após um período.</div>
                     </div>
 
                     <div class="alert alert-info border-0 shadow-sm mb-4" role="status">

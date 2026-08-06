@@ -1,21 +1,21 @@
-# config/urls.py - VERSÃO ALTERNATIVA
+# config/urls.py
 
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from django.conf.urls.static import static
-from django.views.generic.base import RedirectView  # ✅ Import alternativo
+from django.views.static import serve
+from django.views.generic.base import RedirectView
 
 urlpatterns = [
     # Admin do Django
     path('admin/', admin.site.urls),
-    
+
     # App de autenticação
     path('accounts/', include('accounts.urls')),
-    
+
     # App de tickets (COM PREFIXO /tickets/)
     path('tickets/', include('tickets.urls')),
-    
+
     # Redirect raiz para dashboard (usando RedirectView)
     path('', RedirectView.as_view(pattern_name='tickets:dashboard', permanent=False)),
 ]
@@ -25,6 +25,10 @@ handler404 = 'tickets.views.error_404'
 handler500 = 'tickets.views.error_500'
 handler403 = 'tickets.views.error_403'
 
-# Media files (apenas DEBUG)
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Media files: servidos em produção pelo Django.
+# Como o Render (modo WSGI puro) não tem Nginx/cache para o /media/, o Django
+# serve diretamente a partir de MEDIA_ROOT. Os anexos são apenas PDFs/imagens
+# pequenos com upload limitado a 5MB (proteção via DATA_UPLOAD_MAX_MEMORY_SIZE).
+urlpatterns += [
+    path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
+]

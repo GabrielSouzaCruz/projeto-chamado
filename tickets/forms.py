@@ -3,15 +3,17 @@ from django import forms
 from accounts.models import User
 from .models import Ticket, Comentario, Categoria
 
+EXTENSOES_PERMITIDAS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'pdf'}
+TAMANHO_MAXIMO = 2 * 1024 * 1024  # 2MB
+
 def validar_arquivo(arquivo):
-    """Função auxiliar para validar tamanho e extensão de anexos."""
+    """Valida que o anexo seja imagem/PDF leve (máx. 2MB)."""
     if arquivo:
         ext = arquivo.name.split('.')[-1].lower()
-        permitidos = ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx']
-        if ext not in permitidos:
-            raise forms.ValidationError(f'Extensão não permitida. Use: {", ".join(permitidos)}')
-        if arquivo.size > 5 * 1024 * 1024:
-            raise forms.ValidationError('O arquivo não pode exceder 5MB.')
+        if ext not in EXTENSOES_PERMITIDAS:
+            raise forms.ValidationError('Formato não permitido. Envie apenas imagens (JPG, PNG, GIF, WEBP) ou PDF.')
+        if arquivo.size > TAMANHO_MAXIMO:
+            raise forms.ValidationError('O arquivo não pode exceder 2MB.')
     return arquivo
 
 class TicketForm(forms.ModelForm):
@@ -23,7 +25,7 @@ class TicketForm(forms.ModelForm):
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Detalhe o problema...'}),
             'categoria': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'prioridade': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'anexo': forms.FileInput(attrs={'class': 'form-control'}), # Bootstrap class
+            'anexo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*,application/pdf'}), # Bootstrap class
         }
     
     def __init__(self, *args, **kwargs):
@@ -40,7 +42,7 @@ class ComentarioForm(forms.ModelForm):
         fields = ['mensagem', 'interno', 'anexo']
         widgets = {
             'mensagem': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Digite seu comentário...'}),
-            'anexo': forms.FileInput(attrs={'class': 'form-control'}), # Bootstrap class
+            'anexo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*,application/pdf'}), # Bootstrap class
         }
     
     def __init__(self, *args, **kwargs):
