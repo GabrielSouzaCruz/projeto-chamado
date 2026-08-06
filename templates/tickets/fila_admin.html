@@ -3,6 +3,60 @@
 
 {% block title %}Fila de Chamados - Gestão Técnica{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ===== Skeleton Screens (Esqueletos de Carregamento) ===== */
+    .skeleton {
+        background-color: #e9ecef;
+        border-radius: 4px;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+        animation: skeleton-pulse 1.2s ease-in-out infinite;
+    }
+    .skeleton-block { display: block; height: 14px; }
+    .skeleton-bar { display: inline-block; height: 14px; }
+    @keyframes skeleton-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    /* Linhas falsas da tabela: sem bordas para simular conteúdo carregando */
+    tbody .skeleton-row td { border: 0; padding: 12px 8px; }
+    .skeleton-row td:first-child { padding-left: 1.5rem; }
+    .skeleton-row td:last-child { padding-right: 1.5rem; }
+
+    /* ===== Indicadores de Status — Pulse / Glow sutil ===== */
+    @keyframes badge-glow-critico {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        50% { box-shadow: 0 0 8px 2px rgba(220, 53, 69, 0.45); }
+    }
+    .glow-critico {
+        box-shadow: 0 0 8px rgba(220, 53, 69, 0.55);
+        animation: badge-glow-critico 1.4s ease-in-out infinite;
+    }
+    @keyframes badge-glow-alta {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        50% { box-shadow: 0 0 8px 2px rgba(255, 193, 7, 0.5); }
+    }
+    .glow-alta {
+        box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+        animation: badge-glow-alta 1.6s ease-in-out infinite;
+    }
+    /* Ponto verde "Ao vivo" (tempo real ativo) */
+    .status-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background-color: #20c74a;
+        display: inline-block; flex-shrink: 0;
+        animation: dot-real-time 1.6s ease-in-out infinite;
+    }
+    @keyframes dot-real-time {
+        0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.6); }
+        70% { box-shadow: 0 0 0 8px rgba(40, 167, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -96,7 +150,10 @@
         <h6 class="mb-0 fw-bold text-primary">
             <i class="fas fa-list-ul me-2" aria-hidden="true"></i>Fila de Chamados (<span id="count-tickets">{{ tickets.count|default:0 }}</span>)
         </h6>
-        <div id="indicador-atualizacao" class="small text-muted" role="status" aria-live="polite">Sincronizado</div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-dot" role="img" aria-label="Conexão em tempo real ativa" title="Tempo real ativo"></span>
+            <div id="indicador-atualizacao" class="small text-muted" role="status" aria-live="polite">Sincronizado</div>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0" aria-label="Tabela de gerenciamento da fila de atendimento">
@@ -126,11 +183,57 @@ let ultimaSincronizacao = new Date();
 
 document.addEventListener('DOMContentLoaded', function() {
     
+    // Guarda os valores originais das estatísticas para restaurar após o fetch
+    const valoresEstatisticas = {
+        'stat-total-hoje': (document.getElementById('stat-total-hoje') || {}).innerHTML,
+        'stat-sem-tecnico': (document.getElementById('stat-sem-tecnico') || {}).innerHTML,
+        'stat-criticos': (document.getElementById('stat-criticos') || {}).innerHTML
+    };
+
+    // Gera o HTML do esqueleto (linhas falsas com barras cinzentas)
+    function esqueletoTabelaHTML(linhas = 5) {
+        let html = '';
+        for (let i = 0; i < linhas; i++) {
+            html += `
+            <tr class="skeleton-row">
+                <td><span class="skeleton" style="width:38px; height:16px;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:75%;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:60%;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:50%;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:45%;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:50%;"></span></td>
+                <td><span class="skeleton skeleton-block" style="width:55%;"></span></td>
+                <td class="text-end"><span class="skeleton" style="width:32px; height:32px; border-radius:50%;"></span></td>
+            </tr>`;
+        }
+        return html;
+    }
+
+    // Mostra esqueletos também nos cartões de estatísticas
+    function esqueletoEstatisticas() {
+        const ids = ['stat-total-hoje', 'stat-sem-tecnico', 'stat-criticos'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<span class="skeleton" style="width:44px; height:22px;"></span>';
+        });
+    }
+
+    function restaurarEstatisticas() {
+        Object.keys(valoresEstatisticas).forEach(id => {
+            const el = document.getElementById(id);
+            if (el && valoresEstatisticas[id] !== undefined) el.innerHTML = valoresEstatisticas[id];
+        });
+    }
+
     // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML)
     window.atualizarFilaAdmin = function(ticketIdRecebido = null) {
         const tbodyFila = document.getElementById("fila-tbody");
 
         if (tbodyFila) {
+            // Esqueleto: injeta linhas falsas + esqueleto nos stats ANTES do fetch
+            tbodyFila.innerHTML = esqueletoTabelaHTML();
+            esqueletoEstatisticas();
+
             const params = new URLSearchParams(window.location.search);
             params.append('_t', Date.now());
 
@@ -144,15 +247,19 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(url)
                 .then(res => res.text())
                 .then(html => {
-                    // Injeta diretamente as novas linhas na tabela!
+                    // Substitui o esqueleto pelo HTML real das linhas!
                     tbodyFila.innerHTML = html;
+                    restaurarEstatisticas();
 
                     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
                     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
 
                     mostrarAvisoAtualizacao();
                 })
-                .catch(err => console.error('Erro na atualização da fila:', err));
+                .catch(err => {
+                    console.error('Erro na atualização da fila:', err);
+                    restaurarEstatisticas();
+                });
         }
     };
 

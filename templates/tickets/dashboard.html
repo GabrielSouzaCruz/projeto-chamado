@@ -93,6 +93,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 1.1 FEEDBACK DE AÇÕES RÁPIDAS no submit nativo do modal de cancelamento
+    const formCancelar = document.getElementById("formCancelarTicket");
+    if (formCancelar) {
+        formCancelar.addEventListener("submit", function() {
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A processar...';
+            }
+        });
+    }
+
     // 2. FUNÇÃO GLOBAL DE ATUALIZAÇÃO (Via rápida - Mini-APIs HTML)
     window.atualizarDashboard = function() {
         const cardsContainer = document.getElementById("dashboard-cards-container");

@@ -313,20 +313,27 @@
     }
 
     function tratarEvento(data) {
-        // Áudio
-        notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
+        // 5a. Mute anti-eco: se o usuário acabou de enviar o próprio comentário,
+        // silencia áudio/toast/notification, mas SEMPRE atualiza as telas.
+        const silenciar = window.silenciarProximaNotificacao === true;
+        window.silenciarProximaNotificacao = false;
 
-        // Toast visual
-        const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
-        mostrarNotificacao(textoEvento(data), tipo);
+        if (!silenciar) {
+            // Áudio
+            notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
 
-        // Notificação nativa do sistema
-        if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Central de Chamados", {
-                body: textoEvento(data),
-                icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
-                badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
-            });
+            // Toast visual
+            const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
+            mostrarNotificacao(textoEvento(data), tipo);
+
+            // Notificação nativa do sistema
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Central de Chamados", {
+                    body: textoEvento(data),
+                    icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
+                    badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
+                });
+            }
         }
 
         // 6. Reaproveita as funções locais de refresh (existem apenas nas telas certas)

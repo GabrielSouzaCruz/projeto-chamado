@@ -23,9 +23,9 @@
     </td>
     <td>
         {% if ticket.prioridade == 'critica' or ticket.prioridade == '4' %}
-            <span class="badge bg-danger px-3">Crítica</span>
+            <span class="badge bg-danger px-3 glow-critico">Crítica</span>
         {% elif ticket.prioridade == 'alta' or ticket.prioridade == '3' %}
-            <span class="badge bg-warning text-dark px-3">Alta</span>
+            <span class="badge bg-warning text-dark px-3 glow-alta">Alta</span>
         {% elif ticket.prioridade == 'normal' or ticket.prioridade == '2' %}
             <span class="badge bg-primary px-3">Normal</span>
         {% else %}

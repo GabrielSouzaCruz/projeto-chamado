@@ -92,6 +92,52 @@
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
+
+    /* ===== Indicadores de Status — Pulse / Glow sutil ===== */
+    @keyframes badge-glow-critico {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        50% { box-shadow: 0 0 8px 2px rgba(220, 53, 69, 0.45); }
+    }
+    .glow-critico {
+        box-shadow: 0 0 8px rgba(220, 53, 69, 0.55);
+        animation: badge-glow-critico 1.4s ease-in-out infinite;
+    }
+    @keyframes badge-glow-alta {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        50% { box-shadow: 0 0 8px 2px rgba(255, 193, 7, 0.5); }
+    }
+    .glow-alta {
+        box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+        animation: badge-glow-alta 1.6s ease-in-out infinite;
+    }
+
+    /* ================================================
+       RESPONSIVIDADE — Media Queries Originais
+       ================================================ */
+    @media (max-width: 1400px) {
+        .chat-bubble { max-width: 80%; }
+    }
+
+    @media (max-width: 1100px) {
+        .chat-bubble { max-width: 85%; }
+    }
+
+    @media (max-width: 992px) {
+        #comentarios-container { height: 55vh; }
+        #main-content { padding-top: 1rem; }
+        .management-card { margin-top: .5rem; }
+    }
+
+    @media (max-width: 768px) {
+        #comentarios-container { height: 55vh; }
+        .chat-action-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .chat-action-bar .chat-actions { width: 100%; }
+        .chat-action-bar .btn { width: 100%; }
+        .chat-action-bar .chat-send { width: 100%; }
+    }
 </style>
 {% endblock %}
 
@@ -105,7 +151,20 @@
                         <h1 class="h3 fw-bold mb-0">{{ ticket.titulo }}</h1>
                         {% include 'tickets/_ticket_status_badge.html' %}
                     </div>
-                    <p class="text-secondary">{{ ticket.descricao|linebreaks }}</p>
+                    <p class="text-secondary mb-2">{{ ticket.descricao|linebreaks }}</p>
+
+                    {% if ticket.solicitante.departamento %}
+                    <p class="mb-2 small text-muted">
+                        <i class="fas fa-building me-1" aria-hidden="true"></i>
+                        <strong>Setor:</strong> {{ ticket.solicitante.departamento }}
+                    </p>
+                    {% endif %}
+
+                    {% if ticket.anexo %}
+                    <a href="{{ ticket.anexo.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-paperclip me-1" aria-hidden="true"></i> Ver Anexo Inicial
+                    </a>
+                    {% endif %}
                 </div>
             </header>
 
@@ -124,15 +183,24 @@
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
                         <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." required></textarea>
                         
-                        <div class="d-flex justify-content-between align-items-center gap-2">
-                            <div class="d-flex align-items-center gap-2">
+                        <div class="chat-action-bar d-flex justify-content-between align-items-center gap-2">
+                            <div class="chat-actions d-flex align-items-center flex-wrap gap-2">
                                 <label for="chat-file" class="btn btn-outline-primary btn-sm mb-0">
                                     <i class="fas fa-paperclip" aria-hidden="true"></i> Anexar
                                 </label>
                                 <input type="file" name="anexo" id="chat-file" class="d-none">
                                 <span id="file-name-display" class="small text-muted text-truncate" style="max-width: 180px;">Sem anexo</span>
+
+                                {% if user.is_technician %}
+                                <label class="form-check form-switch mb-0 ms-1" title="Visível apenas para a equipe técnica">
+                                    <input class="form-check-input" type="checkbox" name="interno" id="id_interno">
+                                    <span class="form-check-label small text-warning fw-bold">
+                                        <i class="fas fa-lock me-1" aria-hidden="true"></i>Nota Interna
+                                    </span>
+                                </label>
+                                {% endif %}
                             </div>
-                            <button type="submit" class="btn btn-primary">Enviar</button>
+                            <button type="submit" class="chat-send btn btn-primary">Enviar</button>
                         </div>
                     </form>
                 </div>
@@ -140,6 +208,33 @@
         </article>
 
         <aside class="col-lg-4">
+
+            <!-- Metadados do Chamado (visível a todos) -->
+            <div class="card management-card mb-4 border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h2 class="h6 mb-0 fw-bold"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>Informações do Chamado</h2>
+                </div>
+                <div class="card-body">
+                    <div class="info-meta small">
+                        <p class="mb-1">
+                            <strong>Solicitante:</strong> {{ ticket.solicitante.get_full_name|default:ticket.solicitante.username }}
+                        </p>
+                        {% if ticket.solicitante.departamento %}
+                        <p class="mb-1">
+                            <strong>Setor:</strong> {{ ticket.solicitante.departamento }}
+                        </p>
+                        {% endif %}
+                        <p class="mb-1">
+                            <strong>Aberto em:</strong> {{ ticket.criado_em|date:"d/m/Y H:i" }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>Prioridade:</strong>
+                            <span class="badge badge-priority-{{ ticket.prioridade }} {% if ticket.prioridade == 'critica' %}glow-critico{% elif ticket.prioridade == 'alta' %}glow-alta{% endif %}">{{ ticket.get_prioridade_display }}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {% if user.is_technician or user.is_superuser %}
             <div class="card management-card mb-4 border-0 shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -153,6 +248,16 @@
                             <i class="fas fa-hand-paper me-1" aria-hidden="true"></i> Assumir Chamado
                         </button>
                     </form>
+                    {% endif %}
+
+                    {% if ticket.tecnico_responsavel %}
+                    <div class="d-flex align-items-start gap-2 p-3 mb-3 border-start border-info border-4 bg-light rounded-3">
+                        <i class="fas fa-user-cog text-info mt-1" aria-hidden="true"></i>
+                        <div>
+                            <small class="text-muted d-block">Responsável pelo Chamado</small>
+                            <div class="fw-bold">{{ ticket.tecnico_responsavel.get_full_name|default:ticket.tecnico_responsavel.username }}</div>
+                        </div>
+                    </div>
                     {% endif %}
 
                     <form id="form-status" method="post" action="{% url 'tickets:change_status' ticket.id %}">
@@ -245,6 +350,23 @@ document.addEventListener("DOMContentLoaded", function() {
     const formComentario = document.getElementById("form-comentario");
     const chatBox = document.getElementById("comentarios-container");
 
+    // 6. SILENCIAR A PRÓXIMA NOTIFICAÇÃO (evita o "eco" ao enviar o próprio comentário)
+    let silenciarProximaNotificacao = false;
+    window.silenciarProximaNotificacao = false;
+
+    // 7. FEEDBACK DE AÇÕES RÁPIDAS (spinner + texto "A processar..." + restauração)
+    function feedbackCarregando(btn, texto) {
+        if (!btn) return;
+        if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ' + (texto || "A processar...");
+    }
+    function restaurarBotao(btn) {
+        if (!btn) return;
+        btn.disabled = false;
+        if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+    }
+
     // Mantém o scroll no final quando a página carrega
     function scrollToBottom() {
         if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
@@ -312,6 +434,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (response.ok) {
                     this.reset(); // Limpa a caixa de texto
                     if (fileNameDisplay) fileNameDisplay.textContent = "Sem anexo";
+                    // Silencia a notificação do próprio envio (o Pusher devolve o eco)
+                    silenciarProximaNotificacao = true;
+                    window.silenciarProximaNotificacao = true;
                     // NÃO chama atualizarChat() aqui: o tempo real (Pusher/WebSocket
                     // no base.html) dispara window.atualizarChat() com a nova mensagem.
                     scrollToBottom();
@@ -357,7 +482,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             const formData = new FormData(this);
             const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
+            feedbackCarregando(submitBtn, "A processar...");
 
             fetch(this.action, {
                 method: "POST",
@@ -370,13 +495,17 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(data => {
                 if (data.status === 'success') {
                     window.atualizarStatusTicket(); // Puxa o badge novo via mini-API
+                    mostrarNotificacao("Status atualizado com sucesso.", "success");
                 } else {
+                    mostrarNotificacao(data.mensagem || "Erro ao alterar o status.", "danger");
                     console.error("Erro ao alterar status:", data.mensagem || "");
                 }
             })
-            .finally(() => {
-                if (submitBtn) submitBtn.disabled = false;
-            });
+            .catch(err => {
+                mostrarNotificacao("Erro de rede ao atualizar o status.", "danger");
+                console.error("Erro ao alterar status:", err);
+            })
+            .finally(() => restaurarBotao(submitBtn));
         });
     }
 
@@ -388,7 +517,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             const formData = new FormData(this);
             const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
+            feedbackCarregando(submitBtn, "A processar...");
 
             fetch(this.action, {
                 method: "POST",
@@ -403,17 +532,32 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Remove o botão de assumir (o chamado já tem dono) e atualiza o badge
                     formAssumir.remove();
                     window.atualizarStatusTicket();
+                    mostrarNotificacao("Chamado assumido com sucesso.", "success");
                 } else {
+                    mostrarNotificacao(data.mensagem || "Erro ao assumir o chamado.", "danger");
                     console.error("Erro ao assumir chamado:", data.mensagem || "");
                 }
             })
+            .catch(err => {
+                mostrarNotificacao("Erro de rede ao assumir o chamado.", "danger");
+                console.error("Erro ao assumir chamado:", err);
+            })
             .finally(() => {
-                if (submitBtn) submitBtn.disabled = false;
+                // Se o botão ainda estiver na página (ex: erro), restaura-o
+                restaurarBotao(submitBtn);
             });
         });
     }
 
-    // 5. MINI-API: atualiza apenas o badge de status (HTML-over-the-wire)
+    // 5. MODAIS DE CONFIRMAÇÃO (Cancelar / Apagar) — feedback de carregamento no submit nativo
+    document.querySelectorAll("#modalCancelarTicket form, #modalApagarTicket form").forEach(function(form) {
+        form.addEventListener("submit", function() {
+            feedbackCarregando(this.querySelector('button[type="submit"]'));
+            // Não há thrown: o submit nativo navega para a página do servidor.
+        });
+    });
+
+    // 6. MINI-API: atualiza apenas o badge de status (HTML-over-the-wire)
     window.atualizarStatusTicket = function() {
         const badgeContainer = document.getElementById("ticket-header-status");
         if (!badgeContainer) return;
