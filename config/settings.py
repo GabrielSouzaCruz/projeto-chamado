@@ -47,7 +47,6 @@ CSRF_TRUSTED_ORIGINS = [
 # =============================================================================
 
 INSTALLED_APPS = [
-    'daphne',
     # Django contrib (ordem importa: auth antes de admin)
     'django.contrib.admin',
     'django.contrib.auth',
@@ -80,7 +79,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
-ASGI_APPLICATION = 'config.asgi.application'
 
 # =============================================================================
 # TEMPLATES
@@ -214,40 +212,6 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
-
-# =============================================================================
-# CHANNELS (WEBSOCKETS)
-# =============================================================================
-
-REDIS_URL = os.environ.get('REDIS_URL')
-
-if REDIS_URL:
-    # PRODUÇÃO: Usa o Upstash com reconexão agressiva
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [
-                    {
-                        "address": REDIS_URL,
-                        # --- BLINDAGEM CONTRA TIMEOUT DO REDIS CLOUD ---
-                        "socket_connect_timeout": 10,   # Até 10s para conectar
-                        "socket_timeout": 10,           # Até 10s por resposta de leitura
-                        "socket_keepalive": True,       # Mantém o túnel TCP aberto
-                        "retry_on_timeout": True,       # Reconecta sozinho se derrubar
-                        "health_check_interval": 5,     # Ping a cada 5s para não "dormir"
-                    }
-                ],
-            },
-        },
-    }
-else:
-    # DESENVOLVIMENTO: Usa a memória local (Seu computador)
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer"
-        }
-    }
 
 # =============================================================================
 # LOGGING (Opcional - para debug em produção)
