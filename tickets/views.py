@@ -4,11 +4,11 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.db.models import Q, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
-from django.utils import timezone
 from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.generic import DetailView, CreateView, UpdateView, DeleteView
@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
-    # Capturar busca e filtros
     busca = request.GET.get('busca')
     status_filtro = request.GET.get('status')
 
@@ -59,7 +58,6 @@ def api_dashboard_cards(request):
     user = request.user
     sou_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
 
-    # .count() faz um SELECT COUNT direto no banco (já otimizado)
     qs = Ticket.objects.all() if sou_tecnico else Ticket.objects.filter(solicitante=user)
 
     stats = {
@@ -93,7 +91,6 @@ def api_dashboard_table(request):
             Q(id__icontains=busca)
         )
 
-    # O MÁGICO select_related: 1 única consulta (JOIN) em vez de dezenas!
     tickets_recentes = qs.select_related(
         'solicitante', 'tecnico_responsavel', 'categoria'
     ).order_by('-criado_em')[:20]
@@ -120,12 +117,10 @@ def api_fila_admin_rows(request):
     if cat_f and cat_f.isdigit():
         tickets_base = tickets_base.filter(categoria_id=cat_f)
 
-    # O MÁGICO select_related aplicado aqui também
     tickets = tickets_base.select_related(
         'solicitante', 'tecnico_responsavel', 'categoria'
     ).order_by('-criado_em')[:50]
 
-    # SUA IDEIA APLICADA: se o JS mandar '?novo_id=X', passamos para o template destacar!
     novo_id = request.GET.get('novo_id')
     tickets_novos_ids = [int(novo_id)] if novo_id and novo_id.isdigit() else []
 
@@ -176,7 +171,6 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Chamado criado com sucesso!')
         return super().form_valid(form)
 
-    # NOVO: Esta função pega o ID do chamado recém-criado e manda direto pra ele!
     def get_success_url(self):
         return reverse_lazy('tickets:detail', kwargs={'pk': self.object.pk})
 
@@ -195,12 +189,11 @@ class TicketDetailView(ProprietarioOrTecnicoMixin, DetailView):
 @login_required
 def adicionar_comentario(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
-    if not request.user.is_technician and ticket.solicitante != request.user:
+    if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         messages.error(request, "Permissão negada.")
         return redirect('tickets:dashboard')
 
     if request.method == 'POST':
-        # ADICIONE O request.FILES AQUI EMBAIXO:
         form = ComentarioForm(request.POST, request.FILES, usuario=request.user) 
         
         if form.is_valid():
@@ -217,7 +210,7 @@ def adicionar_comentario(request, pk):
 def assumir_ticket(request, pk):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    if not request.user.is_technician:
+    if not request.user.is_technician and not request.user.is_superuser:
         if is_ajax:
             return JsonResponse({'status': 'error', 'mensagem': 'Apenas técnicos podem assumir chamados.'}, status=403)
         messages.error(request, "Apenas técnicos podem assumir chamados.")
@@ -238,7 +231,13 @@ def alterar_status(request, pk):
     if request.method == 'POST':
         novo_status = request.POST.get('status')
         if novo_status:
-            services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
+            try:
+                services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
+            except ValidationError:
+                messages.error(request, 'Erro ao atualizar: Status inválido.')
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
+                return redirect('tickets:detail', pk=pk)
             messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
             if is_ajax:
                 return JsonResponse({'status': 'success'})
@@ -269,7 +268,6 @@ def cancelar_ticket(request, pk):
 
 @login_required
 def apagar_ticket(request, pk):
-    # Trava de segurança máxima: Apenas superusers
     if not request.user.is_superuser:
         messages.error(request, "Acesso Negado: Apenas administradores podem apagar chamados do banco de dados.")
         return redirect('tickets:detail', pk=pk)
@@ -284,12 +282,10 @@ def apagar_ticket(request, pk):
 
 @login_required
 def historico(request):
-    # Segurança: Apenas técnicos e admins acessam
     if not (request.user.is_technician or request.user.is_superuser):
         messages.error(request, "Acesso negado.")
         return redirect('tickets:dashboard')
 
-    # 1. Agrupamos a entrada de dados (o que veio da URL)
     filtros = {
         'busca': request.GET.get('busca', ''),
         'data_inicio': request.GET.get('data_inicio'),
@@ -301,10 +297,8 @@ def historico(request):
         'ordenar': request.GET.get('ordenar', '-criado_em'),
     }
 
-    # 2. Delegamos a leitura para o Selector
     tickets_qs = selectors.get_historico_tickets(filtros)
 
-    # 3. Lógica de apresentação (Exportação CSV mantém-se na View)
     if request.GET.get('export') == 'csv':
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="historico_{now().strftime("%Y%m%d")}.csv"'
@@ -314,7 +308,6 @@ def historico(request):
             writer.writerow([t.id, t.titulo, t.solicitante.username, t.status, t.prioridade, t.criado_em])
         return response
 
-    # 4. Delegamos os cálculos matemáticos para o Selector
     stats = selectors.get_estatisticas_historico(tickets_qs)
 
     context = {
@@ -324,22 +317,17 @@ def historico(request):
         'tecnicos': User.objects.filter(Q(is_technician=True) | Q(is_superuser=True)),
         'status_choices': Ticket.Status.choices,
         'prioridade_choices': Ticket.Prioridade.choices,
-        'filtros': filtros # Devolvemos os filtros para o HTML manter os campos preenchidos
+        'filtros': filtros
     }
     return render(request, 'tickets/historico.html', context)
 
 @admin_required
 def fila_admin(request):
-    # Pega os dados iniciais para não esperar o AJAX
+    # Dados iniciais para não depender da atualização AJAX
     tickets = Ticket.objects.filter(status__in=['ABERTO', 'EM_ANDAMENTO']).select_related('solicitante', 'categoria')
     categorias = Categoria.objects.filter(ativa=True)
-    
-    # Cálculos rápidos para o primeiro carregamento
-    stats = {
-        'total_hoje': Ticket.objects.filter(criado_em__date=timezone.now().date()).count(),
-        'sem_tecnico': Ticket.objects.filter(tecnico_responsavel__isnull=True).exclude(status='CANCELADO').count(),
-        'criticos': Ticket.objects.filter(prioridade='critica').exclude(status__in=['RESOLVIDO', 'FECHADO']).count(),
-    }
+
+    stats = selectors.get_estatisticas_fila_admin()
 
     return render(request, 'tickets/fila_admin.html', {
         'tickets': tickets,

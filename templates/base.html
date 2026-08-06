@@ -320,7 +320,7 @@
 
         if (!silenciar) {
             // Áudio
-            notificacaoAudio.play().catch(e => console.log('Aguardando interação para liberar áudio'));
+            notificacaoAudio.play().catch(() => {});
 
             // Toast visual
             const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");

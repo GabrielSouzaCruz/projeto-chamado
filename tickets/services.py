@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -18,11 +19,14 @@ def assumir_ticket_service(ticket_id: int, tecnico) -> Ticket:
 
 @transaction.atomic
 def alterar_status_ticket_service(ticket_id: int, novo_status: str) -> Ticket:
-    """Altera o status e gere a data de resolução de forma segura."""
+    """Altera o status e registra a data de resolução, rejeitando status inválidos."""
+    if novo_status not in Ticket.Status.values:
+        raise ValidationError(f'Status inválido: {novo_status}')
+
     ticket = Ticket.objects.select_for_update().get(id=ticket_id)
 
     ticket.status = novo_status
-    if novo_status.upper() == 'RESOLVIDO' and not ticket.resolvido_em:
+    if novo_status == Ticket.Status.RESOLVIDO and not ticket.resolvido_em:
         ticket.resolvido_em = timezone.now()
 
     ticket.save()
@@ -40,7 +44,7 @@ def cancelar_ticket_service(ticket_id: int) -> Ticket:
 
 @transaction.atomic
 def adicionar_comentario_service(ticket_id: int, autor, dados_comentario: dict, arquivos=None) -> Comentario:
-    """Gere a inserção de comentários atrelada ao lock do ticket principal."""
+    """Insere um comentário atrelado ao lock do ticket principal."""
     ticket = Ticket.objects.select_for_update().get(id=ticket_id)
 
     comentario = Comentario(
