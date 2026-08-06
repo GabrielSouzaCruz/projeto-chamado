@@ -1,49 +1,55 @@
+import logging
+
+from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+
 from .models import Ticket, Comentario
+
+logger = logging.getLogger(__name__)
+
+
+def _enviar_evento(evento, dados, canais):
+    """Dispara um evento no Pusher com apenas metadados (nunca HTML)."""
+    client = getattr(settings, 'PUSHER_CLIENT', None)
+    if client is None:
+        return
+    try:
+        client.trigger(canais, evento, dados)
+    except Exception:
+        # Falha pontual de tempo real não deve quebrar a request
+        logger.exception('Falha ao disparar evento no Pusher: %s', evento)
+
 
 @receiver(post_save, sender=Ticket)
 def notificar_ticket_event(sender, instance, created, **kwargs):
-    channel_layer = get_channel_layer()
-    
-    if created:
-        # Quando um novo ticket é criado
-        mensagem = f"Novo chamado aberto: #{instance.id} - {instance.titulo}"
-        tipo = 'info'
-    else:
-        # Quando um ticket existente é alterado (ex: cancelado, assumido, status mudou)
-        if instance.status == 'cancelado':
-            mensagem = f"O chamado #{instance.id} foi cancelado!"
-            tipo = 'danger'
-        else:
-            mensagem = f"O chamado #{instance.id} foi atualizado ({instance.get_status_display()})."
-            tipo = 'info'
+    canal_global = ['fila-global']
+    canal_ticket = [f'ticket-{instance.id}']
 
-    # Dispara para todo mundo via WebSocket
-    async_to_sync(channel_layer.group_send)(
-        'notificacoes_globais',
-        {
-            'type': 'enviar_alerta',
-            'mensagem': mensagem,
-            'tipo': tipo,
-            'ticket_id': instance.id  # 💡 A PEÇA QUE FALTAVA!
-        }
-    )
+    if created:
+        _enviar_evento(
+            'novo_ticket',
+            {'ticket_id': instance.id, 'action': 'novo_ticket'},
+            canal_global,
+        )
+    else:
+        if instance.status == Ticket.Status.CANCELADO:
+            evento, acao = 'ticket_cancelado', 'ticket_cancelado'
+        else:
+            evento, acao = 'ticket_atualizado', 'ticket_atualizado'
+
+        _enviar_evento(
+            evento,
+            {'ticket_id': instance.id, 'action': acao, 'status': instance.status},
+            canal_global + canal_ticket,
+        )
+
 
 @receiver(post_save, sender=Comentario)
 def notificar_novo_comentario(sender, instance, created, **kwargs):
     if created:
-        channel_layer = get_channel_layer()
-        mensagem = f"Nova mensagem no chamado #{instance.ticket.id} por {instance.autor.username}"
-        
-        async_to_sync(channel_layer.group_send)(
-            'notificacoes_globais',
-            {
-                'type': 'enviar_alerta',
-                'mensagem': mensagem,
-                'tipo': 'success',
-                'ticket_id': instance.ticket.id  # 💡 AQUI TAMBÉM (via relação)
-            }
+        _enviar_evento(
+            'novo_comentario',
+            {'ticket_id': instance.ticket.id, 'action': 'novo_comentario'},
+            [f'ticket-{instance.ticket.id}'],
         )

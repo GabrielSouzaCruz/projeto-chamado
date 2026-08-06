@@ -21,6 +21,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
+# Pusher (tempo real). Import com guarda para não quebrar o boot sem a lib instalada.
+try:
+    import pusher as _pusher
+except ImportError:
+    _pusher = None
+
 # Carrega o arquivo .env da raiz do projeto
 load_dotenv()
 
@@ -212,6 +218,27 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB por arquivo
 
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 DEFAULT_FROM_EMAIL = 'sistema@localhost'
+
+# =============================================================================
+# TEMPO REAL (PUSHER)
+# =============================================================================
+
+PUSHER_APP_ID = os.environ.get('PUSHER_APP_ID')
+PUSHER_KEY = os.environ.get('PUSHER_KEY')
+PUSHER_SECRET = os.environ.get('PUSHER_SECRET')
+PUSHER_CLUSTER = os.environ.get('PUSHER_CLUSTER')
+
+if _pusher and PUSHER_APP_ID and PUSHER_KEY and PUSHER_SECRET and PUSHER_CLUSTER:
+    PUSHER_CLIENT = _pusher.Pusher(
+        app_id=PUSHER_APP_ID,
+        key=PUSHER_KEY,
+        secret=PUSHER_SECRET,
+        cluster=PUSHER_CLUSTER,
+        ssl=True,
+    )
+else:
+    # Sem credenciais (ou lib ausente): o sistema segue 100% funcional sem tempo real.
+    PUSHER_CLIENT = None
 
 # =============================================================================
 # LOGGING (Opcional - para debug em produção)
