@@ -61,10 +61,14 @@
         </div>
     {% endif %}
 {% empty %}
-    <div class="col-12 text-center py-5">
-        <div class="p-5 bg-white rounded-4 shadow-sm">
-            <i class="fas fa-search fa-3x mb-3 text-light"></i>
-            <h5 class="text-muted">Nenhum chamado encontrado.</h5>
+    <div class="col-12">
+        <div class="p-5 bg-white rounded-4 shadow-sm text-center">
+            <i class="fas fa-inbox fa-3x text-muted mb-3" aria-hidden="true"></i>
+            <h5 class="fw-bold mb-1">Nenhum chamado aberto no momento</h5>
+            <p class="text-muted mb-4">Quando você abrir uma solicitação, ela aparecerá aqui para acompanhamento.</p>
+            <a href="{% url 'tickets:create' %}" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                <i class="fas fa-plus-circle me-2" aria-hidden="true"></i>Novo Chamado
+            </a>
         </div>
     </div>
 {% endfor %}

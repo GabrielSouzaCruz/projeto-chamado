@@ -3,19 +3,87 @@
 {% block title %}Dashboard - Central de Chamados PMM{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-1">
-            <i class="fas fa-chart-line me-2" style="color: var(--primary-color);"></i>
-            {% if is_technician %}Painel de Gestão Técnica{% else %}Meus Atendimentos{% endif %}
-        </h2>
-        <p class="text-muted mb-0">
-            {% if is_technician %}Visão geral da demanda tecnológica de Machado.{% else %}Acompanhe o progresso das suas solicitações.{% endif %}
-        </p>
+<style>
+    /* ===== Polimento global do Dashboard (Soft Shadows & Border-Radius) ===== */
+    .card {
+        border-radius: 16px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+    .btn { border-radius: 12px !important; }
+    .form-control, .form-select { border-radius: 12px; }
+
+    /* ===== Hero Section com gradiente corporativo ===== */
+    .hero-gradient {
+        background: linear-gradient(135deg, #1A4A92 0%, #2a63b5 60%, #3f84d4 100%);
+        border-radius: 16px;
+    }
+    .hero-shadow { box-shadow: 0 12px 30px rgba(26, 74, 146, 0.25); }
+
+    /* ===== Cartões de KPI ===== */
+    .kpi-icon {
+        width: 52px; height: 52px;
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+</style>
+
+<!-- 1. HERO SECTION: Boas-Vindas Dinâmicas + CTA -->
+<section class="hero-gradient hero-shadow text-white mb-4 p-4 p-md-5 position-relative overflow-hidden">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <h1 class="h3 fw-bold mb-1">Olá, {{ user.get_full_name|default:user.username }}! 👋</h1>
+            <p class="mb-0 opacity-75" style="max-width: 560px;">Gerencie seus chamados ou abra um novo atendimento com rapidez.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a href="{% url 'tickets:create' %}" class="btn btn-light btn-lg fw-bold shadow-sm px-4">
+                <i class="fas fa-plus-circle text-primary me-2" aria-hidden="true"></i> Abrir Novo Chamado
+            </a>
+        </div>
     </div>
-    <a href="{% url 'tickets:create' %}" class="btn btn-primary btn-lg shadow-sm fw-bold">
-        <i class="fas fa-plus-circle me-2"></i>Novo Chamado
-    </a>
+</section>
+
+<!-- 2. CARTÕES DE MÉTRICAS RÁPIDAS (KPIs) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 border-0">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="kpi-icon text-white" style="background: var(--primary-color);">
+                    <i class="fas fa-inbox fa-lg" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <small class="text-uppercase fw-bold text-muted">Total de Chamados</small>
+                    <h3 class="fw-bold mb-0">{{ stats.total|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="kpi-icon text-dark" style="background: var(--accent-color);">
+                    <i class="fas fa-hourglass-half fa-lg" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <small class="text-uppercase fw-bold text-muted">Em Andamento</small>
+                    <h3 class="fw-bold mb-0">{{ stats.em_andamento|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="kpi-icon text-white" style="background: #198754;">
+                    <i class="fas fa-check-circle fa-lg" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <small class="text-uppercase fw-bold text-muted">Resolvidos / Fechados</small>
+                    <h3 class="fw-bold mb-0">{{ stats.resolvidos|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% if is_technician %}

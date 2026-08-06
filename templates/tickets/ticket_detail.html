@@ -409,6 +409,16 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // 0.2 ATALHO ENTER para enviar a mensagem
+    if (chatInput && formComentario) {
+        chatInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault(); // impede a quebra de linha
+                formComentario.requestSubmit(); // dispara o handler de submit (AJAX)
+            }
+        });
+    }
+
     // 1. INTERCEPTAR O ENVIO DO FORMULÁRIO (Fim dos recarregamentos!)
     if (formComentario) {
         formComentario.addEventListener("submit", function(e) {

@@ -62,10 +62,21 @@
 {% empty %}
 <tr>
     <td colspan="9" class="text-center py-5">
-        <div class="text-muted">
-            <i class="fas fa-clipboard-list fa-3x mb-3 opacity-25"></i>
-            <p class="mb-0 fw-bold">Nenhum chamado pendente nesta fila.</p>
-            <small>Tudo em dia por aqui!</small>
+        <div class="empty-state">
+            <i class="fas fa-folder-open fa-3x text-muted mb-3" aria-hidden="true"></i>
+            <h6 class="fw-bold mb-1">{{ empty_estado_titulo|default:"Nenhum chamado encontrado" }}</h6>
+            <p class="text-muted mb-3">
+                {% if request.GET.status or request.GET.categoria %}
+                    Nenhum chamado corresponde aos filtros selecionados.
+                {% else %}
+                    Tudo em dia por aqui! Nenhum chamado pendente nesta fila.
+                {% endif %}
+            </p>
+            {% if request.GET.categoria or request.GET.status %}
+            <a href="{% url 'tickets:fila_admin' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-filter-circle-xmark me-1" aria-hidden="true"></i> Limpar Filtros
+            </a>
+            {% endif %}
         </div>
     </td>
 </tr>

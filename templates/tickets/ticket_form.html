@@ -5,6 +5,19 @@
 {% block content %}
 <style>
     .border-dashed { border-style: dashed !important; border-width: 2px !important; }
+
+    /* ===== Micro-animação de transição entre passos do Wizard ===== */
+    @keyframes wizard-fade-slide {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .wizard-step-transition.wizard-step-run {
+        animation: wizard-fade-slide 0.4s ease-out;
+    }
+    /* Respeita usuários com "reduzir movimento" (WCAG) */
+    @media (prefers-reduced-motion: reduce) {
+        .wizard-step-transition.wizard-step-run { animation: none; }
+    }
 </style>
 <div class="container-fluid py-4" style="max-width: 800px; margin: 0 auto;">
     
@@ -158,6 +171,9 @@
         const progressText = document.getElementById("step-progress-text");
         const backButtons = document.querySelectorAll(".btn-back");
 
+        // Habilita a micro-animação de transição (fade + slide) em todas as etapas
+        stepSections.forEach(sec => sec.classList.add("wizard-step-transition"));
+
         // Os botões "Voltar" ficam ocultos no Passo 1 por padrão
         function atualizarBotoes() {
             backButtons.forEach(btn => {
@@ -195,6 +211,10 @@
             const alvo = document.getElementById("step-" + passo);
             if (alvo) {
                 alvo.classList.remove("d-none");
+                // Reinicia o ciclo da animação (fade/slide) a cada troca de passo
+                alvo.classList.remove("wizard-step-run");
+                void alvo.offsetWidth; // força reflow para reiniciar a animação
+                alvo.classList.add("wizard-step-run");
                 alvo.focus({ preventScroll: true }); // Acessibilidade: foco no novo passo
             }
             atualizarProgresso();

@@ -365,6 +365,29 @@
 </script>
 {% endif %}
 
+<!-- Atalho global: tecla Esc fecha qualquer modal do Bootstrap aberto na tela.
+     Usa a API nativa do Bootstrap 5 (getInstance + hide) para remover o backdrop
+     e devolver o foco corretamente, sem travamentos. -->
+<script>
+    document.addEventListener("keydown", function(e) {
+        if (e.key !== "Escape" && e.key !== "Esc") return;
+
+        // Procura a modal aberta (classe .show) mais próxima / ativa
+        const modalAberta = document.querySelector(".modal.show");
+        if (!modalAberta) return;
+
+        const instancia = window.bootstrap && bootstrap.Modal.getInstance(modalAberta);
+        if (instancia) {
+            instancia.hide();
+        } else {
+            // Fallback seguro caso o getInstance retorne null
+            modalAberta.classList.remove("show");
+            document.querySelectorAll(".modal-backdrop").forEach(bd => bd.remove());
+            document.body.classList.remove("modal-open");
+        }
+    });
+</script>
+
 <!-- Global Page Loader: exibido apenas em Full Page Reloads/Redirections.
      beforeunload dispara antes de qualquer navegação de página inteira;
      pageshow esconde o loader ao voltar do BFCache (botão Voltar do navegador).
