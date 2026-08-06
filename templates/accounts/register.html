@@ -186,6 +186,19 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
         });
     }
+
+    // Spinner de envio: bloqueia cliques duplos e mostra progresso
+    const formaCadastro = document.getElementById('form-cadastro');
+    if (formaCadastro) {
+        formaCadastro.addEventListener('submit', function() {
+            const btn = document.getElementById('btn-submit');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> A processar cadastro...';
+            btn.classList.remove('btn-secondary');
+            btn.setAttribute('aria-busy', 'true');
+        });
+    }
 });
 </script>
 {% endblock %}
