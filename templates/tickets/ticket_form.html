@@ -6,78 +6,89 @@
 <style>
     .border-dashed { border-style: dashed !important; border-width: 2px !important; }
 </style>
-<div class="container-fluid py-4 max-w-750" style="max-width: 800px; margin: 0 auto;">
+<div class="container-fluid py-4" style="max-width: 800px; margin: 0 auto;">
     
     <div class="text-center mb-4">
         <h2 class="fw-bold text-dark"><i class="fas fa-headset text-primary me-2" aria-hidden="true"></i>Como podemos ajudar?</h2>
         <p class="text-muted">Siga as etapas abaixo para relatar o seu problema para a equipe de TI.</p>
     </div>
 
-    <div class="position-relative mb-5" aria-hidden="true">
-        <div class="progress" style="height: 4px;">
-            <div class="progress-bar bg-primary transition-all" role="progressbar" style="width: 33%;" id="progress-bar"></div>
+    <!-- Barra de Progresso Acessível (WCAG) -->
+    <div class="mb-4" aria-live="polite">
+        <div class="progress" style="height: 4px;" role="progressbar"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="33" id="progress-bar"
+             aria-label="Progresso do formulário">
+            <div class="progress-bar bg-primary transition-all" style="width: 33%;" id="progress-fill"></div>
         </div>
-        <div class="d-flex justify-content-between position-absolute top-50 start-0 w-100 translate-middle-y mt-1">
+        <div class="d-flex justify-content-between align-items-center mt-2">
             <span class="step-indicator bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-1" style="width: 35px; height: 35px;">1</span>
             <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-2" style="width: 35px; height: 35px;">2</span>
             <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-3" style="width: 35px; height: 35px;">3</span>
         </div>
+        <span class="visually-hidden" id="step-progress-text" aria-live="polite">Etapa 1 de 3: Identificação do problema</span>
     </div>
 
     <div class="card shadow-sm border-0 rounded-4">
         <div class="card-body p-4 p-md-5">
-            <form method="post" enctype="multipart/form-data" id="wizardForm">
+            <form method="post" enctype="multipart/form-data" id="wizardForm" novalidate>
                 {% csrf_token %}
                 
-                <section id="step-1" role="region" aria-label="Etapa 1 de 3: Identificação do problema">
-                    <h5 class="fw-bold mb-4 text-primary">1. Identificação Básica</h5>
-                    
+                <!-- PASSO 1: Categoria e Título -->
+                <section id="step-1" role="group" aria-labelledby="step-1-title">
+                    <h5 id="step-1-title" class="fw-bold mb-4 text-primary">1. Identificação Básica</h5>
+
+                    <div class="mb-4">
+                        <label for="{{ form.categoria.id_for_label }}" class="form-label fw-bold">Categoria <span class="text-danger">*</span></label>
+                        {{ form.categoria }}
+                        <div class="invalid-feedback">Selecione uma categoria para continuar.</div>
+                    </div>
+
                     <div class="mb-4">
                         <label for="{{ form.titulo.id_for_label }}" class="form-label fw-bold">Título do Chamado <span class="text-danger">*</span></label>
                         {{ form.titulo }}
                         <div class="form-text">Seja breve e direto. Ex: "Computador não liga".</div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label for="{{ form.categoria.id_for_label }}" class="form-label fw-bold">Categoria <span class="text-danger">*</span></label>
-                        {{ form.categoria }}
+                        <div class="invalid-feedback">Informe um título para o chamado.</div>
                     </div>
 
                     <div class="text-end mt-4 pt-3 border-top">
-                        <button type="button" class="btn btn-primary fw-bold px-4 btn-next" onclick="nextStep(2)">
+                        <button type="button" class="btn btn-primary fw-bold px-4 btn-next" data-go-next>
                             Próxima Etapa <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                         </button>
                     </div>
                 </section>
 
-                <section id="step-2" role="region" aria-label="Etapa 2 de 3: Detalhes do problema" class="d-none">
-                    <h5 class="fw-bold mb-4 text-primary">2. Detalhes e Prioridade</h5>
-                    
+                <!-- PASSO 2: Descrição e Prioridade -->
+                <section id="step-2" role="group" aria-labelledby="step-2-title" class="d-none">
+                    <h5 id="step-2-title" class="fw-bold mb-4 text-primary">2. Detalhes e Prioridade</h5>
+
                     <div class="mb-4">
                         <label for="{{ form.descricao.id_for_label }}" class="form-label fw-bold">Descrição Completa <span class="text-danger">*</span></label>
                         {{ form.descricao }}
                         <div class="form-text">Descreva com o máximo de detalhes o que aconteceu e quando começou.</div>
+                        <div class="invalid-feedback">Descreva o problema com detalhes.</div>
                     </div>
-                    
+
                     <div class="mb-4">
                         <label for="{{ form.prioridade.id_for_label }}" class="form-label fw-bold">Nível de Urgência <span class="text-danger">*</span></label>
                         {{ form.prioridade }}
                         <div class="form-text">Selecione a prioridade com responsabilidade.</div>
+                        <div class="invalid-feedback">Selecione a prioridade do chamado.</div>
                     </div>
 
                     <div class="d-flex justify-content-between mt-4 pt-3 border-top">
-                        <button type="button" class="btn btn-outline-secondary fw-bold px-4" onclick="prevStep(1)">
+                        <button type="button" class="btn btn-outline-secondary fw-bold px-4 btn-back" data-go-back>
                             <i class="fas fa-arrow-left me-2" aria-hidden="true"></i> Voltar
                         </button>
-                        <button type="button" class="btn btn-primary fw-bold px-4 btn-next" onclick="nextStep(3)">
+                        <button type="button" class="btn btn-primary fw-bold px-4 btn-next" data-go-next>
                             Próxima Etapa <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                         </button>
                     </div>
                 </section>
 
-                <section id="step-3" role="region" aria-label="Etapa 3 de 3: Evidências e envio do chamado" class="d-none">
-                    <h5 class="fw-bold mb-4 text-primary">3. Evidências e Envio</h5>
-                    
+                <!-- PASSO 3: Anexo e Envio -->
+                <section id="step-3" role="group" aria-labelledby="step-3-title" class="d-none">
+                    <h5 id="step-3-title" class="fw-bold mb-4 text-primary">3. Evidências e Envio</h5>
+
                     <div class="mb-4 p-4 border rounded-3 bg-light text-center border-dashed">
                         <i class="fas fa-cloud-upload-alt fa-3x text-secondary mb-3" aria-hidden="true"></i>
                         <label for="{{ form.anexo.id_for_label }}" class="form-label fw-bold d-block">Anexar Ficheiro ou Captura de Ecrã (Opcional)</label>
@@ -86,14 +97,14 @@
                         </div>
                         <div class="form-text mt-2">Envie imagens, PDFs ou documentos que ajudem a equipa de TI a entender o problema.</div>
                     </div>
-                    
-                    <div class="alert alert-info border-0 shadow-sm mb-4">
+
+                    <div class="alert alert-info border-0 shadow-sm mb-4" role="status">
                         <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
                         Está prestes a abrir um novo chamado. A equipa técnica será notificada automaticamente após o envio.
                     </div>
 
                     <div class="d-flex justify-content-between mt-4 pt-3 border-top">
-                        <button type="button" class="btn btn-outline-secondary fw-bold px-4" onclick="prevStep(2)">
+                        <button type="button" class="btn btn-outline-secondary fw-bold px-4 btn-back" data-go-back>
                             <i class="fas fa-arrow-left me-2" aria-hidden="true"></i> Voltar
                         </button>
                         <button type="submit" class="btn btn-success fw-bold px-5 shadow">
@@ -110,79 +121,126 @@
 
 {% block extra_js %}
 <script>
-    // ESTILIZAÇÃO AUTOMÁTICA DOS CAMPOS DO DJANGO (Para não precisar do django-crispy-forms)
+    // ============================================================
+    // WIZARD DE 3 PASSOS — 100% Client-side (HTML/CSS/JS)
+    // Formulário segue submetido via POST tradicional no final.
+    // ============================================================
     document.addEventListener("DOMContentLoaded", function() {
+
+        // ESTILIZAÇÃO AUTOMÁTICA DOS CAMPOS DO DJANGO (sem django-crispy-forms)
         const inputs = document.querySelectorAll("input, select, textarea");
         inputs.forEach(input => {
             if (input.type !== "hidden" && input.type !== "checkbox") {
                 input.classList.add("form-control");
-                if(input.tagName === "SELECT") input.classList.add("form-select");
+                if (input.tagName === "SELECT") input.classList.add("form-select");
             }
+            // Remove o estado de erro assim que o usuário corrige o campo
+            input.addEventListener("input", function() {
+                if (input.classList.contains("is-invalid") && input.checkValidity()) {
+                    input.classList.remove("is-invalid");
+                }
+            });
         });
+
+        // ---------- LÓGICA DE NAVEGAÇÃO ----------
+        const PROGRESSOS = { 1: 33, 2: 66, 3: 100 };
+        const LABELS = {
+            1: "Etapa 1 de 3: Identificação do problema",
+            2: "Etapa 2 de 3: Detalhes e prioridade",
+            3: "Etapa 3 de 3: Evidências e envio"
+        };
+
+        let currentStep = 1;
+
+        const stepSections = document.querySelectorAll("section[id^='step-']");
+        const progressBar = document.getElementById("progress-bar");
+        const progressFill = document.getElementById("progress-fill");
+        const progressText = document.getElementById("step-progress-text");
+        const backButtons = document.querySelectorAll(".btn-back");
+
+        // Os botões "Voltar" ficam ocultos no Passo 1 por padrão
+        function atualizarBotoes() {
+            backButtons.forEach(btn => {
+                if (currentStep === 1) {
+                    btn.classList.add("d-none");
+                } else {
+                    btn.classList.remove("d-none");
+                }
+            });
+        }
+
+        // Atualiza barra, texto para leitores de tela e indicadores
+        function atualizarProgresso() {
+            const pct = PROGRESSOS[currentStep];
+            if (progressBar) progressBar.setAttribute("aria-valuenow", pct);
+            if (progressFill) progressFill.style.width = pct + "%";
+            if (progressText) progressText.textContent = LABELS[currentStep];
+
+            for (let i = 1; i <= 3; i++) {
+                const indicator = document.getElementById("indicator-" + i);
+                if (!indicator) continue;
+                if (i <= currentStep) {
+                    indicator.classList.remove("bg-light", "text-muted");
+                    indicator.classList.add("bg-primary", "text-white");
+                } else {
+                    indicator.classList.remove("bg-primary", "text-white");
+                    indicator.classList.add("bg-light", "text-muted");
+                }
+            }
+        }
+
+        function mostrarPasso(passo) {
+            currentStep = passo;
+            stepSections.forEach(sec => sec.classList.add("d-none"));
+            const alvo = document.getElementById("step-" + passo);
+            if (alvo) {
+                alvo.classList.remove("d-none");
+                alvo.focus({ preventScroll: true }); // Acessibilidade: foco no novo passo
+            }
+            atualizarProgresso();
+            atualizarBotoes();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        // Valida apenas os campos obrigatórios da etapa ATUAL
+        function validarPassoAtual() {
+            const secaoAtual = document.getElementById("step-" + currentStep);
+            if (!secaoAtual) return true;
+
+            let valido = true;
+            const obrigatorios = secaoAtual.querySelectorAll(
+                "input[required], select[required], textarea[required]"
+            );
+
+            obrigatorios.forEach(input => {
+                if (!input.checkValidity()) {
+                    input.classList.add("is-invalid");
+                    input.reportValidity(); // Balão nativo de erro do navegador
+                    valido = false;
+                } else {
+                    input.classList.remove("is-invalid");
+                }
+            });
+            return valido;
+        }
+
+        // Botões "Próxima Etapa"
+        document.querySelectorAll("[data-go-next]").forEach(btn => {
+            btn.addEventListener("click", function() {
+                if (!validarPassoAtual()) return; // Trava se inválido
+                mostrarPasso(Math.min(currentStep + 1, 3));
+            });
+        });
+
+        // Botões "Voltar"
+        backButtons.forEach(btn => {
+            btn.addEventListener("click", function() {
+                mostrarPasso(Math.max(currentStep - 1, 1));
+            });
+        });
+
+        // Garante o estado correto ao carregar a página
+        mostrarPasso(1);
     });
-
-    // CONTROLE DO WIZARD (Passo a Passo)
-    function nextStep(step) {
-        // Trava de segurança simples: validar se os campos da etapa atual estão preenchidos
-        let currentStepId = step - 1;
-        let currentSection = document.getElementById('step-' + currentStepId);
-        let inputs = currentSection.querySelectorAll('input[required], select[required], textarea[required]');
-        
-        let isValid = true;
-        inputs.forEach(input => {
-            if (!input.value.trim()) {
-                input.classList.add('is-invalid');
-                isValid = false;
-            } else {
-                input.classList.remove('is-invalid');
-            }
-        });
-
-        if (!isValid) return; // Não avança se tiver campo obrigatório vazio
-
-        // Lógica de avanço visual
-        document.querySelectorAll('section').forEach(el => el.classList.add('d-none'));
-        document.getElementById('step-' + step).classList.remove('d-none');
-        
-        // Atualiza a barra de progresso
-        const progress = step === 1 ? 33 : (step === 2 ? 66 : 100);
-        document.getElementById('progress-bar').style.width = progress + '%';
-        
-        // Atualiza os círculos indicadores
-        for(let i=1; i<=3; i++) {
-            let indicator = document.getElementById('indicator-' + i);
-            if(i <= step) {
-                indicator.classList.remove('bg-light', 'text-muted');
-                indicator.classList.add('bg-primary', 'text-white');
-            } else {
-                indicator.classList.remove('bg-primary', 'text-white');
-                indicator.classList.add('bg-light', 'text-muted');
-            }
-        }
-        
-        // Acessibilidade: Move o foco do teclado suavemente para o início da nova etapa
-        window.scrollTo(0, 0);
-        document.getElementById('step-' + step).focus();
-    }
-
-    function prevStep(step) {
-        document.querySelectorAll('section').forEach(el => el.classList.add('d-none'));
-        document.getElementById('step-' + step).classList.remove('d-none');
-        
-        const progress = step === 1 ? 33 : (step === 2 ? 66 : 100);
-        document.getElementById('progress-bar').style.width = progress + '%';
-        
-        for(let i=1; i<=3; i++) {
-            let indicator = document.getElementById('indicator-' + i);
-            if(i <= step) {
-                indicator.classList.remove('bg-light', 'text-muted');
-                indicator.classList.add('bg-primary', 'text-white');
-            } else {
-                indicator.classList.remove('bg-primary', 'text-white');
-                indicator.classList.add('bg-light', 'text-muted');
-            }
-        }
-        window.scrollTo(0, 0);
-    }
 </script>
 {% endblock %}

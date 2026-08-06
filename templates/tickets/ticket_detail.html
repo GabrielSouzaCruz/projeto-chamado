@@ -124,11 +124,14 @@
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
                         <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." required></textarea>
                         
-                        <div class="d-flex justify-content-between align-items-center">
-                            <label for="chat-file" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-paperclip" aria-hidden="true"></i> Anexar
-                            </label>
-                            <input type="file" name="anexo" id="chat-file" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="chat-file" class="btn btn-outline-primary btn-sm mb-0">
+                                    <i class="fas fa-paperclip" aria-hidden="true"></i> Anexar
+                                </label>
+                                <input type="file" name="anexo" id="chat-file" class="d-none">
+                                <span id="file-name-display" class="small text-muted text-truncate" style="max-width: 180px;">Sem anexo</span>
+                            </div>
                             <button type="submit" class="btn btn-primary">Enviar</button>
                         </div>
                     </form>
@@ -162,12 +165,78 @@
                         </select>
                         <button type="submit" class="btn btn-success w-100">Atualizar</button>
                     </form>
+
+                    {% if ticket.solicitante == request.user or request.user.is_superuser %}
+                        {% if ticket.status != ticket.Status.CANCELADO %}
+                        <button type="button"
+                                class="btn btn-outline-danger w-100 mb-2"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalCancelarTicket"
+                                title="Cancelar chamado">
+                            <i class="fas fa-ban me-1" aria-hidden="true"></i> Cancelar Chamado
+                        </button>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if request.user.is_superuser %}
+                    <button type="button"
+                            class="btn btn-danger w-100"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalApagarTicket"
+                            title="Apagar definitivamente do banco de dados">
+                        <i class="fas fa-trash-alt me-1" aria-hidden="true"></i> Apagar Definitivamente
+                    </button>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
         </aside>
     </div>
 </main>
+
+{% if ticket.solicitante == request.user or request.user.is_superuser %}
+{% if ticket.status != ticket.Status.CANCELADO %}
+<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-body p-5 text-center">
+                <i class="fas fa-exclamation-circle fa-4x text-danger mb-4"></i>
+                <h4 class="fw-bold">Cancelar Chamado?</h4>
+                <p class="text-muted">Esta ação será registrada no histórico e não pode ser desfeita pelo solicitante.</p>
+                <div class="d-flex justify-content-center gap-3 mt-4">
+                    <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">Voltar</button>
+                    <form method="post" action="{% url 'tickets:cancelar' ticket.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">Confirmar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if request.user.is_superuser %}
+<div class="modal fade" id="modalApagarTicket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-body p-5 text-center">
+                <i class="fas fa-trash-alt fa-4x text-danger mb-4"></i>
+                <h4 class="fw-bold">Apagar Definitivamente?</h4>
+                <p class="text-muted">Ação irreversível! O chamado <strong>#{{ ticket.id }}</strong> e todo o seu histórico de comentários será removido do banco de dados.</p>
+                <div class="d-flex justify-content-center gap-3 mt-4">
+                    <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">Voltar</button>
+                    <form method="post" action="{% url 'tickets:apagar' ticket.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">Confirmar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -177,7 +246,46 @@ document.addEventListener("DOMContentLoaded", function() {
     const chatBox = document.getElementById("comentarios-container");
 
     // Mantém o scroll no final quando a página carrega
-    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    function scrollToBottom() {
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    scrollToBottom();
+
+    // 0. MOSTRAR NOME DO ARQUIVO AO ANEXAR
+    const chatFile = document.getElementById("chat-file");
+    const chatInput = document.getElementById("chat-input");
+    const fileNameDisplay = document.getElementById("file-name-display");
+    if (chatFile && fileNameDisplay) {
+        chatFile.addEventListener("change", function() {
+            const arquivo = chatFile.files && chatFile.files[0];
+            fileNameDisplay.textContent = arquivo ? "📎 " + arquivo.name : "Sem anexo";
+        });
+    }
+
+    // 0.1 RESGATE DO CTRL+V: cola imagens direto no campo de texto
+    if (chatInput && chatFile) {
+        chatInput.addEventListener("paste", function(e) {
+            const itens = e.clipboardData && e.clipboardData.items;
+            if (!itens) return;
+
+            for (const item of itens) {
+                if (item.kind === "file" && item.type.startsWith("image/")) {
+                    e.preventDefault();
+                    const arquivo = item.getAsFile();
+                    const nome = arquivo.name || "colado.png";
+                    const arquivoColado = new File([arquivo], nome, { type: arquivo.type });
+
+                    const dt = new DataTransfer();
+                    if (chatFile.files && chatFile.files[0]) dt.items.add(chatFile.files[0]);
+                    dt.items.add(arquivoColado);
+                    chatFile.files = dt.files;
+
+                    if (fileNameDisplay) fileNameDisplay.textContent = "📎 " + arquivoColado.name;
+                    break;
+                }
+            }
+        });
+    }
 
     // 1. INTERCEPTAR O ENVIO DO FORMULÁRIO (Fim dos recarregamentos!)
     if (formComentario) {
@@ -187,8 +295,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const formData = new FormData(this);
             const submitBtn = this.querySelector('button[type="submit"]');
 
-            // Desabilita o botão para evitar cliques duplos rápidos
-            if (submitBtn) submitBtn.disabled = true;
+            // Desabilita o botão, mostra o estado "A enviar..." e evita cliques duplos
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> A enviar...';
+            }
 
             fetch(this.action, {
                 method: "POST",
@@ -200,13 +311,19 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(response => {
                 if (response.ok) {
                     this.reset(); // Limpa a caixa de texto
-                    window.atualizarChat(); // Puxa a nova mensagem suavemente
+                    if (fileNameDisplay) fileNameDisplay.textContent = "Sem anexo";
+                    // NÃO chama atualizarChat() aqui: o tempo real (Pusher/WebSocket
+                    // no base.html) dispara window.atualizarChat() com a nova mensagem.
+                    scrollToBottom();
                 } else {
                     console.error("Erro ao enviar mensagem.");
                 }
             })
             .finally(() => {
-                if (submitBtn) submitBtn.disabled = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = "Enviar";
+                }
             });
         });
     }
@@ -226,9 +343,8 @@ document.addEventListener("DOMContentLoaded", function() {
             // Como a API já devolve só os comentários, é só injetar direto!
             chatBox.innerHTML = html;
 
-
             // Rola automaticamente para a última mensagem
-            chatBox.scrollTop = chatBox.scrollHeight;
+            scrollToBottom();
         })
         .catch(error => console.error("Erro ao atualizar o chat:", error));
     };
