@@ -3,6 +3,98 @@
 
 {% block title %}Chamado #{{ ticket.id }}: {{ ticket.titulo }} - PMM{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Cores de Prioridade com Força Total */
+    .badge-priority-baixa { 
+        background-color: #e9ecef !important; 
+        color: #495057 !important; 
+        border: 1px solid #ced4da; 
+    }
+    .badge-priority-normal { 
+        background-color: #0d6efd !important; 
+        color: white !important; 
+    }
+    .badge-priority-alta { 
+        background-color: #ffc107 !important; 
+        color: #000 !important; 
+    }
+    .badge-priority-critica { 
+        background-color: #dc3545 !important; 
+        color: white !important; 
+    }
+
+    /* Área de Conversa */
+    #comentarios-container {
+        height: 500px;
+        background-color: #f8f9fa;
+        padding: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        overflow-y: auto;
+        background-image: url("https://www.transparenttextures.com/patterns/cubes.png");
+    }
+
+    .chat-bubble {
+        max-width: 75%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        position: relative;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .bubble-me {
+        background: var(--primary-color);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .bubble-other {
+        background: white;
+        color: #333;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+
+    .bubble-internal {
+        background: #fff3cd;
+        border: 1px dashed #ffeeba;
+        align-self: center;
+        width: 90%;
+        max-width: 90%;
+        color: #856404;
+        font-style: italic;
+    }
+
+    /* Input de Chat */
+    .chat-input-area {
+        background: white;
+        border-top: 1px solid #eee;
+        padding: 15px;
+    }
+
+    .chat-input-area textarea {
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        resize: none;
+        padding: 12px;
+    }
+
+    /* Painel lateral de Gestão */
+    .management-card {
+        border-radius: 12px;
+        overflow: hidden;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="container py-4" id="main-content">
     <div class="row g-4">
@@ -22,7 +114,7 @@
                     <h2 id="historico-header" class="h6 mb-0 fw-bold">Interações e Histórico</h2>
                 </div>
                 
-                <div id="chat-box" style="max-height: 400px; overflow-y: auto;" aria-live="polite" role="log" aria-relevant="additions">
+                <div id="comentarios-container" aria-live="polite" role="log" aria-relevant="additions">
                     {% include 'tickets/_comentarios_list.html' %}
                 </div>
 
@@ -82,7 +174,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const formComentario = document.getElementById("form-comentario");
-    const chatBox = document.getElementById("chat-box");
+    const chatBox = document.getElementById("comentarios-container");
 
     // Mantém o scroll no final quando a página carrega
     if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
