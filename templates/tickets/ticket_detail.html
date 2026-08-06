@@ -181,7 +181,7 @@
                     <form id="form-comentario" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
                         {% csrf_token %}
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
-                        <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." required></textarea>
+                        <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." ></textarea>
                         
                         <div class="chat-action-bar d-flex justify-content-between align-items-center gap-2">
                             <div class="chat-actions d-flex align-items-center flex-wrap gap-2">
@@ -425,6 +425,16 @@ document.addEventListener("DOMContentLoaded", function() {
             e.preventDefault(); // O segredo que impede a página de piscar/recarregar
 
             const formData = new FormData(this);
+            const mensagem = (formData.get("mensagem") || "").trim();
+            const temArquivo = chatFile.files && chatFile.files.length > 0;
+
+            // Permite envio só com anexo (Ctrl+V ou seleção) ou com texto
+            if (!mensagem && !temArquivo) {
+                if (chatInput) chatInput.focus();
+                mostrarNotificacao("Escreva uma mensagem ou anexe um arquivo.", "danger");
+                return;
+            }
+
             const submitBtn = this.querySelector('button[type="submit"]');
 
             // Desabilita o botão, mostra o estado "A enviar..." e evita cliques duplos
@@ -443,16 +453,25 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(response => {
                 if (response.ok) {
                     this.reset(); // Limpa a caixa de texto
-                    if (fileNameDisplay) fileNameDisplay.textContent = "Sem anexo";
+                    if (fileNameDisplay) {
+                        fileNameDisplay.textContent = "Sem anexo";
+                        if (chatFile) chatFile.value = "";
+                    }
+                    if (chatInput) chatInput.value = "";
                     // Silencia a notificação do próprio envio (o Pusher devolve o eco)
                     silenciarProximaNotificacao = true;
                     window.silenciarProximaNotificacao = true;
-                    // NÃO chama atualizarChat() aqui: o tempo real (Pusher/WebSocket
-                    // no base.html) dispara window.atualizarChat() com a nova mensagem.
+                    // Atualiza o chat imediatamente (fallback) e também via Pusher,
+                    // garantindo que a própria mensagem sempre apareça na tela.
+                    window.atualizarChat();
                     scrollToBottom();
                 } else {
-                    console.error("Erro ao enviar mensagem.");
+                    console.error("Erro ao enviar mensagem.", response.status);
+                    mostrarNotificacao("Erro ao enviar a mensagem. Tente novamente.", "danger");
                 }
+            })
+            .catch(() => {
+                mostrarNotificacao("Erro de rede ao enviar a mensagem.", "danger");
             })
             .finally(() => {
                 if (submitBtn) {
