@@ -24,16 +24,48 @@
         color: white !important; 
     }
 
-    /* Área de Conversa */
+    /* ================================================
+       CHAT EM TELA CHEIA — SÓ O CHAT ROLA, PÁGINA NÃO
+       ================================================ */
+    /* Trava o scroll da página inteira nesta tela */
+    body:has(#comentarios-container) { overflow: hidden; }
+    body:has(#comentarios-container) #content { height: 100vh; }
+
+    .chat-layout { padding-top: 0; padding-bottom: 0; }
+
+    /* Header do ticket tem altura máxima: nunca engole o chat */
+    .chat-layout article > header.card {
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    /* Painel lateral: rola por conta própria no desktop (a página não rola) */
+    body:has(#comentarios-container) aside {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+    }
+
+    .chat-layout .chat-card { position: relative; }
+
+    /* Área das mensagens: preenche a altura visível e rola SOZINHA */
     #comentarios-container {
-        height: 500px;
+        height: calc(100vh - 500px);
+        min-height: 220px;
         background-color: #f8f9fa;
         padding: 25px;
         display: flex;
         flex-direction: column;
         gap: 15px;
         overflow-y: auto;
-        background-image: url("https://www.transparenttextures.com/patterns/cubes.png");
+        background-image: url("data:image/svg+xml,%3Csvg width='42' height='42' xmlns='http://www.w3.org/2000/svg' opacity='0.08'%3E%3Cpath d='M42 21H21V0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M42 42H21V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 21H0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 42H0V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3C/svg%3E");
+    }
+
+    /* Barra de escrita: fluxo normal, colada logo após o chat.
+       Sem sticky/fixed → NUNCA cobre as mensagens. */
+    .chat-input-area {
+        background-color: #f8f9fa;
+        border-top: 1px solid rgba(0,0,0,0.08);
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
     }
 
     .chat-bubble {
@@ -123,13 +155,17 @@
     }
 
     @media (max-width: 992px) {
-        #comentarios-container { height: 55vh; }
+        /* No mobile o scroll da página fica livre (layout empilha) */
+        body:has(#comentarios-container) { overflow: auto; }
+        body:has(#comentarios-container) #content { height: auto; }
+        #comentarios-container { height: calc(100vh - 420px); min-height: 260px; }
+        .chat-layout article > header.card { max-height: none; }
         #main-content { padding-top: 1rem; }
         .management-card { margin-top: .5rem; }
     }
 
     @media (max-width: 768px) {
-        #comentarios-container { height: 55vh; }
+        #comentarios-container { height: calc(100vh - 480px); min-height: 240px; }
         .chat-action-bar {
             flex-direction: column;
             align-items: stretch;
@@ -142,7 +178,7 @@
 {% endblock %}
 
 {% block content %}
-<main class="container py-4" id="main-content">
+<main class="container" id="main-content">
     <div class="row g-4">
         <article class="col-lg-8">
             <header class="card border-0 shadow-sm mb-4">
@@ -166,7 +202,8 @@
                             <a href="{{ ticket.anexo.url }}" target="_blank" class="d-inline-block text-decoration-none" title="Abrir imagem do chamado">
                                 <img src="{{ ticket.anexo.url }}" alt="Anexo do chamado"
                                      class="img-thumbnail rounded border-0 shadow-sm"
-                                     style="max-width: 220px; max-height: 160px; object-fit: cover;">
+                                     style="max-width: 220px; max-height: 160px; object-fit: cover;"
+                                     onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
                             <a href="{{ ticket.anexo.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
@@ -178,7 +215,7 @@
                 </div>
             </header>
 
-            <section class="card shadow-sm border-0" aria-labelledby="historico-header">
+            <section class="card shadow-sm border-0 chat-card" aria-labelledby="historico-header">
                 <div class="card-header bg-white border-0">
                     <h2 id="historico-header" class="h6 mb-0 fw-bold">Interações e Histórico</h2>
                 </div>
@@ -374,6 +411,18 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+// Função global: trata anexos cujo arquivo não existe mais (foi removido pelo
+// limpar_anexos ou sumiu do storage). Substitui a miniatura/link quebrado por
+// um aviso e IMPEDE que a pessoa abra a imagem novamente.
+function anexoIndisponivel(el) {
+    const caixa = el.closest("a") || el;
+    const aviso = document.createElement("span");
+    aviso.className = "d-inline-flex align-items-center gap-1 small fst-italic text-muted";
+    aviso.innerHTML = '<i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Anexo removido (arquivo indisponível)';
+    caixa.replaceWith(aviso);
+}
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const formComentario = document.getElementById("form-comentario");

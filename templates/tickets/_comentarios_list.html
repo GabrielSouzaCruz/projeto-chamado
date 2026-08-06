@@ -12,7 +12,8 @@
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
                                      class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                     onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
@@ -34,7 +35,8 @@
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
                                      class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                     onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-light">
@@ -60,7 +62,8 @@
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
                                      class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                     onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
