@@ -8,9 +8,17 @@
                 <p class="mb-0 text-break">{{ comentario.mensagem|linebreaksbr }}</p>
                 {% if comentario.anexo %}
                     <div class="mt-2">
-                        <a href="{{ comentario.anexo.url }}" target="_blank" class="text-decoration-underline small">
-                            <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Ver Anexo
-                        </a>
+                        {% if comentario.anexo_eh_imagem %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
+                                <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                            </a>
+                        {% else %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-file-pdf me-1" aria-hidden="true"></i>Ver PDF
+                            </a>
+                        {% endif %}
                     </div>
                 {% endif %}
                 <small class="d-block mt-1 opacity-75" style="font-size: 0.7rem;">
@@ -22,9 +30,17 @@
                 <p class="mb-0 text-break">{{ comentario.mensagem|linebreaksbr }}</p>
                 {% if comentario.anexo %}
                     <div class="mt-2">
-                        <a href="{{ comentario.anexo.url }}" target="_blank" class="text-white text-decoration-underline small">
-                            <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Ver Anexo
-                        </a>
+                        {% if comentario.anexo_eh_imagem %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
+                                <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                            </a>
+                        {% else %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-light">
+                                <i class="fas fa-file-pdf me-1" aria-hidden="true"></i>Ver PDF
+                            </a>
+                        {% endif %}
                     </div>
                 {% endif %}
                 <small class="d-block mt-1 opacity-75" style="font-size: 0.7rem;">
@@ -40,9 +56,17 @@
                 <p class="mb-0 text-break">{{ comentario.mensagem|linebreaksbr }}</p>
                 {% if comentario.anexo %}
                     <div class="mt-2">
-                        <a href="{{ comentario.anexo.url }}" target="_blank" class="text-primary text-decoration-underline small">
-                            <i class="fas fa-paperclip me-1" aria-hidden="true"></i>Ver Anexo
-                        </a>
+                        {% if comentario.anexo_eh_imagem %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
+                                <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
+                                     style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                            </a>
+                        {% else %}
+                            <a href="{{ comentario.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-file-pdf me-1" aria-hidden="true"></i>Ver PDF
+                            </a>
+                        {% endif %}
                     </div>
                 {% endif %}
                 <small class="d-block mt-1 text-muted" style="font-size: 0.7rem;">

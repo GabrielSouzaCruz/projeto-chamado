@@ -109,6 +109,22 @@
                             {{ form.anexo }}
                             <span id="wizard-file-name" class="small text-muted">Também podes colar uma imagem com Ctrl+V nesta etapa.</span>
                         </div>
+                        <div id="wizard-anexo-preview" class="d-none mx-auto mt-3" style="max-width:280px;">
+                            <div class="d-flex align-items-center gap-2 p-2 rounded border bg-white">
+                                <div id="wizard-anexo-thumb" class="flex-shrink-0 d-flex align-items-center justify-content-center rounded bg-light border"
+                                     style="width:44px;height:44px;overflow:hidden;">
+                                    <i class="fas fa-image text-secondary" aria-hidden="true"></i>
+                                </div>
+                                <div class="flex-grow-1 text-start" style="min-width:0;">
+                                    <div id="wizard-anexo-nome" class="small text-truncate fw-bold"></div>
+                                    <div id="wizard-anexo-tamanho" class="small text-muted"></div>
+                                </div>
+                                <button type="button" id="wizard-anexo-remover" class="btn btn-sm btn-outline-danger" title="Remover anexo"
+                                        aria-label="Remover anexo">
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div class="form-text mt-2">Apenas imagens ou PDF, no máximo 2MB. Anexos são removidos automaticamente após um período.</div>
                     </div>
 
@@ -263,9 +279,66 @@
         // Garante o estado correto ao carregar a página
         mostrarPasso(1);
 
-        // ---------- ANEXO POR CTRL+V (captura de ecrã colada) ----------
+        // ---------- ANEXO: validação + preview (Ctrl+V e seleção manual) ----------
         const anexoInput = document.getElementById("id_anexo");
         const wizardFileName = document.getElementById("wizard-file-name");
+        const wPreviewBox = document.getElementById("wizard-anexo-preview");
+        const wPreviewThumb = document.getElementById("wizard-anexo-thumb");
+        const wPreviewNome = document.getElementById("wizard-anexo-nome");
+        const wPreviewTamanho = document.getElementById("wizard-anexo-tamanho");
+        const wPreviewRemover = document.getElementById("wizard-anexo-remover");
+        const EXTENSOES_OK = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "pdf"];
+        const TAMANHO_MAX = 2 * 1024 * 1024;
+
+        function anexoClienteValido(arquivo) {
+            if (!arquivo) return false;
+            const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
+            if (!EXTENSOES_OK.includes(ext)) {
+                alert("Formato não permitido. Use apenas imagens (JPG, PNG, GIF, WebP, BMP) ou PDF.");
+                return false;
+            }
+            if (arquivo.size > TAMANHO_MAX) {
+                alert("Arquivo muito grande. O limite é de 2 MB.");
+                return false;
+            }
+            return true;
+        }
+
+        function atualizarPreviewWizard() {
+            const arquivo = anexoInput.files && anexoInput.files[0];
+            if (!arquivo) {
+                if (wPreviewBox) wPreviewBox.classList.add("d-none");
+                return;
+            }
+            if (!anexoClienteValido(arquivo)) {
+                anexoInput.value = "";
+                if (wPreviewBox) wPreviewBox.classList.add("d-none");
+                return;
+            }
+            const nome = arquivo.name;
+            const ext = nome.split(".").pop().toLowerCase();
+            if (wizardFileName) wizardFileName.textContent = "📎 " + nome;
+            if (wPreviewNome) wPreviewNome.textContent = nome;
+            if (wPreviewTamanho) wPreviewTamanho.textContent = (arquivo.size / 1024).toFixed(1) + " KB";
+            if (wPreviewBox) wPreviewBox.classList.remove("d-none");
+            if (wPreviewThumb) {
+                wPreviewThumb.innerHTML = "";
+                if (ext === "pdf") {
+                    wPreviewThumb.innerHTML = '<i class="fas fa-file-pdf text-danger" aria-hidden="true"></i>';
+                } else {
+                    const reader = new FileReader();
+                    const img = document.createElement("img");
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "cover";
+                    img.alt = "Pré-visualização";
+                    reader.onload = function(e) { img.src = e.target.result; };
+                    reader.readAsDataURL(arquivo);
+                    wPreviewThumb.appendChild(img);
+                }
+            }
+        }
+
         if (anexoInput) {
             document.addEventListener("paste", function(e) {
                 // Só captura a colagem quando estiver no passo 3 (Anexo e Envio)
@@ -286,18 +359,18 @@
                         dt.items.add(arquivoColado);
                         anexoInput.files = dt.files;
 
-                        if (wizardFileName) wizardFileName.textContent = "📎 " + arquivoColado.name;
+                        atualizarPreviewWizard();
                         break;
                     }
                 }
             });
 
-            // Exibe o nome também quando o ficheiro for escolhido manualmente
-            anexoInput.addEventListener("change", function() {
-                if (wizardFileName) {
-                    const arq = anexoInput.files && anexoInput.files[0];
-                    wizardFileName.textContent = arq ? "📎 " + arq.name : "Também podes colar uma imagem com Ctrl+V nesta etapa.";
-                }
+            // Exibe o nome e pré-visualiza também quando o ficheiro for escolhido manualmente
+            anexoInput.addEventListener("change", atualizarPreviewWizard);
+            if (wPreviewRemover) wPreviewRemover.addEventListener("click", function() {
+                anexoInput.value = "";
+                if (wizardFileName) wizardFileName.textContent = "Também podes colar uma imagem com Ctrl+V nesta etapa.";
+                if (wPreviewBox) wPreviewBox.classList.add("d-none");
             });
         }
     });

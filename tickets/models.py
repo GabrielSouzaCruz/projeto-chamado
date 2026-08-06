@@ -136,6 +136,13 @@ class Ticket(models.Model):
             self.Status.CANCELADO: 'bg-danger text-white',
         }
         return classes.get(self.status, 'bg-secondary text-white')
+
+    @property
+    def anexo_eh_imagem(self):
+        if not self.anexo:
+            return False
+        ext = self.anexo.name.rsplit('.', 1)[-1].lower()
+        return ext in {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
     
     @property
     def prioridade_css_class(self):
@@ -195,3 +202,10 @@ class Comentario(models.Model):
     
     def __str__(self):
         return f'Comentário de {self.autor} em {self.ticket}'
+
+    @property
+    def anexo_eh_imagem(self):
+        if not self.anexo:
+            return False
+        ext = self.anexo.name.rsplit('.', 1)[-1].lower()
+        return ext in {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
