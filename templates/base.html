@@ -128,41 +128,36 @@
             #sidebar.active { margin-left: 0; }
         }
 
-        /* Tela de Carregamento */
-    #loader-global {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: rgba(255, 255, 255, 0.8);
-        z-index: 99999;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        visibility: hidden;
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-    }
-    #loader-global.show {
-        visibility: visible;
-        opacity: 1;
-    }
-    .spinner-border {
-        width: 3rem;
-        height: 3rem;
-        color: var(--primary-color);
-    }
+        /* Tela de Carregamento (Global Page Loader) */
+        #global-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255, 255, 255, 0.8);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #global-loader .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            color: var(--primary-color);
+        }
     </style>
     {% block extra_css %}{% endblock %}
     <link rel="icon" href="{% static 'image/favicon.png' %}">
 </head>
 <body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
 
-    <div id="loader-global">
-        <div class="spinner-border" role="status"></div>
-        <strong class="mt-2" style="color: var(--primary-color);">Carregando...</strong>
+    <!-- Global Page Loader — visível apenas em Full Page Reloads/Redirections -->
+    <div id="global-loader" class="d-none" aria-hidden="true">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
     </div>
 
     <div class="wrapper">
@@ -362,5 +357,24 @@
     });
 </script>
 {% endif %}
+
+<!-- Global Page Loader: exibido apenas em Full Page Reloads/Redirections.
+     beforeunload dispara antes de qualquer navegação de página inteira;
+     pageshow esconde o loader ao voltar do BFCache (botão Voltar do navegador).
+     Requisições AJAX (chat, filtros, etc.) NÃO disparam beforeunload. -->
+<script>
+    (function() {
+        const loader = document.getElementById("global-loader");
+        if (!loader) return;
+
+        window.addEventListener("beforeunload", function() {
+            loader.classList.remove("d-none");
+        });
+
+        window.addEventListener("pageshow", function() {
+            loader.classList.add("d-none");
+        });
+    })();
+</script>
 </body>
 </html>
