@@ -6,9 +6,14 @@ from django.conf import settings
 from django.views.static import serve
 from django.views.generic.base import RedirectView
 
+from tickets.health import health_check_view
+
 urlpatterns = [
     # Admin do Django
     path('admin/', admin.site.urls),
+
+    # Health check (público, para serviços externos como UptimeRobot)
+    path('health/', health_check_view, name='health_check'),
 
     # App de autenticação
     path('accounts/', include('accounts.urls')),
