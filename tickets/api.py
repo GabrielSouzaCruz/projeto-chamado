@@ -20,6 +20,7 @@ from accounts.decorators import tecnico_required
 from .forms import ComentarioForm
 from .models import Ticket
 from . import services
+from .signals import evento_do_usuario
 
 # =============================================================================
 # MINI-APIs HTML (FAST PATHS PARA O JAVASCRIPT)
@@ -165,7 +166,8 @@ def assumir_ticket(request, pk):
         messages.error(request, "Apenas técnicos podem assumir chamados.")
         return redirect('tickets:dashboard')
 
-    services.assumir_ticket_service(ticket_id=pk, tecnico=request.user)
+    with evento_do_usuario(request.user):
+        services.assumir_ticket_service(ticket_id=pk, tecnico=request.user)
     messages.success(request, f"Você assumiu o chamado #{pk}")
 
     if is_ajax:
@@ -181,7 +183,8 @@ def alterar_status(request, pk):
         novo_status = request.POST.get('status')
         if novo_status:
             try:
-                services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
+                with evento_do_usuario(request.user):
+                    services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
             except ValidationError:
                 messages.error(request, 'Erro ao atualizar: Status inválido.')
                 if is_ajax:

@@ -19,6 +19,7 @@ from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Categoria
 from . import services
 from . import selectors
+from .signals import evento_do_usuario
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,10 @@ class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
     form_class = TicketForm
     template_name = 'tickets/ticket_form.html'
     
+    def form_valid(self, form):
+        with evento_do_usuario(self.request.user):
+            return super().form_valid(form)
+
     def get_success_url(self):
         return reverse_lazy('tickets:detail', kwargs={'pk': self.object.pk})
 
@@ -88,7 +93,8 @@ def cancelar_ticket(request, pk):
     if ticket.solicitante != request.user and not request.user.is_superuser:
         messages.error(request, "Você não tem permissão para cancelar este ticket.")
         return redirect('tickets:detail', pk=pk)
-    services.cancelar_ticket_service(ticket_id=pk)
+    with evento_do_usuario(request.user):
+        services.cancelar_ticket_service(ticket_id=pk)
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
 

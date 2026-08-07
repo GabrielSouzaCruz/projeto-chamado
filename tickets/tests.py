@@ -111,6 +111,36 @@ class TesteSinais(BaseChamadoTest):
         self.assertEqual(dados['ticket_id'], ticket.id)
         self.assertEqual(dados['action'], 'novo_comentario')
 
+    def test_payload_inclui_titulo_do_chamado(self):
+        """O título do chamado vai no payload para o toast exibir texto legível."""
+        ticket = self.criar_ticket()
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
+            ticket.status = Ticket.Status.EM_ANDAMENTO
+            ticket.save()
+
+        _, _, dados = fake.calls[0]
+        self.assertEqual(dados['titulo'], ticket.titulo)
+
+    def test_actor_id_do_comentario_e_o_autor(self):
+        """actor_id aponta o autor do comentário (filtra o eco no frontend)."""
+        ticket = self.criar_ticket()
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
+            Comentario.objects.create(
+                ticket=ticket, autor=self.tecnico, mensagem='Vou verificar.'
+            )
+
+        _, _, dados = fake.calls[0]
+        self.assertEqual(dados['actor_id'], self.tecnico.id)
+
+    def test_actor_id_do_ticket_criado_e_o_solicitante(self):
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
+            ticket = self.criar_ticket()
+        _, _, dados = fake.calls[0]
+        self.assertEqual(dados['actor_id'], ticket.solicitante_id)
+
 
 class TesteServicos(BaseChamadoTest):
     """Valida as regras de negócio do service layer."""

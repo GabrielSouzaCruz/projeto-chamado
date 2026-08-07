@@ -399,6 +399,9 @@
         enabledTransports: ["ws", "wss"],
     });
 
+    // 3a. Usuário atual (para filtrar o "eco": eventos do próprio usuário)
+    const CURRENT_USER_ID = {{ request.user.id }};
+
     // 4. Política da Aba Fantasma (Page Visibility API): aba oculta não paga conexão
     document.addEventListener("visibilitychange", function() {
         if (document.hidden) {
@@ -408,25 +411,55 @@
         }
     });
 
-    // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor)
+    // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor).
+    // Usa o título do chamado enviado pelo backend; cai no #id se ausente.
     function textoEvento(data) {
         const acoes = {
             novo_ticket: "Novo chamado aberto",
             ticket_atualizado: "Chamado atualizado",
             ticket_cancelado: "Chamado cancelado",
-            novo_comentario: "Nova mensagem no chamado",
+            novo_comentario: "Nova mensagem",
         };
         const prefixo = acoes[data.action] || "Atualização no chamado";
-        return "🔔 " + prefixo + " #" + data.ticket_id;
+        const contexto = data.titulo ? "em: " + data.titulo : "#" + data.ticket_id;
+        return "🔔 " + prefixo + " " + contexto;
+    }
+
+    // 5b. Atualiza as telas conforme a URL atual (robusto, sem exceções).
+    function atualizarInterface(data) {
+        const path = window.location.pathname;
+
+        try {
+            // Fila Admin (técnicos): passa o ID para destacar a linha nova
+            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
+                window.atualizarFilaAdmin(data.ticket_id);
+                return;
+            }
+            // Detalhe do chamado: recarrega o chat/badge
+            const detailMatch = path.match(/^\/tickets\/(\d+)/);
+            if (detailMatch && typeof window.atualizarChat === 'function') {
+                window.atualizarChat();
+                if (typeof window.atualizarStatusTicket === 'function') {
+                    window.atualizarStatusTicket();
+                }
+                return;
+            }
+            // Dashboard (raiz /tickets/)
+            if (path === '/tickets/' && typeof window.atualizarDashboard === 'function') {
+                window.atualizarDashboard();
+                return;
+            }
+        } catch (err) {
+            console.error('Erro ao atualizar interface via Pusher:', err);
+        }
     }
 
     function tratarEvento(data) {
-        // 5a. Mute anti-eco: se o usuário acabou de enviar o próprio comentário,
-        // silencia áudio/toast/notification, mas SEMPRE atualiza as telas.
-        const silenciar = window.silenciarProximaNotificacao === true;
-        window.silenciarProximaNotificacao = false;
+        // 5a. Filtro anti-eco: eventos do PRÓPRIO usuário não mostram toast/áudio/
+        // notificação (o autor já vê o resultado na própria tela). Sempre atualiza.
+        const ehAutor = data.actor_id && Number(data.actor_id) === Number(CURRENT_USER_ID);
 
-        if (!silenciar) {
+        if (!ehAutor) {
             // Áudio
             notificacaoAudio.play().catch(() => {});
 
@@ -444,16 +477,8 @@
             }
         }
 
-        // 6. Reaproveita as funções locais de refresh (existem apenas nas telas certas)
-        if (typeof window.atualizarFilaAdmin === 'function') {
-            window.atualizarFilaAdmin(data.ticket_id);
-        }
-        if (typeof window.atualizarDashboard === 'function') {
-            window.atualizarDashboard();
-        }
-        if (typeof window.atualizarChat === 'function') {
-            window.atualizarChat();
-        }
+        // 6. Atualização das telas conforme a URL atual
+        atualizarInterface(data);
     }
 
     // 7. Canais: fila global + canal específico do chamado em exibição
