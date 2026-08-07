@@ -1,0 +1,169 @@
+/* Cores de Prioridade com Força Total */
+.badge-priority-baixa {
+    background-color: #e9ecef !important;
+    color: #495057 !important;
+    border: 1px solid #ced4da;
+}
+.badge-priority-normal {
+    background-color: #0d6efd !important;
+    color: white !important;
+}
+.badge-priority-alta {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+.badge-priority-critica {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+/* ================================================
+   CHAT EM TELA CHEIA — SÓ O CHAT ROLA, PÁGINA NÃO
+   ================================================ */
+/* Trava o scroll da página inteira nesta tela */
+body:has(#comentarios-container) { overflow: hidden; }
+body:has(#comentarios-container) #content { height: 100vh; }
+
+.chat-layout { padding-top: 0; padding-bottom: 0; }
+
+/* Header do ticket tem altura máxima: nunca engole o chat */
+.chat-layout article > header.card {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+/* Painel lateral: rola por conta própria no desktop (a página não rola) */
+body:has(#comentarios-container) aside {
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+}
+
+.chat-layout .chat-card { position: relative; }
+
+/* Área das mensagens: preenche a altura visível e rola SOZINHA */
+#comentarios-container {
+    height: calc(100vh - 500px);
+    min-height: 220px;
+    background-color: #f8f9fa;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+    background-image: url("data:image/svg+xml,%3Csvg width='42' height='42' xmlns='http://www.w3.org/2000/svg' opacity='0.08'%3E%3Cpath d='M42 21H21V0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M42 42H21V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 21H0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 42H0V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* Barra de escrita: fluxo normal, colada logo após o chat.
+   Sem sticky/fixed → NUNCA cobre as mensagens. */
+.chat-input-area {
+    background-color: #f8f9fa;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+}
+
+.chat-bubble {
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    position: relative;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.bubble-me {
+    background: var(--primary-color);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+}
+
+.bubble-other {
+    background: white;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.bubble-internal {
+    background: #fff3cd;
+    border: 1px dashed #ffeeba;
+    align-self: center;
+    width: 90%;
+    max-width: 90%;
+    color: #856404;
+    font-style: italic;
+}
+
+/* Input de Chat */
+.chat-input-area {
+    background: white;
+    border-top: 1px solid #eee;
+    padding: 15px;
+}
+
+.chat-input-area textarea {
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    resize: none;
+    padding: 12px;
+}
+
+/* Painel lateral de Gestão */
+.management-card {
+    border-radius: 12px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+/* ===== Indicadores de Status — Pulse / Glow sutil ===== */
+@keyframes badge-glow-critico {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    50% { box-shadow: 0 0 8px 2px rgba(220, 53, 69, 0.45); }
+}
+.glow-critico {
+    box-shadow: 0 0 8px rgba(220, 53, 69, 0.55);
+    animation: badge-glow-critico 1.4s ease-in-out infinite;
+}
+@keyframes badge-glow-alta {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    50% { box-shadow: 0 0 8px 2px rgba(255, 193, 7, 0.5); }
+}
+.glow-alta {
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+    animation: badge-glow-alta 1.6s ease-in-out infinite;
+}
+
+/* ================================================
+   RESPONSIVIDADE — Media Queries Originais
+   ================================================ */
+@media (max-width: 1400px) {
+    .chat-bubble { max-width: 80%; }
+}
+
+@media (max-width: 1100px) {
+    .chat-bubble { max-width: 85%; }
+}
+
+@media (max-width: 992px) {
+    /* No mobile o scroll da página fica livre (layout empilha) */
+    body:has(#comentarios-container) { overflow: auto; }
+    body:has(#comentarios-container) #content { height: auto; }
+    #comentarios-container { height: calc(100vh - 420px); min-height: 260px; }
+    .chat-layout article > header.card { max-height: none; }
+    #main-content { padding-top: 1rem; }
+    .management-card { margin-top: .5rem; }
+}
+
+@media (max-width: 768px) {
+    #comentarios-container { height: calc(100vh - 480px); min-height: 240px; }
+    .chat-action-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .chat-action-bar .chat-actions { width: 100%; }
+    .chat-action-bar .btn { width: 100%; }
+    .chat-action-bar .chat-send { width: 100%; }
+}
