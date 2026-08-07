@@ -21,6 +21,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
+# Sentry (observabilidade/rastreamento de erros). Import com guarda para não
+# quebrar o boot sem a lib instalada.
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
 # Pusher (tempo real). Import com guarda para não quebrar o boot sem a lib instalada.
 try:
     import pusher as _pusher
@@ -29,6 +34,21 @@ except ImportError:
 
 # Carrega o arquivo .env da raiz do projeto
 load_dotenv()
+
+# =============================================================================
+# SENTRY — OBSERVABILIDADE E RASTREAMENTO DE ERROS
+# =============================================================================
+# Só inicializa se a variável SENTRY_DSN existir no ambiente (produção).
+# Sem a chave (ex: testes locais), o Sentry é pulado e o app funciona normal.
+if os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.environ.get("SENTRY_DSN"),
+        integrations=[DjangoIntegration()],
+        # Captura 100% das transações (traces)
+        traces_sample_rate=1.0,
+        # Envia dados pessoais (nome/ID do usuário logado que causou o erro)
+        send_default_pii=True,
+    )
 
 # =============================================================================
 # CONFIGURAÇÕES BÁSICAS

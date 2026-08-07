@@ -16,10 +16,12 @@
                 <form method="post" id="login-form">
                     {% csrf_token %}
 
-                    {% if form.errors %}
+                    {% if form.non_field_errors %}
                     <div class="alert alert-danger border-0 shadow-sm" role="alert">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Usuário ou senha incorretos. Verifique seus dados.
+                        {% for error in form.non_field_errors %}
+                            {{ error }}{% if not forloop.last %}<br>{% endif %}
+                        {% endfor %}
                     </div>
                     {% endif %}
 

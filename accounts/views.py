@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.cache import cache
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView
@@ -32,6 +33,28 @@ from .models import User
 # LOGIN / LOGOUT
 # =============================================================================
 
+# Rate limiting anti força-bruta no login
+MAX_TENTATIVAS_LOGIN = 10
+TEMPO_BLOQUEIO_LOGIN = 600  # 10 minutos em segundos
+CACHE_KEY_PREFIX = 'login_falhas_'
+
+def get_client_ip(request):
+    """
+    Captura o IP real do cliente considerando proxies (Render/nginx/gunicorn).
+    HTTP_X_FORWARDED_FOR pode vir com vários IPs: 'ip_cliente, proxy1, proxy2'
+    — retorna sempre o primeiro (o IP original do cliente).
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+def _cache_key(ip):
+    """Gera a chave do cache para um IP."""
+    return f'{CACHE_KEY_PREFIX}{ip}'
+
 class CustomLoginView(SuccessMessageMixin, LoginView):
     """
     View de login personalizada com Bootstrap e mensagens de sucesso.
@@ -39,7 +62,7 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
     Segurança:
     - Redirect de usuários já autenticados (evita loop)
     - CSRF protegido pelo Django
-    - Rate limiting deve ser configurado no nginx/gunicorn em produção
+    - Rate limiting anti força-bruta via cache (por IP, 10 tentativas / 10 min)
     """
     
     template_name = 'accounts/login.html'
@@ -50,6 +73,51 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
     def get_success_url(self):
         """Redireciona para dashboard após login bem-sucedido."""
         return reverse_lazy('tickets:dashboard')
+
+    def form_valid(self, form):
+        """Login OK → zera o contador de falhas do IP."""
+        cache.delete(_cache_key(get_client_ip(self.request)))
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        """
+        Credenciais inválidas → incrementa o contador e mostra quantas
+        tentativas restam antes do bloqueio.
+        """
+        ip = get_client_ip(self.request)
+        chave = _cache_key(ip)
+        tentativas = cache.get(chave, 0) + 1
+        cache.set(chave, tentativas, TEMPO_BLOQUEIO_LOGIN)
+
+        restantes = MAX_TENTATIVAS_LOGIN - tentativas
+        if restantes > 0:
+            form.add_error(
+                None,
+                f'Credenciais inválidas. Você tem mais {restantes} tentativa(s) antes do bloqueio.'
+            )
+        else:
+            form.add_error(
+                None,
+                'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
+            )
+        return super().form_invalid(form)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Antes de processar o formulário, verifica se o IP já está bloqueado.
+        Se atingiu o limite, NÃO processa o login e retorna erro bloqueante
+        (sem incrementar o contador novamente).
+        """
+        ip = get_client_ip(request)
+        tentativas = cache.get(_cache_key(ip), 0)
+        if tentativas >= MAX_TENTATIVAS_LOGIN:
+            form = self.get_form()
+            form.add_error(
+                None,
+                'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        return super().post(request, *args, **kwargs)
 
 
 class CustomLogoutView(LogoutView):
