@@ -98,6 +98,8 @@ INSTALLED_APPS = [
 # bottom-to-top na response. SecurityMiddleware deve vir primeiro.
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Aplica os headers CSP em toda resposta (logo após o SecurityMiddleware)
+    'csp.middleware.CSPMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -296,3 +298,85 @@ else:
 #         },
 #     },
 # }
+
+# =============================================================================
+# SECURITY & CSP SETTINGS — Headers de Segurança + Content Security Policy
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Headers Nativos (Sempre ativos) — emitidos pelo SecurityMiddleware
+# -----------------------------------------------------------------------------
+# Protege contra XSS em navegadores antigos (X-XSS-Protection)
+SECURE_BROWSER_XSS_FILTER = True
+# Previne MIME type sniffing (X-Content-Type-Options)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+# Previne clickjacking (X-Frame-Options: DENY)
+X_FRAME_OPTIONS = 'DENY'
+
+# -----------------------------------------------------------------------------
+# Proteções de Produção (Apenas se NÃO DEBUG) — reforços de transporte/sessão
+# -----------------------------------------------------------------------------
+if not DEBUG:
+    # Redireciona todo HTTP -> HTTPS (SECURE_SSL_REDIRECT)
+    SECURE_SSL_REDIRECT = True
+    # Cookies só trafegam via HTTPS (pacote nunca vazado em texto plano)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS: força HTTPS por 1 ano, incluindo subdomínios e habilitando preload
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# -----------------------------------------------------------------------------
+# Configuração do CSP (Content Security Policy) — via django-csp
+# -----------------------------------------------------------------------------
+# NOTA: django-csp >= 3.0 usa a API moderna CONTENT_SECURITY_POLICY (dict),
+# substituindo os antigos settings CSP_* (API legada do django-csp 2.x).
+# Django 6 exige django-csp recente (3.8+/4.x), que é a versão mantida e segura.
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        # Fontes base: apenas o próprio domínio
+        "default-src": ["'self'"],
+
+        # Scripts: self + inline (ainda usamos scripts inline no base.html) +
+        # Pusher + CDNs públicas (Bootstrap/jsdelivr, FontAwesome/cloudflare)
+        "script-src": [
+            "'self'",
+            "'unsafe-inline'",
+            "https://js.pusher.com",
+            "https://cdn.jsdelivr.net",
+            "https://cdnjs.cloudflare.com",
+        ],
+
+        # Estilos: self + inline + Bootstrap (jsdelivr) + FontAwesome (cloudflare) + Google Fonts
+        "style-src": [
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+            "https://cdnjs.cloudflare.com",
+            "https://fonts.googleapis.com",
+        ],
+
+        # Imagens: self + data: (miniatura base64/FileReader) + Cloudinary (anexos)
+        "img-src": [
+            "'self'",
+            "data:",
+            "https://res.cloudinary.com",
+        ],
+
+        # Conexões (fetch/XHR/WebSocket): self + Pusher (wss para o realtime)
+        "connect-src": [
+            "'self'",
+            "wss://*.pusher.com",
+            "https://*.pusher.com",
+        ],
+
+        # Fontes: self + data: (ícones) + FontAwesome (cloudflare) + Google Fonts (gstatic)
+        "font-src": [
+            "'self'",
+            "data:",
+            "https://cdnjs.cloudflare.com",
+            "https://fonts.gstatic.com",
+        ],
+    },
+}

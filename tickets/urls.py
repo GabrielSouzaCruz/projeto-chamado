@@ -1,6 +1,7 @@
 # tickets/urls.py
 from django.urls import path
 from . import views
+from . import api
 
 app_name = 'tickets'
 
@@ -14,19 +15,19 @@ urlpatterns = [
     path('novo/', views.TicketCreateView.as_view(), name='create'), 
     path('<int:pk>/', views.TicketDetailView.as_view(), name='detail'),
     path('<int:pk>/editar/', views.TicketUpdateView.as_view(), name='update'),
-    path('<int:pk>/comentar/', views.adicionar_comentario, name='add_comment'),
-    path('<int:pk>/assumir/', views.assumir_ticket, name='take'),
-    path('<int:pk>/status/', views.alterar_status, name='change_status'),
+    path('<int:pk>/comentar/', api.adicionar_comentario, name='add_comment'),
+    path('<int:pk>/assumir/', api.assumir_ticket, name='take'),
+    path('<int:pk>/status/', api.alterar_status, name='change_status'),
     path('<int:pk>/cancelar/', views.cancelar_ticket, name='cancelar'),
     path('<int:pk>/apagar/', views.apagar_ticket, name='apagar'),
 
     # 3. ROTAS DE API (MINI-APIs HTML PARA O JAVASCRIPT/WEBSOCKET)
     # 3.1. MINI-APIs OTIMIZADAS
-    path('api/dashboard/cards/', views.api_dashboard_cards, name='api_dashboard_cards'),
-    path('api/dashboard/table/', views.api_dashboard_table, name='api_dashboard_table'),
-    path('api/fila-admin/rows/', views.api_fila_admin_rows, name='api_fila_admin_rows'),
-    path('<int:ticket_id>/comentarios/', views.ticket_comentarios_partial, name='ticket_comentarios_partial'),
-    path('<int:pk>/status-badge/', views.ticket_status_badge_partial, name='ticket_status_badge_partial'),
+    path('api/dashboard/cards/', api.api_dashboard_cards, name='api_dashboard_cards'),
+    path('api/dashboard/table/', api.api_dashboard_table, name='api_dashboard_table'),
+    path('api/fila-admin/rows/', api.api_fila_admin_rows, name='api_fila_admin_rows'),
+    path('<int:ticket_id>/comentarios/', api.ticket_comentarios_partial, name='ticket_comentarios_partial'),
+    path('<int:pk>/status-badge/', api.ticket_status_badge_partial, name='ticket_status_badge_partial'),
 
     # 4. CRUD DE CATEGORIAS
     path('categorias/', views.lista_categorias, name='categorias'),
