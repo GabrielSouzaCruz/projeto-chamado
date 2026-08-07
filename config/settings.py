@@ -61,6 +61,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # 3rd party — Cloudinary (media storage)
+    'cloudinary',
+    'cloudinary_storage',
+    
     # Apps do projeto
     'accounts',
     'tickets',
@@ -155,9 +159,13 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']  # Pasta para coletar com collectstatic
 STATIC_ROOT = BASE_DIR / 'staticfiles'    # Pasta para produção (Nginx serve daqui)
 
+# Cloudinary configuration — lê CLOUDINARY_URL do .env (formato: cloudinary://api_key:api_secret@cloud_name)
+import cloudinary
+cloudinary.config(secure=True)
+
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -165,6 +173,7 @@ STORAGES = {
 }
 
 # Arquivos de mídia (uploads dos usuários: anexos de tickets)
+# MEDIA_URL/MEDIA_ROOT mantidos para compatibilidade, mas não são usados quando STORAGES["default"] é Cloudinary
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 

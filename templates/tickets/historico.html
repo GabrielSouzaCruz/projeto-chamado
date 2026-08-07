@@ -72,6 +72,7 @@
         <p class="text-muted mb-0">Relatório consolidado e exportação de dados institucionais.</p>
     </div>
     <a href="?{% for key, value in request.GET.items %}{% if key != 'export' %}{{ key }}={{ value }}&{% endif %}{% endfor %}export=csv"
+       id="btn-exportar-csv"
        class="btn btn-success fw-bold shadow-sm px-3">
         <i class="fas fa-file-export me-2"></i>Exportar CSV
     </a>
@@ -274,4 +275,48 @@
     {% endif %}
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const btn = document.getElementById("btn-exportar-csv");
+    if (!btn) return;
+
+    btn.addEventListener("click", function(e) {
+        e.preventDefault();
+
+        const url = btn.href;
+        const btnOriginal = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Gerando CSV...';
+
+        fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function(resposta) {
+                if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+                const contentType = resposta.headers.get("Content-Type") || "";
+                if (contentType.indexOf("text/csv") === -1) {
+                    throw new Error("Resposta inesperada (não é CSV).");
+                }
+                return resposta.blob();
+            })
+            .then(function(blob) {
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "historico.csv";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(link.href);
+            })
+            .catch(function() {
+                window.location.href = url;
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = btnOriginal;
+            });
+    });
+});
+</script>
 {% endblock %}
