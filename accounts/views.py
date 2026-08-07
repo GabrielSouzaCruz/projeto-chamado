@@ -12,6 +12,8 @@ Nota: Registro é aberto (sem aprovação). Para produção com controle,
 implemente aprovação via admin ou verificação por e-mail.
 """
 
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -27,6 +29,10 @@ from tickets.models import Ticket
 
 from .forms import LoginForm, UserRegistrationForm, ProfileUpdateForm
 from .models import User
+
+# Logger do app accounts: ações sensíveis de segurança (configurado no LOGGING
+# de config/settings.py com nível INFO e saída para o console/stdout).
+logger = logging.getLogger('accounts')
 
 
 # =============================================================================
@@ -91,11 +97,20 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
 
         restantes = MAX_TENTATIVAS_LOGIN - tentativas
         if restantes > 0:
+            logger.warning(
+                'Falha de login - IP %s: tentativa %s/%s (restantes: %s)',
+                ip, tentativas, MAX_TENTATIVAS_LOGIN, restantes,
+            )
             form.add_error(
                 None,
                 f'Credenciais inválidas. Você tem mais {restantes} tentativa(s) antes do bloqueio.'
             )
         else:
+            logger.warning(
+                'IP %s BLOQUEADO por força bruta após %s tentativas de login falhas '
+                '(bloqueio de %ss)',
+                ip, tentativas, TEMPO_BLOQUEIO_LOGIN,
+            )
             form.add_error(
                 None,
                 'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
@@ -111,6 +126,11 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
         ip = get_client_ip(request)
         tentativas = cache.get(_cache_key(ip), 0)
         if tentativas >= MAX_TENTATIVAS_LOGIN:
+            logger.warning(
+                'IP %s bloqueado - nova tentativa de login recusada '
+                '(contador atual: %s, bloqueio de %ss)',
+                ip, tentativas, TEMPO_BLOQUEIO_LOGIN,
+            )
             form = self.get_form()
             form.add_error(
                 None,

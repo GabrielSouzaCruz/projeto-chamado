@@ -17,6 +17,7 @@ Para produção, ajuste: DEBUG=False, ALLOWED_HOSTS, DATABASES, etc.
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
@@ -276,28 +277,57 @@ else:
     PUSHER_CLIENT = None
 
 # =============================================================================
-# LOGGING (Opcional - para debug em produção)
+# LOGGING — Logs estruturados para o terminal do Render (stdout)
 # =============================================================================
-
-# Para habilitar logs em produção, descomente e ajuste:
-# LOGGING = {
-#     'version': 1,
-#     'disable_existing_loggers': False,
-#     'handlers': {
-#         'file': {
-#             'level': 'ERROR',
-#             'class': 'logging.FileHandler',
-#             'filename': BASE_DIR / 'logs' / 'django_errors.log',
-#         },
-#     },
-#     'loggers': {
-#         'django': {
-#             'handlers': ['file'],
-#             'level': 'ERROR',
-#             'propagate': True,
-#         },
-#     },
-# }
+# Nota: não colide com o Sentry — o Sentry captura via suas próprias
+# integrações (LoggingIntegration) e não depende deste dicionário.
+LOGGING = {
+    'version': 1,
+    # Nunca desabilita loggers de apps de terceiros (Pusher, Sentry, etc.)
+    'disable_existing_loggers': False,
+    'formatters': {
+        # Formatador padrão: data/hora + nível + módulo + mensagem
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        # Saída para sys.stdout: o Render captura 100% do que sai no stdout
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        # Em DEBUG o terminal polui fácil → sobe o nível; em produção = INFO
+        'level': 'WARNING' if DEBUG else 'INFO',
+    },
+    'loggers': {
+        # Django: avisos e erros (evita propagação para não duplicar)
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Ações sensíveis do nosso app de segurança (ex: bloqueio de IP
+        # por rate limit no login). Ajuste o nível conforme o necessário.
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Eventos críticos dos chamados (ex: alterações de status/técnicos)
+        'tickets': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # =============================================================================
 # SECURITY & CSP SETTINGS — Headers de Segurança + Content Security Policy
