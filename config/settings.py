@@ -378,11 +378,13 @@ CONTENT_SECURITY_POLICY = {
             "https://res.cloudinary.com",
         ],
 
-        # Conexões (fetch/XHR/WebSocket): self + Pusher (wss para o realtime)
+        # Conexões (fetch/XHR/WebSocket): self + Pusher (wss para o realtime) +
+        # jsDelivr (source maps do Bootstrap baixados pelo navegador)
         "connect-src": [
             "'self'",
             "wss://*.pusher.com",
             "https://*.pusher.com",
+            "https://cdn.jsdelivr.net",
         ],
 
         # Fontes: self + data: (ícones) + FontAwesome (cloudflare) + Google Fonts (gstatic)
