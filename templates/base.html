@@ -29,44 +29,68 @@
             --danger-machado: #D62828;
             --sidebar-dark: #143569;
             --bg-body: #f4f7fe;
+            --sidebar-width: 260px;
         }
 
-        body { 
-            font-family: 'Inter', sans-serif; 
+        html, body {
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
             background-color: var(--bg-body);
             color: #2d3436;
         }
 
-        .wrapper { display: flex; align-items: stretch; }
+        .wrapper {
+            display: flex;
+            align-items: stretch;
+            min-height: 100vh;
+        }
 
+        /* =============================================================
+           SIDEBAR — Flexbox responsiva
+           - Desktop (>=993px): fixa e sempre visível
+           - Mobile (<993px): off-canvas, escondida por padrão e ativada
+             pela classe .show (transform, sem quebrar layout)
+           ============================================================= */
         #sidebar {
-            min-width: 260px;
-            max-width: 260px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
             background: var(--sidebar-dark);
             color: #fff;
             min-height: 100vh;
-            position: fixed;
-            transition: all 0.3s;
+            overflow-y: auto;
             z-index: 1000;
             border-right: 3px solid var(--accent-color);
+            transition: transform 0.3s ease;
         }
 
         #content {
             width: 100%;
+            min-height: 100vh;
             padding: 30px;
-            margin-left: 260px;
-            transition: all 0.3s;
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease;
         }
 
         .no-sidebar #content { margin-left: 0; }
 
-        .sidebar-header { 
-            padding: 20px 15px; 
-            background: rgba(255,255,255,0.05); 
-            text-align: center; 
+        /* Backdrop escurecido — só existe e aparece no mobile */
+        #sidebar-backdrop {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 20px 15px;
+            background: rgba(255,255,255,0.05);
+            text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        
+
         .sidebar-logo {
             max-height: 70px;
             width: auto;
@@ -74,20 +98,20 @@
             filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));
         }
 
-        .sidebar-header h4 { 
-            font-weight: 700; 
-            color: #fff; 
-            margin: 0; 
-            font-size: 0.85rem; 
-            line-height: 1.2; 
+        .sidebar-header h4 {
+            font-weight: 700;
+            color: #fff;
+            margin: 0;
+            font-size: 0.85rem;
+            line-height: 1.2;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        #sidebar ul li.small { 
-            color: rgba(255, 255, 255, 0.8) !important; 
-            font-weight: 600; 
-            margin-top: 20px; 
+        #sidebar ul li.small {
+            color: rgba(255, 255, 255, 0.8) !important;
+            font-weight: 600;
+            margin-top: 20px;
             padding: 0 25px;
             text-transform: uppercase;
             font-size: 0.75rem;
@@ -124,16 +148,78 @@
 
         .bg-primary { background-color: var(--primary-color) !important; }
         .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }
-        
+
         .logout-btn-sidebar {
             background: none; border: none; color: #f64e60 !important;
             padding: 12px 25px; width: 100%; text-align: left; font-weight: 500;
         }
 
+        /* Mobile: sidebar off-canvas + backdrop clicável */
         @media (max-width: 992px) {
-            #sidebar { margin-left: -260px; }
+            #sidebar {
+                transform: translateX(-100%);
+                box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+            }
+            #sidebar.show { transform: translateX(0); }
+
             #content { margin-left: 0; }
-            #sidebar.active { margin-left: 0; }
+            .no-sidebar #content { margin-left: 0; }
+
+            #sidebar-backdrop {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+            #sidebar-backdrop.show {
+                opacity: 1;
+                visibility: visible;
+            }
+        }
+
+        /* =============================================================
+           TOASTS (Pusher + feedback da interface)
+           Mobile: largura 100% com margens seguras e safe-area iOS.
+           Desktop: bloco fixo à direita.
+           ============================================================= */
+        #toast-container {
+            position: fixed;
+            bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+            left: 1rem;
+            right: 1rem;
+            z-index: 11000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        #toast-container .toast-item {
+            pointer-events: auto;
+            width: 100%;
+            max-width: 100%;
+            margin-left: auto;
+            animation: toast-in 0.25s ease;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (min-width: 576px) {
+            #toast-container {
+                left: auto;
+                right: 1rem;
+                width: 420px;
+            }
         }
 
         /* Tela de Carregamento (Global Page Loader) */
@@ -170,7 +256,7 @@
 
     <div class="wrapper">
         {% if user.is_authenticated %}
-        <nav id="sidebar">
+        <nav id="sidebar" aria-label="Menu principal">
             <div class="sidebar-header">
                 <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo">
                 <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS</h4>
@@ -207,13 +293,16 @@
                 </li>
             </ul>
         </nav>
+
+        <!-- Backdrop do menu mobile (clique fecha a sidebar) -->
+        <div id="sidebar-backdrop" aria-hidden="true"></div>
         {% endif %}
 
         <div id="content">
             {% if user.is_authenticated %}
             <div class="top-bar">
                 <div class="d-flex align-items-center">
-                    <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-3">
+                    <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-3" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h5 class="mb-0 fw-bold">{% block page_title %}Visão Geral{% endblock %}</h5>
@@ -266,24 +355,34 @@
         }
     });
 
-    // 2. Toast visual interno
+    // 2. Toast visual interno (container único, responsivo)
     function mostrarNotificacao(mensagem, tipo) {
-        const toastContainer = document.createElement('div');
-        toastContainer.className = 'position-fixed top-0 end-0 p-3';
-        toastContainer.style.zIndex = '10000';
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
+        }
 
         const corFundo = tipo === 'success' ? '#198754' : (tipo === 'danger' ? '#dc3545' : 'var(--primary-color)');
 
-        toastContainer.innerHTML = `
-            <div class="toast show text-white shadow-lg border-0" style="border-radius: 12px; background-color: ${corFundo};">
-                <div class="toast-body p-3 d-flex justify-content-between align-items-center">
-                    <strong>${mensagem}</strong>
-                    <button type="button" class="btn-close btn-close-white" onclick="this.closest('.position-fixed').remove()"></button>
-                </div>
+        const toast = document.createElement('div');
+        toast.className = 'toast-item show text-white shadow-lg border-0';
+        toast.style.cssText = 'border-radius: 12px; background-color:' + corFundo + ';';
+
+        toast.innerHTML = `
+            <div class="toast-body p-3 d-flex justify-content-between align-items-center">
+                <strong>${mensagem}</strong>
+                <button type="button" class="btn-close btn-close-white ms-3" aria-label="Fechar"></button>
             </div>
         `;
-        document.body.appendChild(toastContainer);
-        setTimeout(() => toastContainer.remove(), 6000);
+
+        toast.querySelector('.btn-close').addEventListener('click', function() {
+            toast.remove();
+        });
+
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
     }
 </script>
 {% endif %}
@@ -393,6 +492,50 @@
             document.querySelectorAll(".modal-backdrop").forEach(bd => bd.remove());
             document.body.classList.remove("modal-open");
         }
+    });
+</script>
+
+<!-- Sidebar responsiva: hamburguer abre/fecha no mobile, fecha ao tocar fora
+     (backdrop) ou ao navegar por um link do menu. No desktop fica sempre visível. -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const botaoMenu = document.getElementById('sidebarCollapse');
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (!botaoMenu || !sidebar) return;
+
+        function fecharSidebar() {
+            sidebar.classList.remove('show');
+            if (backdrop) backdrop.classList.remove('show');
+            botaoMenu.setAttribute('aria-expanded', 'false');
+            botaoMenu.setAttribute('aria-label', 'Abrir menu');
+        }
+
+        function abrirSidebar() {
+            sidebar.classList.add('show');
+            if (backdrop) backdrop.classList.add('show');
+            botaoMenu.setAttribute('aria-expanded', 'true');
+            botaoMenu.setAttribute('aria-label', 'Fechar menu');
+        }
+
+        botaoMenu.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (sidebar.classList.contains('show')) {
+                fecharSidebar();
+            } else {
+                abrirSidebar();
+            }
+        });
+
+        // Tocar fora (backdrop) fecha o menu
+        if (backdrop) {
+            backdrop.addEventListener('click', fecharSidebar);
+        }
+
+        // Navegar por um link do menu fecha a sidebar automaticamente (mobile)
+        sidebar.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', fecharSidebar);
+        });
     });
 </script>
 
