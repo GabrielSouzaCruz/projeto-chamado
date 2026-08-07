@@ -9,7 +9,7 @@ Inclui:
 - Alteração de senha
 
 Nota: Registro é aberto (sem aprovação). Para produção com controle,
-implemente aprovação via admin ou verificação por e-mail.
+implemente aprovação via admin.
 """
 
 import logging
@@ -161,11 +161,10 @@ class RegisterView(SuccessMessageMixin, CreateView):
     
     ⚠️ ATENÇÃO (Segurança):
     - Registro é ABERTO (qualquer um pode criar conta)
-    - Login automático após registro (sem verificação de e-mail)
+    - Login automático após registro
     - Para produção com controle, considere:
       1. Aprovação via admin (is_active=False até aprovar)
-      2. Verificação por e-mail (enviar token único)
-      3. Whitelist de domínios corporativos
+      2. Whitelist de domínios corporativos
     
     Após registro:
     - Usuário é logado automaticamente
@@ -186,7 +185,6 @@ class RegisterView(SuccessMessageMixin, CreateView):
         Por que login automático?
         - Melhor UX para sistemas internos
         - Evita etapa extra de login após registro
-        - ⚠️ Em produção com verificação de e-mail, remova esta linha
         """
         response = super().form_valid(form)
         login(self.request, self.object)
