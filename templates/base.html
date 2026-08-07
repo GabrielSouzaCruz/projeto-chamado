@@ -412,13 +412,15 @@
     });
 
     // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor).
-    // Usa o título do chamado enviado pelo backend; cai no #id se ausente.
+    // Mensagens mostram o nome do remetente; os demais eventos, o chamado.
     function textoEvento(data) {
+        if (data.action === "novo_comentario" && data.remetente_nome) {
+            return "🔔 Nova mensagem de: " + data.remetente_nome;
+        }
         const acoes = {
             novo_ticket: "Novo chamado aberto",
             ticket_atualizado: "Chamado atualizado",
             ticket_cancelado: "Chamado cancelado",
-            novo_comentario: "Nova mensagem",
         };
         const prefixo = acoes[data.action] || "Atualização no chamado";
         const contexto = data.titulo ? "em: " + data.titulo : "#" + data.ticket_id;
@@ -430,18 +432,20 @@
         const path = window.location.pathname;
 
         try {
-            // Fila Admin (técnicos): passa o ID para destacar a linha nova
-            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
-                window.atualizarFilaAdmin(data.ticket_id);
-                return;
-            }
-            // Detalhe do chamado: recarrega o chat/badge
+            // Detalhe do chamado: recarrega o chat/badge apenas se for o MESMO chamado
             const detailMatch = path.match(/^\/tickets\/(\d+)/);
-            if (detailMatch && typeof window.atualizarChat === 'function') {
-                window.atualizarChat();
+            if (detailMatch && Number(detailMatch[1]) === Number(data.ticket_id)) {
+                if (typeof window.atualizarChat === 'function') {
+                    window.atualizarChat();
+                }
                 if (typeof window.atualizarStatusTicket === 'function') {
                     window.atualizarStatusTicket();
                 }
+                return;
+            }
+            // Fila Admin (técnicos): passa o ID para destacar a linha nova
+            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
+                window.atualizarFilaAdmin(data.ticket_id);
                 return;
             }
             // Dashboard (raiz /tickets/)
@@ -455,11 +459,19 @@
     }
 
     function tratarEvento(data) {
-        // 5a. Filtro anti-eco: eventos do PRÓPRIO usuário não mostram toast/áudio/
-        // notificação (o autor já vê o resultado na própria tela). Sempre atualiza.
+        // Filtro anti-eco: eventos do PRÓPRIO usuário não mostram toast/áudio.
         const ehAutor = data.actor_id && Number(data.actor_id) === Number(CURRENT_USER_ID);
 
-        if (!ehAutor) {
+        // Mensagens notificam apenas os envolvidos (solicitante/técnico).
+        const ehDestinatario = !data.destinatario_ids || data.destinatario_ids.includes(CURRENT_USER_ID);
+
+        // Com o chat do chamado aberto, a mensagem já aparece ao vivo: sem toast.
+        const detailMatch = window.location.pathname.match(/^\/tickets\/(\d+)/);
+        const chatAbertoDesteTicket = detailMatch && Number(detailMatch[1]) === Number(data.ticket_id);
+
+        const deveNotificar = !ehAutor && ehDestinatario && !chatAbertoDesteTicket;
+
+        if (deveNotificar) {
             // Áudio
             notificacaoAudio.play().catch(() => {});
 

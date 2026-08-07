@@ -37,6 +37,13 @@ def _enviar_evento(evento, dados, canais):
         logger.exception('Falha ao disparar evento no Pusher: %s', evento)
 
 
+def _nome_usuario(usuario):
+    """Nome de exibição: nome completo, com fallback para o username."""
+    if usuario is None:
+        return ''
+    return usuario.get_full_name() or usuario.username
+
+
 @receiver(post_save, sender=Ticket)
 def notificar_ticket_event(sender, instance, created, **kwargs):
     canal_global = ['fila-global']
@@ -50,6 +57,7 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
                 'action': 'novo_ticket',
                 'titulo': instance.titulo,
                 'actor_id': instance.solicitante_id,
+                'remetente_nome': _nome_usuario(instance.solicitante),
             },
             canal_global,
         )
@@ -75,13 +83,20 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Comentario)
 def notificar_novo_comentario(sender, instance, created, **kwargs):
     if created:
+        ticket = instance.ticket
+        destinatario_ids = {ticket.solicitante_id}
+        if ticket.tecnico_responsavel_id:
+            destinatario_ids.add(ticket.tecnico_responsavel_id)
+
         _enviar_evento(
             'novo_comentario',
             {
-                'ticket_id': instance.ticket.id,
+                'ticket_id': ticket.id,
                 'action': 'novo_comentario',
-                'titulo': instance.ticket.titulo,
+                'titulo': ticket.titulo,
                 'actor_id': instance.autor_id,
+                'remetente_nome': _nome_usuario(instance.autor),
+                'destinatario_ids': sorted(destinatario_ids),
             },
-            [f'ticket-{instance.ticket.id}'],
+            ['fila-global', f'ticket-{ticket.id}'],
         )

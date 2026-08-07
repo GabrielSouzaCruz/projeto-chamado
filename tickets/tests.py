@@ -96,7 +96,7 @@ class TesteSinais(BaseChamadoTest):
         self.assertEqual(dados['action'], 'ticket_atualizado')
         self.assertEqual(dados['status'], Ticket.Status.RESOLVIDO)
 
-    def test_comentario_criado_dispara_novo_comentario_no_canal_do_ticket(self):
+    def test_comentario_criado_dispara_novo_comentario_nos_canais_global_e_do_ticket(self):
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
@@ -106,10 +106,12 @@ class TesteSinais(BaseChamadoTest):
 
         self.assertEqual(len(fake.calls), 1)
         canais, evento, dados = fake.calls[0]
-        self.assertEqual(canais, [f'ticket-{ticket.id}'])
+        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
         self.assertEqual(evento, 'novo_comentario')
         self.assertEqual(dados['ticket_id'], ticket.id)
         self.assertEqual(dados['action'], 'novo_comentario')
+        self.assertEqual(dados['remetente_nome'], self.solicitante.username)
+        self.assertIn(self.solicitante.id, dados['destinatario_ids'])
 
     def test_payload_inclui_titulo_do_chamado(self):
         """O título do chamado vai no payload para o toast exibir texto legível."""
@@ -140,6 +142,20 @@ class TesteSinais(BaseChamadoTest):
             ticket = self.criar_ticket()
         _, _, dados = fake.calls[0]
         self.assertEqual(dados['actor_id'], ticket.solicitante_id)
+
+    def test_destinatarios_incluem_tecnico_atribuido(self):
+        ticket = self.criar_ticket()
+        ticket.tecnico_responsavel = self.tecnico
+        ticket.save()
+        fake = FakePusherClient()
+        with self._com_pusher(fake):
+            Comentario.objects.create(
+                ticket=ticket, autor=self.tecnico, mensagem='Verificando.'
+            )
+
+        _, _, dados = fake.calls[0]
+        self.assertIn(self.solicitante.id, dados['destinatario_ids'])
+        self.assertIn(self.tecnico.id, dados['destinatario_ids'])
 
 
 class TesteServicos(BaseChamadoTest):
