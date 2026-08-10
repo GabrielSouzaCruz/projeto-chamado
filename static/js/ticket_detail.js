@@ -12,31 +12,35 @@ function anexoIndisponivel(el) {
 document.addEventListener("DOMContentLoaded", function() {
     const formComentario = document.getElementById("form-comentario");
     const chatBox = document.getElementById("comentarios-container");
+    let enviando = false;
 
-    // 6. SILENCIAR A PRÓXIMA NOTIFICAÇÃO (evita o "eco" ao enviar o próprio comentário)
-    let silenciarProximaNotificacao = false;
-    window.silenciarProximaNotificacao = false;
+    // 1. SCROLL SUAVE E INTELIGENTE
+    // instant=true é usado no load inicial (sem animação); o resto é smooth.
+    function scrollToBottom(instant = false) {
+        if (!chatBox) return;
+        chatBox.scrollTo({
+            top: chatBox.scrollHeight,
+            behavior: instant ? "auto" : "smooth",
+        });
+    }
+    scrollToBottom(true);
 
-    // 7. FEEDBACK DE AÇÕES RÁPIDAS (spinner + texto "A processar..." + restauração)
+    // 2. FEEDBACK DE AÇÕES RÁPIDAS (spinner + texto "A processar..." + restauração)
     function feedbackCarregando(btn, texto) {
         if (!btn) return;
         if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
         btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ' + (texto || "A processar...");
     }
     function restaurarBotao(btn) {
         if (!btn) return;
         btn.disabled = false;
+        btn.removeAttribute("aria-busy");
         if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
     }
 
-    // Mantém o scroll no final quando a página carrega
-    function scrollToBottom() {
-        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-    }
-    scrollToBottom();
-
-    // 0. ANEXO: validação + preview no chat
+    // 3. ANEXO: validação + preview no chat
     const chatFile = document.getElementById("chat-file");
     const chatInput = document.getElementById("chat-input");
     const fileNameBtn = document.getElementById("chat-file-name");
@@ -110,11 +114,15 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // 0.1 RESGATE DO CTRL+V: cola imagens direto no campo de texto
+    // 4. RESGATE DO CTRL+V: cola imagens direto no campo de texto
+    // Cada colagem cria um novo DataTransfer() — nunca acumula colagens anteriores.
     if (chatInput && chatFile) {
         chatInput.addEventListener("paste", function(e) {
             const itens = e.clipboardData && e.clipboardData.items;
             if (!itens) return;
+
+            const dt = new DataTransfer();
+            let achouImagem = false;
 
             for (const item of itens) {
                 if (item.kind === "file" && item.type.startsWith("image/")) {
@@ -122,33 +130,37 @@ document.addEventListener("DOMContentLoaded", function() {
                     const arquivo = item.getAsFile();
                     const nome = arquivo.name || "colado.png";
                     const arquivoColado = new File([arquivo], nome, { type: arquivo.type });
-
-                    const dt = new DataTransfer();
-                    if (chatFile.files && chatFile.files[0]) dt.items.add(chatFile.files[0]);
                     dt.items.add(arquivoColado);
-                    chatFile.files = dt.files;
-
-                    atualizarPreviewChat();
-                    break;
+                    achouImagem = true;
                 }
+            }
+
+            if (achouImagem) {
+                chatFile.files = dt.files;
+                atualizarPreviewChat();
             }
         });
     }
 
-    // 0.2 ATALHO ENTER para enviar a mensagem
+    // 5. ATALHO ENTER para enviar a mensagem (com trava anti-double-submit)
     if (chatInput && formComentario) {
         chatInput.addEventListener("keydown", function(e) {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault(); // impede a quebra de linha
+                if (enviando) return;
                 formComentario.requestSubmit(); // dispara o handler de submit (AJAX)
             }
         });
     }
 
-    // 1. INTERCEPTAR O ENVIO DO FORMULÁRIO (Fim dos recarregamentos!)
+    // 6. INTERCEPTAR O ENVIO DO FORMULÁRIO (Fim dos recarregamentos!)
     if (formComentario) {
         formComentario.addEventListener("submit", function(e) {
             e.preventDefault(); // O segredo que impede a página de piscar/recarregar
+
+            // Trava anti-double-submit: Enter frenético não duplica o envio
+            if (enviando) return;
+            enviando = true;
 
             const formData = new FormData(this);
             const mensagem = (formData.get("mensagem") || "").trim();
@@ -156,6 +168,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // Permite envio só com anexo (Ctrl+V ou seleção) ou com texto
             if (!mensagem && !temArquivo) {
+                enviando = false;
                 if (chatInput) chatInput.focus();
                 mostrarNotificacao("Escreva uma mensagem ou anexe um arquivo.", "danger");
                 return;
@@ -164,10 +177,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const submitBtn = this.querySelector('button[type="submit"]');
 
             // Desabilita o botão, mostra o estado "A enviar..." e evita cliques duplos
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> A enviar...';
-            }
+            feedbackCarregando(submitBtn, "A enviar...");
 
             fetch(this.action, {
                 method: "POST",
@@ -182,9 +192,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (chatFile) chatFile.value = "";
                     atualizarPreviewChat();
                     if (chatInput) chatInput.value = "";
-                    // Silencia a notificação do próprio envio (o Pusher devolve o eco)
-                    silenciarProximaNotificacao = true;
-                    window.silenciarProximaNotificacao = true;
                     // Atualiza o chat imediatamente (fallback) e também via Pusher,
                     // garantindo que a própria mensagem sempre apareça na tela.
                     window.atualizarChat();
@@ -198,34 +205,41 @@ document.addEventListener("DOMContentLoaded", function() {
                 mostrarNotificacao("Erro de rede ao enviar a mensagem.", "danger");
             })
             .finally(() => {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = "Enviar";
-                }
+                enviando = false;
+                restaurarBotao(submitBtn);
             });
         });
     }
 
-    // 2. ATUALIZAR O CHAT SILENCIOSAMENTE E COM ALTA PERFORMANCE
+    // 7. ATUALIZAR O CHAT SILENCIOSAMENTE E COM ALTA PERFORMANCE
+    // Preserva a posição de leitura: só rola ao fim se o usuário JÁ estava no fim.
     window.atualizarChat = function() {
         if (!chatBox) return;
 
         // Puxa APENAS o HTML dos comentários através da nossa nova mini-API
         const urlApi = window.TICKET_CONFIG.urls.comentariosPartial;
 
+        // Estava no fim? (margem de 60px para não saltar com bordas/paddings)
+        const estavaNoFim = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 60;
+
         fetch(urlApi)
         .then(response => response.text())
         .then(html => {
-            // Como a API já devolve só os comentários, é só injetar direto!
+            // Guarda altura atual para recalcular a posição relativa após o swap
+            const alturaAntes = chatBox.scrollHeight;
             chatBox.innerHTML = html;
 
-            // Rola automaticamente para a última mensagem
-            scrollToBottom();
+            if (estavaNoFim) {
+                scrollToBottom(); // suave até a última mensagem
+            } else {
+                // Mantém a âncora de leitura: desloca pela variação de altura
+                chatBox.scrollTop += chatBox.scrollHeight - alturaAntes;
+            }
         })
         .catch(error => console.error("Erro ao atualizar o chat:", error));
     };
 
-    // 3. AÇÃO RÁPIDA: ALTERAR STATUS (via fetch, sem recarregar)
+    // 8. AÇÃO RÁPIDA: ALTERAR STATUS (via fetch, sem recarregar)
     const formStatus = document.getElementById("form-status");
     if (formStatus) {
         formStatus.addEventListener("submit", function(e) {
@@ -260,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // 4. AÇÃO RÁPIDA: ASSUMIR CHAMADO (via fetch, sem recarregar)
+    // 9. AÇÃO RÁPIDA: ASSUMIR CHAMADO (via fetch, sem recarregar)
     const formAssumir = document.getElementById("form-assumir");
     if (formAssumir) {
         formAssumir.addEventListener("submit", function(e) {
@@ -300,7 +314,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // 5. MODAIS DE CONFIRMAÇÃO (Cancelar / Apagar) — feedback de carregamento no submit nativo
+    // 10. MODAIS DE CONFIRMAÇÃO (Cancelar / Apagar) — feedback de carregamento no submit nativo
     document.querySelectorAll("#modalCancelarTicket form, #modalApagarTicket form").forEach(function(form) {
         form.addEventListener("submit", function() {
             feedbackCarregando(this.querySelector('button[type="submit"]'));
@@ -308,7 +322,8 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-    // 6. MINI-API: atualiza apenas o badge de status (HTML-over-the-wire)
+    // 11. MINI-API: atualiza apenas o badge de status SEM quebrar listeners/tooltips.
+    // Em vez de outerHTML (que destrói o nó), troca classe e texto do elemento atual.
     window.atualizarStatusTicket = function() {
         const badgeContainer = document.getElementById("ticket-header-status");
         if (!badgeContainer) return;
@@ -316,7 +331,14 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch(window.TICKET_CONFIG.urls.statusBadgePartial)
             .then(res => res.text())
             .then(html => {
-                badgeContainer.outerHTML = html;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                const novoBadge = doc.querySelector("#ticket-header-status");
+                if (!novoBadge) return;
+
+                // Preserva o elemento e seus listeners; atualiza apenas aparência.
+                badgeContainer.className = novoBadge.className;
+                badgeContainer.textContent = novoBadge.textContent;
             })
             .catch(err => console.error("Erro ao atualizar status:", err));
     };
