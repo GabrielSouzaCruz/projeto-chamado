@@ -27,11 +27,14 @@
 
 html, body {
     height: 100dvh;
+    height: var(--vh-real, 100dvh); /* altura REAL do Visual Viewport (Android) */
     overflow: hidden;
+    margin: 0;
 }
 
 .wrapper {
     height: 100dvh;
+    height: var(--vh-real, 100dvh);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -39,6 +42,7 @@ html, body {
 
 #content {
     height: 100dvh;
+    height: var(--vh-real, 100dvh);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -127,6 +131,8 @@ aside.col-lg-4 {
    No desktop o inset é 0, então não muda nada. */
 .chat-input-area {
     flex-shrink: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     background: white;
     border-top: 1px solid rgba(0,0,0,0.08);
     box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
@@ -134,11 +140,33 @@ aside.col-lg-4 {
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Container interno (form) e barra de ações: nunca vazam para a direita */
+.chat-input-area form,
+.chat-action-bar {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Campo de digitação: min-width: 0 é CRÍTICO no Flexbox — impede que o input
+   estoure o layout e empurre os botões para fora da tela */
 .chat-input-area textarea {
+    min-width: 0;
+    flex: 1 1 auto;
     border-radius: 12px;
     border: 1px solid #ddd;
     resize: none;
     padding: 12px;
+}
+
+/* Grupo de ações permite encolher/rolar sem vazar; botões nunca são cortados */
+.chat-action-bar .chat-actions {
+    min-width: 0;
+}
+
+/* Botões de anexo e enviar: nunca são esmagados nem cortados pelo input */
+.chat-actions label[for="chat-file"],
+.chat-send {
+    flex-shrink: 0;
 }
 
 .chat-bubble {
@@ -259,8 +287,13 @@ aside.col-lg-4 {
     .top-bar { padding: 10px 12px; margin-bottom: 12px; }
     article.col-lg-8 > header.card { margin-bottom: 12px; }
 
-    /* Barra de escrita compacta (safe-area já vem da regra base) */
-    .chat-input-area { padding: 10px 12px; }
+    /* Barra de escrita compacta. Padding inferior de 20px: no Android o
+       env(safe-area-inset-bottom) costuma retornar 0px e a barra de navegação
+       do SO sobrepõe a tela — com 20px os botões não ficam "70% cortados". */
+    .chat-input-area {
+        padding: 10px 12px;
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
 
     /* Mensagens com respiro menor: mais conteúdo visível por tela */
     #comentarios-container { padding: 16px; gap: 12px; }

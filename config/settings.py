@@ -182,13 +182,60 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']  # Pasta para coletar com collectstatic
 STATIC_ROOT = BASE_DIR / 'staticfiles'    # Pasta para produção (Nginx serve daqui)
 
-# Cloudinary configuration — lê CLOUDINARY_URL do .env (formato: cloudinary://api_key:api_secret@cloud_name)
-import cloudinary
-cloudinary.config(secure=True)
+# =============================================================================
+# CLOUDINARY — STORAGE DE MÍDIA (ANEXOS) NA NUVEM
+# O Render Free Tier tem disco EFÊMERO: arquivos em /media/ somem a cada
+# deploy/restart. Com o Cloudinary como storage default, os uploads vão para a
+# CDN e sobrevivem a deploys. As credenciais são lidas do .env / ambiente:
+#
+#   CLOUDINARY_CLOUD_NAME
+#   CLOUDINARY_API_KEY
+#   CLOUDINARY_API_SECRET
+#
+# Prioridade das credenciais:
+#   1) Chaves nomeadas acima (dict CLOUDINARY_STORAGE) — caminho recomendado.
+#   2) CLOUDINARY_URL (cloudinary://api_key:api_secret@cloud_name) — legado.
+#   3) Nenhuma → mídia local em /media/ (dev sem nuvem), servida por urls.py.
+#
+# ⚠️ CLOUDINARY_STORAGE só é definido quando as 3 chaves nomeadas existem. O SDK
+# do Cloudinary sobrescreve a config com valores None: um dict com chaves None
+# apagaria a config vinda do CLOUDINARY_URL. O backend de storage só é ativado
+# quando há credenciais — sem elas o app segue 100% funcional com disco local.
+# =============================================================================
+_CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+_CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+_CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+_CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
+
+if _CLOUDINARY_CLOUD_NAME and _CLOUDINARY_API_KEY and _CLOUDINARY_API_SECRET:
+    CLOUDINARY_STORAGE = {
+        "CLOUD_NAME": _CLOUDINARY_CLOUD_NAME,
+        "API_KEY": _CLOUDINARY_API_KEY,
+        "API_SECRET": _CLOUDINARY_API_SECRET,
+        "SECURE": True,  # URLs https://
+    }
+    _STORAGE_DEFAULT_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
+elif _CLOUDINARY_URL:
+    # Legado: só a URL presente → o SDK do Cloudinary carrega as credenciais
+    # por conta própria. O dict sem as 3 chaves faz o app_settings cair no
+    # caminho que preserva a config vinda da URL (evita cloudinary.config(None)).
+    CLOUDINARY_STORAGE = {"SECURE": True}
+    _STORAGE_DEFAULT_BACKEND = "cloudinary_storage.storage.MediaCloudinaryStorage"
+else:
+    # Dev/CI sem credenciais: mídia local em /media/ (disco efêmero, ok p/ dev).
+    CLOUDINARY_STORAGE = {"SECURE": True}
+    _STORAGE_DEFAULT_BACKEND = "django.core.files.storage.FileSystemStorage"
+
+# Garante URLs https:// desde o boot (o app_settings do cloudinary_storage também
+# força secure=True, mas só quando o backend é instanciado; aqui fica
+# determinístico. config() só atualiza o parâmetro passado — não toca nas credenciais).
+if _STORAGE_DEFAULT_BACKEND == "cloudinary_storage.storage.MediaCloudinaryStorage":
+    import cloudinary  # noqa: E402
+    cloudinary.config(secure=True)
 
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": _STORAGE_DEFAULT_BACKEND,
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

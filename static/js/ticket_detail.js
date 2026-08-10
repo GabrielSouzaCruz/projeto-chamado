@@ -1,3 +1,19 @@
+// Fallback dinâmico de altura: no Android o 100dvh nem sempre reflete a área
+// REALMENTE visível (barra de navegação do SO + teclado virtual) e o
+// env(safe-area-inset-bottom) retorna 0px. Esta variável CSS --vh-real
+// (usada em ticket_detail.css) é atualizada com a altura do Visual Viewport
+// sempre que o teclado abre/fecha ou a janela redimensiona.
+function ajustarAlturaReal() {
+    if (window.visualViewport) {
+        document.documentElement.style.setProperty("--vh-real", window.visualViewport.height + "px");
+    }
+}
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", ajustarAlturaReal);
+    window.visualViewport.addEventListener("scroll", ajustarAlturaReal);
+}
+ajustarAlturaReal();
+
 // Função global: trata anexos cujo arquivo não existe mais (foi removido pelo
 // limpar_anexos ou sumiu do storage). Substitui a miniatura/link quebrado por
 // um aviso e IMPEDE que a pessoa abra a imagem novamente.
