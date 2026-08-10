@@ -7,7 +7,7 @@
     const URL_FAVICON = "{% static 'image/favicon.png' %}";
     </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1A4A92">
     <meta name="description" content="Central de Chamados - Sistema de abertura e acompanhamento de chamados de TI.">
     <title>{% block title %}Central de Chamados{% endblock %}</title>
@@ -510,13 +510,36 @@
             const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
             mostrarNotificacao(textoEvento(data), tipo);
 
-            // Notificação nativa do sistema
+            // Notificação nativa do sistema — renderizada PELO SERVICE WORKER
+            // (permite banner em background no PWA instalado; o new Notification()
+            // na thread principal é ignorado pelo Android/iOS quando minimizado).
             if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("Central de Chamados", {
+                const opcoes = {
                     body: textoEvento(data),
-                    icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '',
-                    badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '',
-                });
+                    icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '/static/image/pwa-192x192.png',
+                    badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '/static/image/favicon.png',
+                    vibrate: [200, 100, 200, 100, 200, 100, 200],
+                    // Evita spam: uma notificação por chamado (novo evento substitui o anterior).
+                    tag: "chamado-" + data.ticket_id,
+                    // Payload para o notificationclick do SW abrir o chamado certo.
+                    data: {
+                        url: "/tickets/" + data.ticket_id + "/",
+                        ticket_id: data.ticket_id,
+                    },
+                };
+
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready
+                        .then(function(registration) {
+                            return registration.showNotification("Central de Chamados", opcoes);
+                        })
+                        .catch(function() {
+                            // Fallback (SW ainda não pronto): thread principal.
+                            new Notification("Central de Chamados", opcoes);
+                        });
+                } else {
+                    new Notification("Central de Chamados", opcoes);
+                }
             }
         }
 

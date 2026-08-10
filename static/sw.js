@@ -2,7 +2,7 @@
    Estratégia: cache-first para estáticos (com validação de rede), network-first
    para navegação (HTML sempre atualizado, com fallback offline para login). */
 
-const CACHE_NAME = 'central-chamados-v1';
+const CACHE_NAME = 'central-chamados-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -30,6 +30,32 @@ self.addEventListener('activate', (event) => {
         Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
       )
       .then(() => self.clients.claim())
+  );
+});
+
+// Toque na notificação: foca a janela aberta do PWA (ou abre uma nova) e
+// navega direto para o chamado. O payload (url/ticket_id) é gravado pelo
+// showNotification() no base.html.
+self.addEventListener('notificationclick', (event) => {
+  const dados = event.notification.data || {};
+  const url = dados.url || '/tickets/';
+  event.notification.close();
+
+  event.waitUntil(
+    (async () => {
+      const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const cliente of janelas) {
+        if ('focus' in cliente) {
+          try {
+            await cliente.navigate(url);
+          } catch (e) {
+            // Navigate indisponível (janela não controlada): só foca.
+          }
+          return cliente.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })()
   );
 });
 

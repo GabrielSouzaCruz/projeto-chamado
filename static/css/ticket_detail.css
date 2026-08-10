@@ -122,13 +122,16 @@ aside.col-lg-4 {
     background-image: url("data:image/svg+xml,%3Csvg width='42' height='42' xmlns='http://www.w3.org/2000/svg' opacity='0.08'%3E%3Cpath d='M42 21H21V0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M42 42H21V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 21H0' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3Cpath d='M21 42H0V21' fill='none' stroke='%231A4A92' stroke-width='1'/%3E%3C/svg%3E");
 }
 
-/* Barra de escrita: nunca é esmagada e fica firmemente na base do chat */
+/* Barra de escrita: nunca é esmagada, fica firmemente na base do chat e
+   respeita a safe-area inferior do iOS/Android (env(safe-area-inset-bottom)).
+   No desktop o inset é 0, então não muda nada. */
 .chat-input-area {
     flex-shrink: 0;
     background: white;
     border-top: 1px solid rgba(0,0,0,0.08);
     box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
-    padding: 15px;
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
 .chat-input-area textarea {
@@ -245,15 +248,24 @@ aside.col-lg-4 {
         opacity: 1;
         visibility: visible;
     }
-
-    /* Barra de escrita fixa na base e respeita a safe-area iOS */
-    .chat-input-area {
-        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    }
 }
 
-/* < 768px (md): barra de ações com wrap — "Enviar" não cai pro fim da tela */
+/* < 768px (md): chat nativo de WhatsApp — menos "chrome" vertical, mais área
+   de leitura. A altura segue 100dvh (recua com o teclado virtual); o Flexbox
+   encolhe o histórico e mantém a barra de escrita acima do teclado. */
 @media (max-width: 767.98px) {
+    /* Recupera espaço vertical: padding do #content e margem da top-bar */
+    #content { padding: 12px; }
+    .top-bar { padding: 10px 12px; margin-bottom: 12px; }
+    article.col-lg-8 > header.card { margin-bottom: 12px; }
+
+    /* Barra de escrita compacta (safe-area já vem da regra base) */
+    .chat-input-area { padding: 10px 12px; }
+
+    /* Mensagens com respiro menor: mais conteúdo visível por tela */
+    #comentarios-container { padding: 16px; gap: 12px; }
+
+    /* Barra de ações com wrap — "Enviar" não cai pro fim da tela */
     .chat-action-bar {
         flex-wrap: wrap;
         gap: 0.5rem;
@@ -271,5 +283,4 @@ aside.col-lg-4 {
 /* < 576px (sm): compactação mínima */
 @media (max-width: 575.98px) {
     .chat-bubble { max-width: 88%; }
-    #comentarios-container { padding: 16px; gap: 12px; }
 }
