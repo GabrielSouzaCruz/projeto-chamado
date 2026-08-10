@@ -8,6 +8,11 @@ describe('Modais — Cancelar Chamado e tecla Esc', () => {
   beforeEach(() => {
     // Técnico é superusuário no seed => o botão "Cancelar Chamado" é renderizado.
     cy.abrirDetalheDoChamado(1);
+
+    // No Electron headless o transitionend não dispara. Como o Bootstrap 5
+    // decide animar pela classe .fade (não pelo CSS), sem .fade o hide() roda
+    // de forma síncrona e o .show sai imediatamente.
+    cy.get('#modalCancelarTicket').invoke('removeClass', 'fade');
   });
 
   it('abre pelo botão com backdrop e conteúdo correto', () => {

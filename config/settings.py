@@ -265,6 +265,11 @@ else:
     # Sem credenciais (ou lib ausente): o sistema segue 100% funcional sem tempo real.
     PUSHER_CLIENT = None
 
+# Dispara eventos do Pusher em thread paralela (daemon) para o usuário receber
+# o Response HTTP instantaneamente. Em testes é forçado para False (test_settings)
+# para manter as assertivas sobre os payloads determinísticas e síncronas.
+PUSHER_ASSINCRONO = True
+
 # =============================================================================
 # LOGGING — Logs estruturados para o terminal do Render (stdout)
 # =============================================================================

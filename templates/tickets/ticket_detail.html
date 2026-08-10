@@ -242,6 +242,17 @@
 
 {% block extra_js %}
 <script>
+    // Botão "Voltar" do navegador não deve voltar ao Wizard de criação
+    // (Passo 3 do formulário /tickets/novo/). Se chegamos nesta página
+    // recém-saídos do formulário, substituímos o estado atual do histórico
+    // para que o "Voltar" siga para o dashboard (/tickets/).
+    (function () {
+        const ref = document.referrer ? document.referrer.split(/[?#]/)[0] : '';
+        if (!/\/tickets\/novo\/?$/.test(ref)) return;
+        window.history.replaceState(null, document.title, window.location.pathname);
+    })();
+</script>
+<script>
     // Configuração compartilhada com o JS externo (rotas Django + usuário atual).
     window.TICKET_CONFIG = {
         ticketId: {{ ticket.id }},

@@ -44,8 +44,14 @@ describe('Responsividade e Layout (base.html)', () => {
   context('Mobile (iPhone 12 — 390x844)', () => {
     beforeEach(() => {
       cy.loginComo('tecnico');
-      cy.viewport('iphone-12');
+      // O preset 'iphone-12' não existe no Cypress 13.x; usa as dimensões reais.
+      cy.viewport(390, 844);
       cy.visit(caminhoDashboard);
+
+      // A off-canvas usa `transition: transform 0.3s`. No headless o teste
+      // leria o retângulo no meio da animação (expect não faz retry); com a
+      // transição desativada a posição final aplica instantaneamente.
+      cy.get('head').invoke('append', '<style id="sem-transicao-sidebar">#sidebar { transition: none !important; }</style>');
     });
 
     const posicaoDaSidebar = () =>

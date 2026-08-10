@@ -11,6 +11,9 @@ Uso:
 """
 from .settings import *  # noqa: F401,F403
 
+# Pusher síncrono: sem threads nos testes, mantendo as assertivas determinísticas.
+PUSHER_ASSINCRONO = False
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',

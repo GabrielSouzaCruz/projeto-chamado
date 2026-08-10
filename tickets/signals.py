@@ -1,5 +1,6 @@
 import contextvars
 import logging
+import threading
 from contextlib import contextmanager
 
 from django.conf import settings
@@ -25,16 +26,34 @@ def evento_do_usuario(usuario):
         _actor_id.reset(token)
 
 
-def _enviar_evento(evento, dados, canais):
-    """Dispara um evento no Pusher com apenas metadados (nunca HTML)."""
-    client = getattr(settings, 'PUSHER_CLIENT', None)
-    if client is None:
-        return
+def _disparar_no_pusher(client, evento, dados, canais):
+    """Executa a chamada de rede do Pusher (rodada em thread paralela)."""
     try:
         client.trigger(canais, evento, dados)
     except Exception:
         # Falha pontual de tempo real não deve quebrar a request
         logger.exception('Falha ao disparar evento no Pusher: %s', evento)
+
+
+def _enviar_evento(evento, dados, canais):
+    """Dispara um evento no Pusher com apenas metadados (nunca HTML).
+
+    A rede (Pusher) é resolvida numa thread paralela (daemon) para que o
+    usuário receba o Response HTTP 200 instantaneamente, sem o latch da
+    chamada síncrona. Os dados já vêm serializados (dict de primitivas),
+    então a thread não toca no banco.
+    """
+    client = getattr(settings, 'PUSHER_CLIENT', None)
+    if client is None:
+        return
+    if getattr(settings, 'PUSHER_ASSINCRONO', True):
+        threading.Thread(
+            target=_disparar_no_pusher,
+            args=(client, evento, dados, list(canais)),
+            daemon=True,
+        ).start()
+    else:
+        _disparar_no_pusher(client, evento, dados, list(canais))
 
 
 def _nome_usuario(usuario):

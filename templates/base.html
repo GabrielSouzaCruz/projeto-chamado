@@ -402,12 +402,47 @@
     // 3a. Usuário atual (para filtrar o "eco": eventos do próprio usuário)
     const CURRENT_USER_ID = {{ request.user.id }};
 
-    // 4. Política da Aba Fantasma (Page Visibility API): aba oculta não paga conexão
+    // 4. Política da Aba Fantasma (Page Visibility API): aba oculta não paga conexão.
+    // Ao voltar para a aba, além de reconectar o Pusher, força um refresh de dados
+    // (chat/status/fila/dashboard) para buscar o que chegou enquanto o Android/iOS
+    // congelou a aba — sem depender de um evento novo do Pusher.
+    function atualizarInterfaceAoTornarVisivel() {
+        const path = window.location.pathname;
+        try {
+            // Detalhe do chamado: recarrega o chat e o badge de status.
+            const detailMatch = path.match(/^\/tickets\/(\d+)/);
+            if (detailMatch) {
+                if (typeof window.atualizarChat === 'function') {
+                    window.atualizarChat();
+                }
+                if (typeof window.atualizarStatusTicket === 'function') {
+                    window.atualizarStatusTicket();
+                }
+                return;
+            }
+            // Fila Admin (técnicos): recarrega a tabela via fetch.
+            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
+                window.atualizarFilaAdmin();
+                return;
+            }
+            // Dashboard (raiz /tickets/).
+            if (path === '/tickets/' && typeof window.atualizarDashboard === 'function') {
+                window.atualizarDashboard();
+                return;
+            }
+        } catch (err) {
+            console.error('Erro ao atualizar interface ao tornar visível:', err);
+        }
+    }
+
     document.addEventListener("visibilitychange", function() {
         if (document.hidden) {
             pusher.disconnect();
-        } else if (pusher.connection.state !== "connected" && pusher.connection.state !== "connecting") {
-            pusher.connect();
+        } else {
+            if (pusher.connection.state !== "connected" && pusher.connection.state !== "connecting") {
+                pusher.connect();
+            }
+            atualizarInterfaceAoTornarVisivel();
         }
     });
 
