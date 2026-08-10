@@ -73,3 +73,12 @@ Thumbs.db
 # =========================
 *.log
 logs/
+
+# =========================
+# Node / Cypress (E2E)
+# =========================
+node_modules/
+cypress/downloads/
+cypress/screenshots/
+cypress/videos/
+cypress/results/

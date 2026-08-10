@@ -1,0 +1,17 @@
+{
+  "name": "projeto-chamado-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suíte de testes E2E (Cypress) do Sistema de Chamados — responsividade, chat, anexos e modais.",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "cypress run",
+    "test:e2e:chrome": "cypress run --browser chrome",
+    "test:e2e:headless": "cypress run --browser electron",
+    "seed:e2e": "python manage.py seed_e2e"
+  },
+  "devDependencies": {
+    "cypress": "^13.13.0"
+  }
+}

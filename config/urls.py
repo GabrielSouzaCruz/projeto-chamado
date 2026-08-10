@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from django.views.static import serve
+from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 
 from tickets.health import health_check_view
@@ -30,10 +30,15 @@ handler404 = 'tickets.views.error_404'
 handler500 = 'tickets.views.error_500'
 handler403 = 'tickets.views.error_403'
 
-# Media files: servidos em produção pelo Django.
-# Como o Render (modo WSGI puro) não tem Nginx/cache para o /media/, o Django
-# serve diretamente a partir de MEDIA_ROOT. Os anexos são apenas PDFs/imagens
-# pequenos com upload limitado a 5MB (proteção via DATA_UPLOAD_MAX_MEMORY_SIZE).
-urlpatterns += [
-    path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
-]
+# =============================================================================
+# Media files (anexos) — servidos pelo próprio Django, em DEV e PROD.
+# O Render (Free Tier) roda WSGI puro, sem Nginx/cache para o /media/: o Django
+# serve direto de MEDIA_ROOT. Os anexos são apenas PDFs/imagens pequenos com
+# upload limitado (DATA_UPLOAD_MAX_MEMORY_SIZE).
+#
+# Obs.: com STORAGES["default"] = Cloudinary, anexos novos apontam para a CDN
+# (res.cloudinary.com). Esta rota garante acesso aos arquivos locais/legados
+# que ainda existam em MEDIA_ROOT e é o fallback quando Cloudinary não estiver
+# ativo (sem CLOUDINARY_URL), onde a mídia volta para o disco local.
+# =============================================================================
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

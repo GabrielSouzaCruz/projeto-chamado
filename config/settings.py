@@ -195,10 +195,15 @@ STORAGES = {
     },
 }
 
-# Arquivos de mídia (uploads dos usuários: anexos de tickets)
-# MEDIA_URL/MEDIA_ROOT mantidos para compatibilidade, mas não são usados quando STORAGES["default"] é Cloudinary
+# =============================================================================
+# Arquivos de mídia (uploads dos usuários: anexos de tickets e comentários)
+# =============================================================================
+# MEDIA_URL/MEDIA_ROOT são o caminho local (FileSystemStorage). Quando
+# STORAGES["default"] é o Cloudinary, `anexo.url` aponta para a CDN; caso
+# contrário (sem CLOUDINARY_URL), os anexos gravam aqui e são servidos pelo
+# Django em /media/ (dev e produção — Render WSGI puro, sem Nginx).
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # =============================================================================
 # MODELO DE USUÁRIO CUSTOMIZADO
