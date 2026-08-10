@@ -18,15 +18,57 @@
 }
 
 /* ================================================
-   LAYOUT FLUIDO DO CHAT — Flexbox + dvh
-   Sem travas de scroll global e sem calc(100vh - Npx).
-   A altura acompanha o viewport dinâmico (teclado mobile).
+   LAYOUT ESTILO WHATSAPP — página do chamado travada
+   html/body/wrapper/#content ficam em 100dvh com
+   overflow:hidden; SÓ o histórico (#comentarios-container)
+   rola. O Flexbox faz toda a matemática de altura —
+   sem calc(100vh - Npx) e sem magic numbers.
    ================================================ */
 
-#main-content {
+html, body {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.wrapper {
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    min-height: 100dvh;
+}
+
+#content {
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* O bloco de conteúdo (main) absorve tudo entre a top-bar e o rodapé */
+#content > main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Rodapé decorativo não cabe na página travada do chat */
+#content > footer {
+    display: none;
+}
+
+/* Top-bar fixa no topo (hambúrguer do mobile + título da página) */
+.top-bar {
+    flex-shrink: 0;
+}
+
+#main-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 #main-content .row {
@@ -34,16 +76,25 @@
     min-height: 0;
 }
 
+/* Coluna do chat (desktop): encaixa na altura travada da página */
 article.col-lg-8 {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
 }
 
-/* Header do chamado não engole o chat: limitado a fração do viewport */
+/* Cabeçalho do chamado: fixo (flex-shrink: 0). Descrições longas rolam
+   internamente até 40dvh, sem roubar espaço do histórico. */
 article.col-lg-8 > header.card {
     flex-shrink: 0;
     max-height: 40dvh;
+    overflow-y: auto;
+}
+
+/* Coluna de Gestão (desktop): rola internamente dentro da página travada */
+aside.col-lg-4 {
+    min-height: 0;
     overflow-y: auto;
 }
 
@@ -55,9 +106,11 @@ article.col-lg-8 > header.card {
     min-height: 0;
 }
 
-/* Área das mensagens: cresce, rola SOZINHA e faz smooth scroll */
+/* Área das mensagens: único elemento que cresce, rola SOZINHO (flex-grow: 1) */
 #comentarios-container {
-    flex: 1 1 auto;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
     min-height: 0;
     overflow-y: auto;
     scroll-behavior: smooth;
@@ -150,27 +203,51 @@ article.col-lg-8 > header.card {
    RESPONSIVIDADE — Breakpoints padrão do Bootstrap
    ================================================ */
 
-/* < 992px (lg): layout empilha; página rola; chat usa dvh p/ o teclado */
+/* < 992px (lg): a página continua travada em 100dvh; a coluna de Gestão
+   vira um drawer lateral acionado pelo botão "Ações" do cabeçalho. */
 @media (max-width: 991.98px) {
-    #main-content { min-height: auto; }
-    #main-content .row { flex: none; }
-    article.col-lg-8 { min-height: 0; }
-    article.col-lg-8 > header.card { max-height: none; overflow: visible; }
-
-    .chat-card { max-height: none; }
-
-    #comentarios-container {
-        flex: none;
-        height: 55dvh;
-        min-height: 260px;
-        overflow-y: auto;
+    article.col-lg-8 > header.card {
+        max-height: none;
+        overflow: visible;
     }
 
-    /* Barra de escrita fica visível ao rolar a página e respeita safe-area iOS */
-    .chat-input-area {
-        position: sticky;
+    /* Gestão: drawer fora da tela (altura cheia), aberto pela classe .show */
+    aside.col-lg-4 {
+        position: fixed;
+        top: 0;
+        right: 0;
         bottom: 0;
-        z-index: 5;
+        width: min(85vw, 340px);
+        z-index: 1050;
+        background: var(--bg-body);
+        padding: 20px;
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+
+    aside.col-lg-4.show {
+        transform: translateX(0);
+    }
+
+    /* Backdrop do drawer (escurece o chat ao abrir) */
+    #aside-gestao-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 1049;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    #aside-gestao-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Barra de escrita fixa na base e respeita a safe-area iOS */
+    .chat-input-area {
         padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     }
 }
@@ -189,7 +266,6 @@ article.col-lg-8 > header.card {
         flex-shrink: 0;
         margin-left: auto;
     }
-    .management-card { margin-top: .5rem; }
 }
 
 /* < 576px (sm): compactação mínima */

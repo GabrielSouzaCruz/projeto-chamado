@@ -13,9 +13,14 @@
         <article class="col-lg-8">
             <header class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h1 class="h3 fw-bold mb-0">{{ ticket.titulo }}</h1>
-                        {% include 'tickets/_ticket_status_badge.html' %}
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                        <h1 class="h3 fw-bold mb-0 text-truncate">{{ ticket.titulo }}</h1>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            {% include 'tickets/_ticket_status_badge.html' %}
+                            <button type="button" id="btn-abrir-gestao" class="btn btn-outline-primary btn-sm d-lg-none" aria-expanded="false" aria-controls="aside-gestao" title="Informações e ações do chamado">
+                                <i class="fas fa-sliders-h me-1" aria-hidden="true"></i>Ações
+                            </button>
+                        </div>
                     </div>
                     <p class="text-secondary mb-2">{{ ticket.descricao|linebreaks }}</p>
 
@@ -103,7 +108,7 @@
             </section>
         </article>
 
-        <aside class="col-lg-4">
+        <aside class="col-lg-4" id="aside-gestao">
 
             <!-- Metadados do Chamado (visível a todos) -->
             <div class="card management-card mb-4 border-0 shadow-sm">
@@ -264,4 +269,34 @@
     };
 </script>
 <script src="{% static 'js/ticket_detail.js' %}"></script>
+<script>
+    // Mobile: a coluna de Gestão vira um drawer lateral (WhatsApp-style)
+    // acionado pelo botão "Ações" do cabeçalho do chamado. No desktop
+    // (>= lg) o botão nem existe e o aside é uma coluna normal.
+    (function () {
+        const botao = document.getElementById('btn-abrir-gestao');
+        const aside = document.getElementById('aside-gestao');
+        if (!botao || !aside) return;
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'aside-gestao-backdrop';
+        backdrop.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(backdrop);
+
+        function fechar() {
+            aside.classList.remove('show');
+            backdrop.classList.remove('show');
+            botao.setAttribute('aria-expanded', 'false');
+        }
+
+        botao.addEventListener('click', function () {
+            const abrindo = !aside.classList.contains('show');
+            aside.classList.toggle('show', abrindo);
+            backdrop.classList.toggle('show', abrindo);
+            botao.setAttribute('aria-expanded', String(abrindo));
+        });
+
+        backdrop.addEventListener('click', fechar);
+    })();
+</script>
 {% endblock %}
