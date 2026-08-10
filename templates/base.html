@@ -155,6 +155,43 @@
             padding: 12px 25px; width: 100%; text-align: left; font-weight: 500;
         }
 
+        /* Botão discreto "Ativar Alertas" (base da sidebar) — pedido de
+           permissão SÓ via user gesture; o iOS bloqueia pedidos no load. */
+        #notif-permission-item {
+            padding: 6px 25px 16px;
+        }
+        .notif-enable-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #fff;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            transition: all 0.25s ease;
+        }
+        .notif-enable-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #fff;
+        }
+        .notif-enable-btn.notif-ativa {
+            background: #198754;
+            border-color: #198754;
+            color: #fff;
+        }
+        .notif-enable-btn.notif-bloqueada {
+            color: #f64e60;
+            border-color: #f64e60;
+            background: rgba(214, 40, 40, 0.15);
+            opacity: 0.75;
+            cursor: not-allowed;
+        }
+
         /* Mobile: sidebar off-canvas + backdrop clicável */
         @media (max-width: 992px) {
             #sidebar {
@@ -292,6 +329,11 @@
                         <i class="fas fa-sign-out-alt"></i> Sair do Sistema
                     </button>
                 </li>
+                <li id="notif-permission-item" class="d-none">
+                    <button type="button" id="btn-ativar-notificacoes" class="notif-enable-btn" aria-label="Ativar notificações do navegador">
+                        <i class="fas fa-bell me-2" aria-hidden="true"></i><span id="notif-btn-texto">Ativar Alertas</span>
+                    </button>
+                </li>
             </ul>
         </nav>
 
@@ -348,13 +390,70 @@
     // 1. Áudio global + permissão de Notificação
     const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
-    document.addEventListener('DOMContentLoaded', function() {
-        if ("Notification" in window) {
-            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
+    // 1b. Botão discreto "Ativar Alertas" na base da sidebar. O pedido de
+    // permissão SÓ acontece por user gesture (clique): o iOS ignora/bloqueia
+    // o requestPermission() disparado no load sem interação do utilizador.
+    function gerenciarBotaoNotificacoes() {
+        const item = document.getElementById('notif-permission-item');
+        if (!item || !("Notification" in window)) {
+            return; // API indisponível → botão nunca aparece.
+        }
+
+        const btn = document.getElementById('btn-ativar-notificacoes');
+        const texto = document.getElementById('notif-btn-texto');
+
+        function marcarBloqueado() {
+            btn.classList.add('notif-bloqueada');
+            btn.disabled = true;
+            texto.textContent = 'Alertas bloqueados';
+        }
+
+        function marcarAtivoESumir() {
+            btn.classList.add('notif-ativa');
+            texto.textContent = 'Notificações Ativas';
+            // Feedback verde visível, depois oculta-se suavemente.
+            setTimeout(function() {
+                btn.style.transition = 'opacity 0.6s ease';
+                btn.style.opacity = '0';
+                setTimeout(function() { item.remove(); }, 600);
+            }, 2000);
+        }
+
+        function aplicarEstado(permissao) {
+            if (permissao === 'granted') {
+                marcarAtivoESumir();
+            } else if (permissao === 'denied') {
+                marcarBloqueado();
             }
         }
-    });
+
+        // Estado inicial assim que a página carrega.
+        if (Notification.permission === 'granted') {
+            item.remove(); // já ativo: nem mostra o botão.
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            marcarBloqueado(); // bloqueado no browser: indica o estado, sem ação.
+            item.classList.remove('d-none');
+            return;
+        }
+
+        // 'default': visível e clicável. O requestPermission() roda DENTRO do
+        // listener de clique, preservando o user gesture exigido pelo iOS.
+        item.classList.remove('d-none');
+        btn.addEventListener('click', function() {
+            btn.disabled = true; // sem cliques duplos durante o pedido.
+            Notification.requestPermission().then(function(resultado) {
+                btn.disabled = false;
+                aplicarEstado(resultado);
+            }).catch(function() {
+                btn.disabled = false;
+                marcarBloqueado(); // pedido recusado/ignorado pelo SO.
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', gerenciarBotaoNotificacoes);
 
     // 2. Toast visual interno (container único, responsivo)
     function mostrarNotificacao(mensagem, tipo) {
@@ -458,6 +557,71 @@
         return "🔔 " + prefixo + " " + contexto;
     }
 
+    // 5a. Notificação NATIVA do sistema operativo, disparada de forma blindada.
+    // Regras:
+    //  - Guardas de suporte: exige Notification + Service Worker no browser.
+    //  - Permissão: granted → dispara; default → solicita; denied → fallback
+    //    SILENCIOSO (só os toasts Bootstrap do chamador, nunca quebra o fluxo).
+    //  - O disparo é SEMPRE via SW (reg.showNotification) — é o único caminho
+    //    que gera banner/vibração em PWA instalado com o app minimizado; o
+    //    new Notification() da thread principal é ignorado pelo Android/iOS.
+    //  - Nenhuma exceção sobe: o handler do Pusher nunca pode quebrar.
+    function mostrarNotificacaoSistema(titulo, corpo, url, ticketId) {
+        // 1. Suporte da plataforma (sem API nativa → apenas toasts, sai quieto).
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+            return;
+        }
+
+        // 2. Payload rico: corpo, logo (icon), badge monocromático, vibração e
+        //    data com a rota do chamado p/ o notificationclick abrir no destino.
+        const opcoes = {
+            body: corpo,
+            icon: typeof URL_LOGO_MACHADO !== "undefined" ? URL_LOGO_MACHADO : "/static/image/pwa-192x192.png",
+            badge: typeof URL_FAVICON !== "undefined" ? URL_FAVICON : "/static/image/favicon.png",
+            vibrate: [200, 100, 200],
+            // tag evita spam: 1 notificação por chamado (nova substitui a antiga).
+            tag: "chamado-" + ticketId,
+            data: { url: url, ticket_id: ticketId },
+        };
+
+        // 3. Disparo obrigatório via Service Worker.
+        const despacharViaSW = function () {
+            if (Notification.permission !== "granted") {
+                return; // negada/bloqueada → só toasts.
+            }
+            navigator.serviceWorker.ready
+                .then(function (registration) {
+                    return registration.showNotification(titulo, opcoes);
+                })
+                .catch(function () {
+                    // SW não ficou pronto (instalação lenta/falhou): último recurso
+                    // na thread principal, para a notificação nunca se perder.
+                    try {
+                        if (Notification.permission === "granted") {
+                            new Notification(titulo, opcoes);
+                        }
+                    } catch (e) { /* ignora */ }
+                });
+        };
+
+        // 4. Fluxo de permissão.
+        try {
+            if (Notification.permission === "granted") {
+                despacharViaSW();
+            } else if (Notification.permission === "default") {
+                Notification.requestPermission().then(function (resultado) {
+                    if (resultado === "granted") {
+                        despacharViaSW();
+                    }
+                    // denied/ignorado → fallback silencioso (toasts continuam).
+                }).catch(function () { /* promessa de permissão rejeitada → só toasts */ });
+            }
+            // denied → não faz nada; os toasts já foram disparados pelo chamador.
+        } catch (e) {
+            // Nunca deixa exceção subir para o handler do Pusher.
+        }
+    }
+
     // 5b. Atualiza as telas conforme a URL atual (robusto, sem exceções).
     function atualizarInterface(data) {
         const path = window.location.pathname;
@@ -510,37 +674,9 @@
             const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
             mostrarNotificacao(textoEvento(data), tipo);
 
-            // Notificação nativa do sistema — renderizada PELO SERVICE WORKER
-            // (permite banner em background no PWA instalado; o new Notification()
-            // na thread principal é ignorado pelo Android/iOS quando minimizado).
-            if ("Notification" in window && Notification.permission === "granted") {
-                const opcoes = {
-                    body: textoEvento(data),
-                    icon: typeof URL_LOGO_MACHADO !== 'undefined' ? URL_LOGO_MACHADO : '/static/image/pwa-192x192.png',
-                    badge: typeof URL_FAVICON !== 'undefined' ? URL_FAVICON : '/static/image/favicon.png',
-                    vibrate: [200, 100, 200, 100, 200, 100, 200],
-                    // Evita spam: uma notificação por chamado (novo evento substitui o anterior).
-                    tag: "chamado-" + data.ticket_id,
-                    // Payload para o notificationclick do SW abrir o chamado certo.
-                    data: {
-                        url: "/tickets/" + data.ticket_id + "/",
-                        ticket_id: data.ticket_id,
-                    },
-                };
-
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready
-                        .then(function(registration) {
-                            return registration.showNotification("Central de Chamados", opcoes);
-                        })
-                        .catch(function() {
-                            // Fallback (SW ainda não pronto): thread principal.
-                            new Notification("Central de Chamados", opcoes);
-                        });
-                } else {
-                    new Notification("Central de Chamados", opcoes);
-                }
-            }
+            // Notificação nativa do sistema — disparada pela função blindada
+            // (suporte, permissão e SW tratados; negada → só o toast acima).
+            mostrarNotificacaoSistema("Central de Chamados", textoEvento(data), "/tickets/" + data.ticket_id + "/", data.ticket_id);
         }
 
         // 6. Atualização das telas conforme a URL atual
