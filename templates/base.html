@@ -10,6 +10,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1A4A92">
     <meta name="description" content="Central de Chamados - Sistema de abertura e acompanhamento de chamados de TI.">
+    <!-- Anti-cache: desencoraja o navegador de armazenar páginas autenticadas.
+         (Em browsers modernos os meta-tags são o mínimo; a garantia forte vem
+         dos headers HTTP Cache-Control que o servidor envia nas respostas.) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{% block title %}Central de Chamados{% endblock %}</title>
 
     <link rel="manifest" href="{% static 'manifest.json' %}">
@@ -813,6 +819,50 @@
                 });
         });
     }
+</script>
+
+<!-- BFCache killer: impede acesso "fantasma" a páginas autenticadas via botão
+     Voltar. Quando a página é restaurada do Back-Forward Cache
+     (event.persisted === true), recarrega imediatamente para o servidor
+     revalidar a sessão — se a sessão já morreu (ex.: após Logout), o Django
+     redireciona para o login em vez de deixar a Dashboard/Fila "quebrada"
+     tentando reconectar serviços (Pusher) sem autorização. -->
+<script>
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
+
+<!-- Prevenção GLOBAL de Duplo Clique (Double Submit): em qualquer <form>
+     submetido, desativa o botão de submit e mostra um spinner Bootstrap 5.
+     - Só age no evento submit: botões do tipo "button" (passos do wizard,
+       abrir modal, etc.) nunca disparam isto.
+     - AJAX (chat, ...): se outro handler já chamou event.preventDefault(),
+       defaultPrevented fica true e este listener não interfere.
+     - Wizard (novalidate): usa validação própria por passo; não bloqueamos
+       com checkValidity().
+     - Forms com spinner local (cadastro, cancelar): o botão já vem disabled
+       quando este listener roda (fase de bubble) → skip. -->
+<script>
+    document.addEventListener("submit", function(event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        // Já tratado por uma lógica AJAX/local (event.preventDefault()).
+        if (event.defaultPrevented) return;
+
+        // Validação nativa do HTML5; wizard (novalidate) valida por conta própria.
+        if (!form.noValidate && !form.checkValidity()) return;
+
+        const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+        if (!btn || btn.disabled) return; // sem submit ou já processado localmente
+
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Aguarde...';
+    });
 </script>
 </body>
 </html>

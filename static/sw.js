@@ -2,10 +2,11 @@
    Estratégia: cache-first para estáticos (com validação de rede), network-first
    para navegação (HTML sempre atualizado, com fallback offline para login). */
 
-const CACHE_NAME = 'central-chamados-v2';
+const CACHE_NAME = 'central-chamados-v3';
 
 const PRECACHE_URLS = [
   '/',
+  '/offline/',
   '/static/manifest.json',
   '/static/image/favicon.png',
   '/static/image/pwa-192x192.png',
@@ -68,7 +69,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
-    // Network-first: HTML sempre fresco; offline cai no login (não-autenticado).
+    // Network-first: HTML sempre fresco; sem rede, devolve a página offline
+    // pré-cacheada (em vez da página genérica do navegador).
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -76,7 +78,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match('/'))
+        .catch(() => caches.match('/offline/'))
     );
     return;
   }

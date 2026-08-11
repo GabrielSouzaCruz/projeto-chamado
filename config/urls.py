@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView, TemplateView
 
 from tickets.health import health_check_view
 
@@ -14,6 +14,9 @@ urlpatterns = [
 
     # Health check (público, para serviços externos como UptimeRobot)
     path('health/', health_check_view, name='health_check'),
+
+    # Página Offline (servida pelo Service Worker quando não há rede)
+    path('offline/', TemplateView.as_view(template_name='offline.html'), name='offline'),
 
     # App de autenticação
     path('accounts/', include('accounts.urls')),

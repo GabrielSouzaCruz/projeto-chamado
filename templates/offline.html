@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1A4A92">
+  <title>Você está offline - Central de Chamados</title>
+  <style>
+    :root {
+      --primary: #1A4A92;
+      --danger: #D62828;
+      --bg: #f4f7fe;
+      --text: #2d3436;
+      --muted: #6c757d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
+      text-align: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card { max-width: 480px; }
+    .icon { margin-bottom: 24px; }
+    h1 {
+      font-size: 1.5rem;
+      color: var(--primary);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--primary);
+      border: none;
+      border-radius: 10px;
+      padding: 12px 28px;
+      transition: opacity 0.2s ease;
+    }
+    button:hover { opacity: 0.9; }
+    button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96"
+           fill="none" stroke="#1A4A92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="18" r="1.6" fill="#1A4A92" stroke="none"/>
+        <path d="M8.2 14.4a5.4 5.4 0 0 1 7.6 0"/>
+        <path d="M4.6 10.8a10.6 10.6 0 0 1 14.8 0"/>
+        <path d="M1.5 7.3a15.8 15.8 0 0 1 5.6-3.6"/>
+        <line x1="3" y1="3" x2="21" y2="21" stroke="#D62828"/>
+      </svg>
+    </div>
+    <h1>Você está offline.</h1>
+    <p>Parece que perdeu a ligação à internet. Verifique a sua rede e tente novamente.</p>
+    <button type="button" onclick="window.location.reload()">Tentar Novamente</button>
+  </main>
+</body>
+</html>
