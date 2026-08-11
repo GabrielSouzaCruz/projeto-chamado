@@ -158,6 +158,22 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // 4b. FIX SCROLL LOCK MOBILE: quando o teclado virtual sobe, o browser tenta
+    // rolar a janela para manter o input visível — isso congela o scroll livre das
+    // mensagens. No focus: trava a janela no topo (o body está com overflow:hidden,
+    // então window.scrollTo(0,0) é inofensivo e impede o "salto") e, após a animação
+    // do teclado (~300ms), desce as MENSAGENS para o fim. O layout 100dvh recalcado
+    // pelo --vh-real (ajustarAlturaReal) mantém o input visível acima do teclado.
+    if (chatInput && chatBox) {
+        chatInput.addEventListener("focus", function() {
+            window.scrollTo(0, 0);
+            setTimeout(function() {
+                window.scrollTo(0, 0);
+                scrollToBottom(true);
+            }, 300);
+        });
+    }
+
     // 5. ATALHO ENTER para enviar a mensagem (com trava anti-double-submit)
     if (chatInput && formComentario) {
         chatInput.addEventListener("keydown", function(e) {
