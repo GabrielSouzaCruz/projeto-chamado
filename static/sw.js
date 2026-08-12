@@ -66,6 +66,7 @@ self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
     const data = event.data.json();
+    console.log('Push recebido no SW:', data);
     const options = {
       body: data.body || 'Nova atualização no chamado.',
       icon: data.icon || '/static/image/pwa-192x192.png',
@@ -74,6 +75,8 @@ self.addEventListener('push', (event) => {
       data: { url: data.url || '/' },
       tag: data.tag || 'chamado-notification',
       renotify: true,
+      // Forçar exibição mesmo com app em foco (alguns navegadores suprimem)
+      requireInteraction: true,
     };
 
     event.waitUntil(
