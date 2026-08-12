@@ -13,3 +13,7 @@ def pusher_config(request):
         'PUSHER_CLUSTER': getattr(settings, 'PUSHER_CLUSTER', '') or '',
         'VAPID_PUBLIC_KEY': getattr(settings, 'VAPID_PUBLIC_KEY', '') or '',
     }
+
+
+def vapid_keys(request):
+    return {'VAPID_PUBLIC_KEY': getattr(settings, 'VAPID_PUBLIC_KEY', '')}

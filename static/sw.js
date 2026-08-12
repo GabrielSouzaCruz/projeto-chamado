@@ -1,6 +1,7 @@
 /* Service Worker - Central de Chamados (PWA)
    Estratégia: cache-first para estáticos (com validação de rede), network-first
-   para navegação (HTML sempre atualizado, com fallback offline para login). */
+   para navegação (HTML sempre atualizado, com fallback offline para login).
+   Update: Versao True Push V2 - 2026-08-12 */
 
 const CACHE_NAME = 'central-chamados-v3';
 

@@ -394,15 +394,15 @@
         <div id="content">
             {% if user.is_authenticated %}
             <div class="top-bar">
-                <div class="d-flex align-items-center">
-                    <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-3" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+                <div class="d-flex align-items-center me-2" style="min-width: 0;">
+                    <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-2 me-sm-3 flex-shrink-0" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <h5 class="mb-0 fw-bold">{% block page_title %}Visão Geral{% endblock %}</h5>
+                    <h5 class="mb-0 fw-bold text-truncate">{% block page_title %}Visão Geral{% endblock %}</h5>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-3 top-bar-right">
-                    <a href="{% url 'tickets:dashboard' %}" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações">
+                <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-2 gap-sm-3 top-bar-right">
+                    <a href="#" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações" onclick="event.preventDefault();">
                         <i class="fas fa-bell fa-lg" aria-hidden="true" style="color: var(--primary-color);"></i>
                         <span id="sino-badge" class="badge d-none" aria-hidden="true">0</span>
                     </a>
@@ -455,6 +455,7 @@
     // Chave VAPID pública (Push API). Injetada pelo servidor; vazia → botão de
     // notificações não aparece e nada tenta assinar o PushManager.
     const VAPID_PUBLIC_KEY = "{{ VAPID_PUBLIC_KEY }}";
+    console.log("VAPID Key carregada:", VAPID_PUBLIC_KEY ? "Sim" : "Não");
 
     // 1b. Botão discreto "Ativar Alertas" na base da sidebar. O pedido de
     // permissão SÓ acontece por user gesture (clique): o iOS ignora/bloqueia

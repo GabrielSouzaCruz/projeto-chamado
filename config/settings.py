@@ -131,6 +131,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'config.context_processors.pusher_config',
+                'config.context_processors.vapid_keys',
             ],
         },
     },
