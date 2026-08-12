@@ -14,6 +14,9 @@ from .settings import *  # noqa: F401,F403
 # Pusher síncrono: sem threads nos testes, mantendo as assertivas determinísticas.
 PUSHER_ASSINCRONO = False
 
+# Web Push síncrono: mesma lógica — sem threads, testes determinísticos.
+WEB_PUSH_ASSINCRONO = False
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',

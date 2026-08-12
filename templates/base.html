@@ -413,6 +413,10 @@
     // 1. Áudio global + permissão de Notificação
     const notificacaoAudio = new Audio("{% static 'audio/notificacao.wav' %}");
 
+    // Chave VAPID pública (Push API). Injetada pelo servidor; vazia → botão de
+    // notificações não aparece e nada tenta assinar o PushManager.
+    const VAPID_PUBLIC_KEY = "{{ VAPID_PUBLIC_KEY }}";
+
     // 1b. Botão discreto "Ativar Alertas" na base da sidebar. O pedido de
     // permissão SÓ acontece por user gesture (clique): o iOS ignora/bloqueia
     // o requestPermission() disparado no load sem interação do utilizador.
@@ -452,7 +456,20 @@
 
         // Estado inicial assim que a página carrega.
         if (Notification.permission === 'granted') {
-            item.remove(); // já ativo: nem mostra o botão.
+            // Permissão existe, mas pode NÃO haver inscrição (endpoint perdido/
+            // regenerado): sem pushManager.subscribe o push nativo não chega.
+            // Só esconde o botão se já existe uma inscrição ativa.
+            if (!('serviceWorker' in navigator) || !VAPID_PUBLIC_KEY) {
+                item.remove();
+                return;
+            }
+            navigator.serviceWorker.ready
+                .then(function(reg) { return reg.pushManager.getSubscription(); })
+                .then(function(sub) {
+                    if (sub) { item.remove(); }
+                    else { item.classList.remove('d-none'); }
+                })
+                .catch(function() { item.classList.remove('d-none'); });
             return;
         }
         if (Notification.permission === 'denied') {
@@ -467,13 +484,84 @@
         btn.addEventListener('click', function() {
             btn.disabled = true; // sem cliques duplos durante o pedido.
             Notification.requestPermission().then(function(resultado) {
-                btn.disabled = false;
-                aplicarEstado(resultado);
+                if (resultado === 'granted') {
+                    // Assina o PushManager (VAPID) e persiste na nossa API.
+                    assinarPushNativo().then(function(ok) {
+                        btn.disabled = false;
+                        aplicarEstado(ok ? 'granted' : 'default');
+                    }).catch(function() {
+                        btn.disabled = false;
+                        // Assinatura falhou (VAPID ausente, SW ainda ativando):
+                        // mantém o botão visível para tentar de novo.
+                        item.classList.remove('d-none');
+                    });
+                } else {
+                    btn.disabled = false;
+                    aplicarEstado(resultado);
+                }
             }).catch(function() {
                 btn.disabled = false;
                 marcarBloqueado(); // pedido recusado/ignorado pelo SO.
             });
         });
+    }
+
+    // 5a. WEB PUSH NATIVO (Push API / VAPID) — assinar e persistir a inscrição.
+    // A notificação visual nativa chega pelo Service Worker via evento 'push'
+    // (disparada pelo servidor com as chaves VAPID, funciona com o app fechado).
+    // O Pusher ficou só no tempo real do DOM + toasts. Estes helpers ficam AQUI
+    // (bloco autenticado, independente do Pusher) porque o botão de permissão
+    // precisa deles mesmo se o tempo real estiver desativado.
+    //  - urlBase64ToUint8Array: converte a chave VAPID (base64url) para o
+    //    Uint8Array que o pushManager.subscribe() exige.
+    //  - tokenCSRF: lê o token do input do logout (sempre presente em páginas
+    //    autenticadas), com fallback para o cookie.
+    //  - assinarPushNativo: subscribe + persiste {endpoint, keys} na API
+    //    /api/save-push-subscription/. Nunca lança para cima: erro = rejeição.
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; i++) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function tokenCSRF() {
+        const inp = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (inp && inp.value) return inp.value;
+        const cookie = document.cookie.split('; ').find(function(c) { return c.indexOf('csrftoken=') === 0; });
+        return cookie ? cookie.split('=')[1] : '';
+    }
+
+    function assinarPushNativo() {
+        // Robustez total: sem SW ou sem chave VAPID no ambiente → falha quieta.
+        if (!("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) {
+            return Promise.reject(new Error("Push não suportado/configurado"));
+        }
+        return navigator.serviceWorker.ready
+            .then(function(reg) {
+                return reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+            })
+            .then(function(subscription) {
+                return fetch("{% url 'save_push_subscription' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": tokenCSRF(),
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: JSON.stringify(subscription.toJSON())
+                });
+            })
+            .then(function(resp) {
+                return resp.ok;
+            });
     }
 
     document.addEventListener('DOMContentLoaded', gerenciarBotaoNotificacoes);
@@ -580,70 +668,11 @@
         return "🔔 " + prefixo + " " + contexto;
     }
 
-    // 5a. Notificação NATIVA do sistema operativo, disparada de forma blindada.
-    // Regras:
-    //  - Guardas de suporte: exige Notification + Service Worker no browser.
-    //  - Permissão: granted → dispara; default → solicita; denied → fallback
-    //    SILENCIOSO (só os toasts Bootstrap do chamador, nunca quebra o fluxo).
-    //  - O disparo é SEMPRE via SW (reg.showNotification) — é o único caminho
-    //    que gera banner/vibração em PWA instalado com o app minimizado; o
-    //    new Notification() da thread principal é ignorado pelo Android/iOS.
-    //  - Nenhuma exceção sobe: o handler do Pusher nunca pode quebrar.
-    function mostrarNotificacaoSistema(titulo, corpo, url, ticketId) {
-        // 1. Suporte da plataforma (sem API nativa → apenas toasts, sai quieto).
-        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-            return;
-        }
-
-        // 2. Payload rico: corpo, logo (icon), badge monocromático, vibração e
-        //    data com a rota do chamado p/ o notificationclick abrir no destino.
-        const opcoes = {
-            body: corpo,
-            icon: typeof URL_LOGO_MACHADO !== "undefined" ? URL_LOGO_MACHADO : "/static/image/pwa-192x192.png",
-            badge: typeof URL_FAVICON !== "undefined" ? URL_FAVICON : "/static/image/favicon.png",
-            vibrate: [200, 100, 200],
-            // tag evita spam: 1 notificação por chamado (nova substitui a antiga).
-            tag: "chamado-" + ticketId,
-            data: { url: url, ticket_id: ticketId },
-        };
-
-        // 3. Disparo obrigatório via Service Worker.
-        const despacharViaSW = function () {
-            if (Notification.permission !== "granted") {
-                return; // negada/bloqueada → só toasts.
-            }
-            navigator.serviceWorker.ready
-                .then(function (registration) {
-                    return registration.showNotification(titulo, opcoes);
-                })
-                .catch(function () {
-                    // SW não ficou pronto (instalação lenta/falhou): último recurso
-                    // na thread principal, para a notificação nunca se perder.
-                    try {
-                        if (Notification.permission === "granted") {
-                            new Notification(titulo, opcoes);
-                        }
-                    } catch (e) { /* ignora */ }
-                });
-        };
-
-        // 4. Fluxo de permissão.
-        try {
-            if (Notification.permission === "granted") {
-                despacharViaSW();
-            } else if (Notification.permission === "default") {
-                Notification.requestPermission().then(function (resultado) {
-                    if (resultado === "granted") {
-                        despacharViaSW();
-                    }
-                    // denied/ignorado → fallback silencioso (toasts continuam).
-                }).catch(function () { /* promessa de permissão rejeitada → só toasts */ });
-            }
-            // denied → não faz nada; os toasts já foram disparados pelo chamador.
-        } catch (e) {
-            // Nunca deixa exceção subir para o handler do Pusher.
-        }
-    }
+    // 5a. Web Push nativo (Push API/VAPID): os helpers urlBase64ToUint8Array,
+    // tokenCSRF e assinarPushNativo vivem no bloco autenticado principal — o
+    // botão de permissão precisa deles mesmo quando o Pusher está desativado.
+    // O disparo da notificação nativa NÃO ocorre aqui: o servidor envia o push
+    // (VAPID) e o sw.js o exibe via evento 'push', funcionando com app fechado.
 
     // 5b. Atualiza as telas conforme a URL atual (robusto, sem exceções).
     function atualizarInterface(data) {
@@ -697,9 +726,9 @@
             const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
             mostrarNotificacao(textoEvento(data), tipo);
 
-            // Notificação nativa do sistema — disparada pela função blindada
-            // (suporte, permissão e SW tratados; negada → só o toast acima).
-            mostrarNotificacaoSistema("Central de Chamados", textoEvento(data), "/tickets/" + data.ticket_id + "/", data.ticket_id);
+            // NOTA: a notificação NATIVA (banner/vibração) não é mais disparada
+            // aqui — o servidor envia Web Push (VAPID) e o sw.js a exibe via
+            // 'push', mesmo com o app fechado. O Pusher ficou só no DOM/toast.
         }
 
         // 6. Atualização das telas conforme a URL atual

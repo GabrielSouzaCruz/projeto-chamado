@@ -60,6 +60,32 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
+// Push nativo (Push API / VAPID): o servidor envia o payload JSON
+// {titulo, mensagem, url} → exibimos a notificação do SO (banner/vibração),
+// funcionando mesmo com o app fechado ou minimizado.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch (e) {
+      // Payload corrompido/inválido: usa os fallbacks abaixo.
+    }
+  }
+  const urlAlvo = payload.url || '/tickets/';
+  const opcoes = {
+    body: payload.mensagem || 'Você tem uma nova atualização.',
+    icon: '/static/image/machado.png',
+    badge: '/static/image/favicon.png',
+    vibrate: [200, 100, 200],
+    tag: urlAlvo, // tag por URL: substitui a notificação anterior do mesmo chamado
+    data: { url: urlAlvo },
+  };
+  event.waitUntil(
+    self.registration.showNotification(payload.titulo || 'Central de Chamados', opcoes)
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);

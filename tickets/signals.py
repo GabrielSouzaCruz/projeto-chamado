@@ -1,13 +1,24 @@
 import contextvars
+import json
 import logging
 import threading
 from contextlib import contextmanager
 
 from django.conf import settings
+from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import Ticket, Comentario
+from accounts.models import User
+from .models import Ticket, Comentario, PushSubscription
+
+# pywebpush com guarda: sem a lib instalada o web push fica desativado, mas o
+# boot e o tempo real (Pusher) continuam funcionando normalmente.
+try:
+    from pywebpush import webpush, WebPushException
+except ImportError:
+    webpush = None
+    WebPushException = None
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +74,67 @@ def _nome_usuario(usuario):
     return usuario.get_full_name() or usuario.username
 
 
+def _disparar_web_push_worker(user_id, titulo, mensagem, url):
+    """Dispara Web Push nativo para TODAS as inscrições do usuário (thread).
+
+    Payload JSON {titulo, mensagem, url} → o sw.js exibe a notificação nativa
+    (banner/vibração) mesmo com o app fechado. Erro 410 (Gone) significa que o
+    navegador do usuário invalidou a inscrição (permissão removida): apaga o
+    registro do banco para não acumular lixo nem tentar reenviar para sempre.
+    """
+    try:
+        inscricoes = PushSubscription.objects.filter(user_id=user_id)
+        for insc in inscricoes:
+            try:
+                webpush(
+                    subscription_info={
+                        'endpoint': insc.endpoint,
+                        'keys': {'p256dh': insc.p256dh, 'auth': insc.auth},
+                    },
+                    data=json.dumps({'titulo': titulo, 'mensagem': mensagem, 'url': url}),
+                    vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                    vapid_claims={'sub': settings.VAPID_ADMIN_EMAIL},
+                )
+            except WebPushException as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status == 410:
+                    insc.delete()  # Gone: inscrição inválida → limpa o registro
+                else:
+                    logger.warning('Web push falhou (HTTP %s): %s', status, exc)
+            except Exception:
+                logger.exception('Erro inesperado ao disparar web push')
+    except Exception:
+        logger.exception('Erro ao listar inscrições de push do usuário %s', user_id)
+
+
+def _enviar_web_push(user_id, titulo, mensagem, url):
+    """Agenda um Web Push nativo (VAPID) para o usuário, em thread paralela.
+
+    Desativado silenciosamente se a lib ou as chaves VAPID não existirem no
+    ambiente (dev/CI): o sistema segue 100% funcional só com o tempo real do
+    Pusher (DOM + toasts). Nunca dispara para o próprio autor (sem eco).
+    """
+    if webpush is None:
+        return
+    if not getattr(settings, 'VAPID_PUBLIC_KEY', '') or not getattr(settings, 'VAPID_PRIVATE_KEY', ''):
+        return
+    if not user_id:
+        return
+    if getattr(settings, 'WEB_PUSH_ASSINCRONO', True):
+        threading.Thread(
+            target=_disparar_web_push_worker,
+            args=(user_id, titulo, mensagem, url),
+            daemon=True,
+        ).start()
+    else:
+        _disparar_web_push_worker(user_id, titulo, mensagem, url)
+
+
 @receiver(post_save, sender=Ticket)
 def notificar_ticket_event(sender, instance, created, **kwargs):
     canal_global = ['fila-global']
     canal_ticket = [f'ticket-{instance.id}']
+    url_ticket = f'/tickets/{instance.id}/'
 
     if created:
         _enviar_evento(
@@ -80,11 +148,25 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
             },
             canal_global,
         )
+
+        # Web Push nativo: avisa a EQUIPE TÉCNICA (quem atende a fila).
+        tecnicos = User.objects.filter(
+            Q(is_technician=True) | Q(is_superuser=True)
+        ).exclude(id=instance.solicitante_id).values_list('id', flat=True)
+        for tecnico_id in tecnicos:
+            _enviar_web_push(
+                tecnico_id,
+                'Central de Chamados',
+                f'Novo chamado #{instance.id}: {instance.titulo}',
+                url_ticket,
+            )
     else:
         if instance.status == Ticket.Status.CANCELADO:
             evento, acao = 'ticket_cancelado', 'ticket_cancelado'
+            mensagem_push = f'Chamado #{instance.id} cancelado'
         else:
             evento, acao = 'ticket_atualizado', 'ticket_atualizado'
+            mensagem_push = f'Chamado #{instance.id} atualizado'
 
         _enviar_evento(
             evento,
@@ -97,6 +179,14 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
             },
             canal_global + canal_ticket,
         )
+
+        # Web Push: solicitante + técnico responsável, sem eco para o autor.
+        envolvidos = {instance.solicitante_id}
+        if instance.tecnico_responsavel_id:
+            envolvidos.add(instance.tecnico_responsavel_id)
+        envolvidos.discard(_actor_id.get())
+        for usuario_id in envolvidos:
+            _enviar_web_push(usuario_id, 'Central de Chamados', mensagem_push, url_ticket)
 
 
 @receiver(post_save, sender=Comentario)
@@ -119,3 +209,13 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
             },
             ['fila-global', f'ticket-{ticket.id}'],
         )
+
+        # Web Push nativo: avisa os envolvidos, sem eco para quem escreveu.
+        envolvidos = destinatario_ids - {instance.autor_id}
+        for usuario_id in envolvidos:
+            _enviar_web_push(
+                usuario_id,
+                'Central de Chamados',
+                f'Nova mensagem no chamado #{ticket.id}',
+                f'/tickets/{ticket.id}/',
+            )

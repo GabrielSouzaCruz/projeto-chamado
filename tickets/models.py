@@ -143,6 +143,37 @@ class Ticket(models.Model):
             return False
         ext = self.anexo.name.rsplit('.', 1)[-1].lower()
         return ext in {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
+
+
+class PushSubscription(models.Model):
+    """
+    Inscrição do navegador/dispositivo do usuário na Push API (Web Push nativo).
+
+    Criada no frontend via pushManager.subscribe() (VAPID) e persistida pela
+    API POST /api/save-push-subscription/. É usada pelo signals.py para
+    notificar o SO com o app fechado. Inscrições com erro 410 (Gone) — usuário
+    removeu a permissão no navegador — são eliminadas automaticamente.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions',
+        verbose_name='Usuário'
+    )
+    endpoint = models.URLField(max_length=500, verbose_name='Endpoint')
+    p256dh = models.CharField(max_length=100, verbose_name='Chave p256dh')
+    auth = models.CharField(max_length=100, verbose_name='Chave auth')
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
+
+    class Meta:
+        verbose_name = 'Inscrição de Push'
+        verbose_name_plural = 'Inscrições de Push'
+        unique_together = ('user', 'endpoint')
+        ordering = ['-atualizado_em']
+
+    def __str__(self):
+        return f'Push de {self.user}'
     
     @property
     def prioridade_css_class(self):

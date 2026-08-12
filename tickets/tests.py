@@ -1,17 +1,21 @@
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Categoria, Comentario, Ticket
+from .models import Categoria, Comentario, Ticket, PushSubscription
 from .services import (
     adicionar_comentario_service,
     alterar_status_ticket_service,
     assumir_ticket_service,
     cancelar_ticket_service,
 )
+from .signals import _disparar_web_push_worker, _enviar_web_push, evento_do_usuario
+
+from pywebpush import WebPushException
 
 User = get_user_model()
 
@@ -323,3 +327,168 @@ class TesteMiniAPIs(BaseChamadoTest):
 
         self.assertEqual(resp.status_code, 403)
         self.assertIn('error', resp.json())
+
+
+class TestePushSubscriptionAPI(BaseChamadoTest):
+    """Valida a API POST /api/save-push-subscription/ (Web Push nativo)."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse('save_push_subscription')
+        self.payload = {
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/xyz123',
+            'keys': {'p256dh': 'B' * 87, 'auth': 'A' * 22},
+        }
+
+    def _post(self, dados):
+        return self.client.post(
+            self.url, json.dumps(dados), content_type='application/json'
+        )
+
+    def test_exige_login(self):
+        resp = self._post(self.payload)
+        self.assertEqual(resp.status_code, 302)
+
+    def test_salva_inscricao_do_usuario(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post(self.payload)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        inscricao = PushSubscription.objects.get(user=self.solicitante)
+        self.assertEqual(inscricao.endpoint, self.payload['endpoint'])
+        self.assertEqual(inscricao.p256dh, 'B' * 87)
+        self.assertEqual(inscricao.auth, 'A' * 22)
+
+    def test_mesmo_endpoint_nao_duplica(self):
+        self.client.force_login(self.solicitante)
+        self._post(self.payload)
+        self._post(self.payload)
+
+        self.assertEqual(PushSubscription.objects.filter(user=self.solicitante).count(), 1)
+
+    def test_chaves_planas_tambem_sao_aceitas(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({'endpoint': 'https://ex.com/e', 'p256dh': 'C' * 87, 'auth': 'D' * 22})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(PushSubscription.objects.filter(user=self.solicitante).exists())
+
+    def test_dados_incompletos_retorna_400(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({'endpoint': 'https://ex.com/e'})
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_json_invalido_retorna_400(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(self.url, data='{nao-é-json', content_type='application/json')
+
+        self.assertEqual(resp.status_code, 400)
+
+    def test_get_retorna_405(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.status_code, 405)
+
+
+class TesteWebPush(BaseChamadoTest):
+    """Valida o disparo de Web Push nativo (VAPID) e o cleanup de 410 Gone."""
+
+    def _criar_inscricao(self, user, endpoint='https://push.example.com/abc'):
+        return PushSubscription.objects.create(
+            user=user, endpoint=endpoint, p256dh='B' * 87, auth='A' * 22
+        )
+
+    def test_410_gone_remove_a_inscricao(self):
+        inscricao = self._criar_inscricao(self.solicitante)
+        with patch('tickets.signals.webpush') as wp:
+            wp.side_effect = WebPushException('Gone', response=Mock(status_code=410))
+            _disparar_web_push_worker(self.solicitante.id, 'T', 'M', '/tickets/1/')
+
+        self.assertFalse(PushSubscription.objects.filter(pk=inscricao.pk).exists())
+
+    def test_outro_erro_mantem_a_inscricao(self):
+        inscricao = self._criar_inscricao(self.solicitante)
+        with patch('tickets.signals.webpush') as wp:
+            wp.side_effect = WebPushException('Falha', response=Mock(status_code=500))
+            _disparar_web_push_worker(self.solicitante.id, 'T', 'M', '/tickets/1/')
+
+        self.assertTrue(PushSubscription.objects.filter(pk=inscricao.pk).exists())
+
+    def test_sucesso_envia_payload_json_para_todas_as_inscricoes(self):
+        inscricao = self._criar_inscricao(self.solicitante)
+        self._criar_inscricao(self.solicitante, endpoint='https://push.example.com/outro')
+
+        with patch('tickets.signals.webpush') as wp:
+            _disparar_web_push_worker(self.solicitante.id, 'Título', 'Mensagem', '/tickets/5/')
+
+        self.assertEqual(wp.call_count, 2)
+        args, kwargs = wp.call_args_list[0]
+        self.assertEqual(kwargs['subscription_info']['endpoint'], inscricao.endpoint)
+        self.assertEqual(kwargs['subscription_info']['keys']['p256dh'], inscricao.p256dh)
+        payload = json.loads(kwargs['data'])
+        self.assertEqual(payload, {'titulo': 'Título', 'mensagem': 'Mensagem', 'url': '/tickets/5/'})
+        self.assertEqual(kwargs['vapid_claims'], {'sub': settings.VAPID_ADMIN_EMAIL})
+
+    def test_sem_chaves_vapid_nao_dispara_nada(self):
+        self._criar_inscricao(self.solicitante)
+        with (
+            patch('tickets.signals.webpush') as wp,
+            patch.object(settings, 'VAPID_PUBLIC_KEY', ''),
+            patch.object(settings, 'VAPID_PRIVATE_KEY', ''),
+        ):
+            _enviar_web_push(self.solicitante.id, 'T', 'M', '/tickets/1/')
+
+        wp.assert_not_called()
+
+    def test_novo_ticket_push_para_tecnicos_sem_eco_ao_solicitante(self):
+        with (
+            patch('tickets.signals._enviar_web_push') as envia,
+            patch.object(settings, 'VAPID_PUBLIC_KEY', 'pub'),
+            patch.object(settings, 'VAPID_PRIVATE_KEY', 'priv'),
+        ):
+            ticket = self.criar_ticket()
+
+        ids = [call.args[0] for call in envia.call_args_list]
+        self.assertIn(self.tecnico.id, ids)
+        self.assertIn(self.superuser.id, ids)
+        self.assertNotIn(self.solicitante.id, ids)
+        payload_url = envia.call_args.args[3]
+        self.assertEqual(payload_url, f'/tickets/{ticket.id}/')
+
+    def test_comentario_push_para_envolvidos_sem_eco_ao_autor(self):
+        ticket = self.criar_ticket()
+        ticket.tecnico_responsavel = self.tecnico
+        ticket.save()
+
+        with (
+            patch('tickets.signals._enviar_web_push') as envia,
+            patch.object(settings, 'VAPID_PUBLIC_KEY', 'pub'),
+            patch.object(settings, 'VAPID_PRIVATE_KEY', 'priv'),
+        ):
+            Comentario.objects.create(ticket=ticket, autor=self.solicitante, mensagem='Olá')
+
+        ids = [call.args[0] for call in envia.call_args_list]
+        self.assertIn(self.tecnico.id, ids)
+        self.assertNotIn(self.solicitante.id, ids)
+
+    def test_cancelamento_push_para_solicitante_e_tecnico_sem_eco_ao_autor(self):
+        ticket = self.criar_ticket()
+        ticket.tecnico_responsavel = self.tecnico
+        ticket.save()
+
+        with (
+            patch('tickets.signals._enviar_web_push') as envia,
+            patch.object(settings, 'VAPID_PUBLIC_KEY', 'pub'),
+            patch.object(settings, 'VAPID_PRIVATE_KEY', 'priv'),
+        ):
+            with patch.object(settings, 'PUSHER_CLIENT', FakePusherClient()):
+                with evento_do_usuario(self.tecnico):  # técnico executa o cancelamento
+                    cancelar_ticket_service(ticket.id)
+
+        ids = [call.args[0] for call in envia.call_args_list]
+        self.assertIn(self.solicitante.id, ids)
+        self.assertNotIn(self.tecnico.id, ids)  # técnico é o autor do cancelamento

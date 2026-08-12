@@ -320,6 +320,29 @@ else:
 PUSHER_ASSINCRONO = True
 
 # =============================================================================
+# WEB PUSH NATIVO (VAPID / PUSH API)
+# =============================================================================
+# Notificações nativas do SO via Push API (100% gratuitas, sem infra extra).
+# O Pusher passa a cuidar SOMENTE do tempo real do DOM; o push visual nativo
+# (app fechado, banner, vibração) vem daqui, disparado pelo sw.js.
+#
+# As chaves VAPID são geradas localmente com:
+#     pywebpush --gen-vapid-keys
+# VAPID_PUBLIC_KEY é pública (vai para o navegador assinar o PushManager);
+# VAPID_PRIVATE_KEY é segredo absoluto (fica só no servidor).
+#
+# Sem chaves VAPID no ambiente: o sistema funciona normalmente, sem push nativo
+# (o guard no signals.py sai cedo e nada quebra).
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'mailto:admin@seudominio.com')
+
+# Web Push também roda em thread paralela (daemon), como o Pusher, para o
+# Response HTTP voltar instantâneo. Em testes é forçado para False
+# (test_settings), mantendo as assertivas determinísticas e sem threads.
+WEB_PUSH_ASSINCRONO = True
+
+# =============================================================================
 # LOGGING — Logs estruturados para o terminal do Render (stdout)
 # =============================================================================
 # Nota: não colide com o Sentry — o Sentry captura via suas próprias

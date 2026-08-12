@@ -14,13 +14,49 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
+import json
 
 from accounts.decorators import tecnico_required
 
 from .forms import ComentarioForm
-from .models import Ticket
+from .models import Ticket, PushSubscription
 from . import services
 from .signals import evento_do_usuario
+
+# =============================================================================
+# WEB PUSH NATIVO (PUSH API / VAPID)
+# =============================================================================
+
+@login_required
+@never_cache
+@require_POST
+def salvar_push_subscription(request):
+    """Persiste a inscrição de push (endpoint + chaves) do usuário autenticado.
+
+    Chamada pelo frontend após pushManager.subscribe(). Endpoint é único por
+    usuário: nova inscrição substitui a antiga (update_or_create), evitando
+    duplicatas quando o navegador regenera o endpoint.
+    """
+    try:
+        dados = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'ok': False, 'erro': 'JSON inválido.'}, status=400)
+
+    endpoint = (dados.get('endpoint') or '').strip()
+    chaves = dados.get('keys') or {}
+    p256dh = (chaves.get('p256dh') or dados.get('p256dh') or '').strip()
+    auth = (chaves.get('auth') or dados.get('auth') or '').strip()
+
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({'ok': False, 'erro': 'Dados incompletos.'}, status=400)
+
+    PushSubscription.objects.update_or_create(
+        user=request.user,
+        endpoint=endpoint,
+        defaults={'p256dh': p256dh, 'auth': auth},
+    )
+    return JsonResponse({'ok': True})
 
 # =============================================================================
 # MINI-APIs HTML (FAST PATHS PARA O JAVASCRIPT)
