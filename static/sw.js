@@ -37,30 +37,35 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const action = event.action;
   const destinoRaw = (event.notification.data && event.notification.data.url) || '/tickets/';
   const destino = new URL(destinoRaw, self.registration.scope).href;
 
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
-      for (const cliente of janelas) {
-        if ('focus' in cliente) {
-          if (cliente.url === destino) {
+  // Se clicou na action "Abrir Chamado" (ou no corpo da notificação sem action específica),
+  // abre/foca a janela do chamado.
+  if (action === 'abrir_chamado' || action === '') {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
+        for (const cliente of janelas) {
+          if ('focus' in cliente) {
+            if (cliente.url === destino) {
+              return cliente.focus();
+            }
+            // Janela aberta noutra rota: navega até o chamado (sem nova aba).
+            try {
+              cliente.navigate(destinoRaw);
+            } catch (e) {
+              // Navigate indisponível (janela não controlada): só foca.
+            }
             return cliente.focus();
           }
-          // Janela aberta noutra rota: navega até o chamado (sem nova aba).
-          try {
-            cliente.navigate(destinoRaw);
-          } catch (e) {
-            // Navigate indisponível (janela não controlada): só foca.
-          }
-          return cliente.focus();
         }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(destino);
-      }
-    })
-  );
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(destino);
+        }
+      })
+    );
+  }
 });
 
 self.addEventListener('push', (event) => {
@@ -76,8 +81,8 @@ self.addEventListener('push', (event) => {
       data: { url: data.url || '/' },
       tag: data.tag || 'chamado-notification',
       renotify: true,
-      // Forçar exibição mesmo com app em foco (alguns navegadores suprimem)
       requireInteraction: true,
+      actions: data.actions || [],
     };
 
     event.waitUntil(

@@ -84,7 +84,7 @@ def _tag_do_url(url):
 def _disparar_web_push_worker(user_id, titulo, mensagem, url):
     """Dispara Web Push nativo para TODAS as inscrições do usuário (thread).
 
-    Payload JSON {title, body, url, tag} → o sw.js exibe a notificação nativa
+    Payload JSON {title, body, url, tag, renotify, actions} → o sw.js exibe a notificação nativa
     (banner/vibração) mesmo com o app fechado ou minimizado, agrupada por chamado
     (tag). Erros 410 (Gone) e 404 (Not Found) significam que o navegador do
     usuário invalidou/deletou a inscrição: apagam o registro do banco para não
@@ -95,6 +95,8 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
         'body': mensagem or 'Nova atualização no chamado.',
         'url': url or '/tickets/',
         'tag': _tag_do_url(url),
+        'renotify': True,
+        'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
     }
 
     try:

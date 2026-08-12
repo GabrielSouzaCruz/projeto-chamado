@@ -471,7 +471,14 @@ class TesteWebPush(BaseChamadoTest):
         self.assertEqual(kwargs['subscription_info']['endpoint'], inscricao.endpoint)
         self.assertEqual(kwargs['subscription_info']['keys']['p256dh'], inscricao.p256dh)
         payload = json.loads(kwargs['data'])
-        self.assertEqual(payload, {'title': 'Título', 'body': 'Mensagem', 'url': '/tickets/5/', 'tag': 'ticket-5'})
+        self.assertEqual(payload, {
+            'title': 'Título',
+            'body': 'Mensagem',
+            'url': '/tickets/5/',
+            'tag': 'ticket-5',
+            'renotify': True,
+            'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
+        })
         self.assertEqual(kwargs['vapid_claims'], {'sub': settings.VAPID_ADMIN_EMAIL})
 
     def test_sem_chaves_vapid_nao_dispara_nada(self):
