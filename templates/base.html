@@ -164,6 +164,21 @@
             text-overflow: ellipsis;
         }
 
+        /* Sino + perfil: bloco único à direita, colado e sem transbordar o
+           viewport. O nome do usuário trunca com reticências (>100vw nunca). */
+        .top-bar .user-badge {
+            min-width: 0;
+            overflow: hidden;
+        }
+        .top-bar .user-badge > div:first-child { min-width: 0; }
+        .top-bar .user-badge .fw-bold,
+        .top-bar .user-badge small {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .bg-primary { background-color: var(--primary-color) !important; }
         .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }
 
@@ -366,15 +381,15 @@
                     <h5 class="mb-0 fw-bold">{% block page_title %}Visão Geral{% endblock %}</h5>
                 </div>
 
-                <div class="top-bar-right d-flex align-items-center">
-                    <div id="notif-permission-item" class="d-none me-2" title="Notificações do navegador">
+                <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-3 top-bar-right">
+                    <div id="notif-permission-item" class="d-none" title="Notificações do navegador">
                         <button type="button" id="btn-ativar-notificacoes" class="notif-enable-btn" aria-label="Ativar notificações do navegador">
                             <i class="fas fa-bell" aria-hidden="true"></i>
                             <span id="notif-btn-texto" class="d-none d-sm-inline">Ativar Alertas</span>
                         </button>
                     </div>
                     <div class="user-badge d-flex align-items-center">
-                        <div class="text-end me-3 d-none d-md-block">
+                        <div class="text-end d-none d-md-block">
                             <div class="fw-bold" style="font-size: 0.9rem;">{{ user.get_full_name|default:user.username }}</div>
                             <small class="text-muted">{% if user.is_technician %}Técnico{% else %}Solicitante{% endif %}</small>
                         </div>
@@ -612,45 +627,11 @@
     // 3a. Usuário atual (para filtrar o "eco": eventos do próprio usuário)
     const CURRENT_USER_ID = {{ request.user.id }};
 
-    // 4. Conexão do Pusher SEMPRE ativa: o WebSocket permanece conectado mesmo
-    // com a aba oculta (os eventos chegam em background, sem perder tempo real).
-    // Se o SO do celular congelar o JS da aba temporariamente, apenas a lógica
-    // de "catch-up" roda ao voltar: busca dados frescos sem depender de um
-    // evento novo do Pusher.
-    function atualizarInterfaceAoTornarVisivel() {
-        const path = window.location.pathname;
-        try {
-            // Detalhe do chamado: recarrega o chat e o badge de status.
-            const detailMatch = path.match(/^\/tickets\/(\d+)/);
-            if (detailMatch) {
-                if (typeof window.atualizarChat === 'function') {
-                    window.atualizarChat();
-                }
-                if (typeof window.atualizarStatusTicket === 'function') {
-                    window.atualizarStatusTicket();
-                }
-                return;
-            }
-            // Fila Admin (técnicos): recarrega a tabela via fetch.
-            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
-                window.atualizarFilaAdmin();
-                return;
-            }
-            // Dashboard (raiz /tickets/).
-            if (path === '/tickets/' && typeof window.atualizarDashboard === 'function') {
-                window.atualizarDashboard();
-                return;
-            }
-        } catch (err) {
-            console.error('Erro ao atualizar interface ao tornar visível:', err);
-        }
-    }
-
-    document.addEventListener("visibilitychange", function() {
-        if (!document.hidden) {
-            atualizarInterfaceAoTornarVisivel();
-        }
-    });
+    // 4. Conexão do Pusher SEMPRE ativa: o WebSocket inicia no load e permanece
+    // conectado em background. Sem listeners de visibilitychange/disconnect —
+    // a aba oculta nunca desliga a ligação e os eventos continuam a chegar
+    // mesmo com a janela minimizada. Se o SO congelar o JS da aba, o próprio
+    // Pusher reconecta sozinho ao voltar (protocolo standard do cliente).
 
     // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor).
     // Mensagens mostram o nome do remetente; os demais eventos, o chamado.
