@@ -155,7 +155,7 @@
             <div id="indicador-atualizacao" class="small text-muted" role="status" aria-live="polite">Sincronizado</div>
         </div>
     </div>
-    <div class="table-responsive">
+    <div id="fila-container" class="table-responsive">
         <table class="table table-hover align-middle mb-0" aria-label="Tabela de gerenciamento da fila de atendimento">
             <thead class="bg-light text-muted" style="font-size: 0.85rem;">
                 <tr>
@@ -267,10 +267,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
 
-    // POLLING (5s) — substitui o Pusher global: recarrega a tabela e as
-    // estatísticas silenciosamente a cada 5 segundos (_fila_table.html).
+    // POLLING (0ms + 5s) — substitui o Pusher global: executa logo no load
+    // (dados frescos sobre o SSR inicial, sem esperar) e agenda a cada 5s.
+    atualizarFilaAdmin(null, true);
     setInterval(function () {
-        window.atualizarFilaAdmin(null, true);
+        atualizarFilaAdmin(null, true);
     }, 5000);
 
     // Selo "Atualizado agora" (estilo do código antigo)

@@ -154,8 +154,11 @@ def historico(request):
     return render(request, 'tickets/historico.html', context)
 
 @admin_required
+@tecnico_required
 def fila_admin(request):
-    # Dados iniciais para não depender da atualização AJAX
+    # Dados iniciais para não depender da atualização AJAX (SSR instantâneo).
+    # tickets_novos_ids vai vazio no render: é usado apenas pelo polling para
+    # destacar a linha recém-chegada (ver api_fila_admin_rows).
     tickets = Ticket.objects.filter(status__in=['ABERTO', 'EM_ANDAMENTO']).select_related('solicitante', 'categoria')
     categorias = Categoria.objects.filter(ativa=True)
 
@@ -163,6 +166,7 @@ def fila_admin(request):
 
     return render(request, 'tickets/fila_admin.html', {
         'tickets': tickets,
+        'tickets_novos_ids': [],
         'categorias': categorias,
         'stats': stats,
         'filtros': request.GET

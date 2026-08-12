@@ -497,7 +497,8 @@
         if (Notification.permission === 'granted') {
             // Permissão existe, mas pode NÃO haver inscrição (endpoint perdido/
             // regenerado): sem pushManager.subscribe o push nativo não chega.
-            // Só esconde o botão se já existe uma inscrição ativa.
+            // Na inicialização, garantimos a inscrição de forma silenciosa —
+            // sem pedir permissão (já concedida) nem exigir cliques do usuário.
             if (!('serviceWorker' in navigator) || !VAPID_PUBLIC_KEY) {
                 item.remove();
                 return;
@@ -505,8 +506,12 @@
             navigator.serviceWorker.ready
                 .then(function(reg) { return reg.pushManager.getSubscription(); })
                 .then(function(sub) {
-                    if (sub) { item.remove(); }
-                    else { item.classList.remove('d-none'); }
+                    if (sub) { item.remove(); return; }
+                    // Sem inscrição ativa: re-assina e persiste na API.
+                    return assinarPushNativo().then(function(ok) {
+                        if (ok) { item.remove(); }
+                        else { item.classList.remove('d-none'); }
+                    });
                 })
                 .catch(function() { item.classList.remove('d-none'); });
             return;
@@ -588,7 +593,7 @@
                 });
             })
             .then(function(subscription) {
-                return fetch("{% url 'save_push_subscription' %}", {
+                return fetch("{% url 'push_subscribe' %}", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

@@ -74,14 +74,29 @@ def _nome_usuario(usuario):
     return usuario.get_full_name() or usuario.username
 
 
+def _tag_do_url(url):
+    """Extrai 'ticket-<id>' da URL do chamado para agrupar notificações (tag)."""
+    import re
+    m = re.search(r'/tickets/(\d+)/?', url or '')
+    return f'ticket-{m.group(1)}' if m else 'chamado-notification'
+
+
 def _disparar_web_push_worker(user_id, titulo, mensagem, url):
     """Dispara Web Push nativo para TODAS as inscrições do usuário (thread).
 
-    Payload JSON {titulo, mensagem, url} → o sw.js exibe a notificação nativa
-    (banner/vibração) mesmo com o app fechado. Erro 410 (Gone) significa que o
-    navegador do usuário invalidou a inscrição (permissão removida): apaga o
-    registro do banco para não acumular lixo nem tentar reenviar para sempre.
+    Payload JSON {title, body, url, tag} → o sw.js exibe a notificação nativa
+    (banner/vibração) mesmo com o app fechado ou minimizado, agrupada por chamado
+    (tag). Erros 410 (Gone) e 404 (Not Found) significam que o navegador do
+    usuário invalidou/deletou a inscrição: apagam o registro do banco para não
+    acumular lixo nem tentar reenviar para sempre.
     """
+    payload = {
+        'title': titulo,
+        'body': mensagem or 'Nova atualização no chamado.',
+        'url': url or '/tickets/',
+        'tag': _tag_do_url(url),
+    }
+
     try:
         inscricoes = PushSubscription.objects.filter(user_id=user_id).order_by('id')
         for insc in inscricoes:
@@ -91,14 +106,14 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
                         'endpoint': insc.endpoint,
                         'keys': {'p256dh': insc.p256dh, 'auth': insc.auth},
                     },
-                    data=json.dumps({'titulo': titulo, 'mensagem': mensagem, 'url': url}),
+                    data=json.dumps(payload),
                     vapid_private_key=settings.VAPID_PRIVATE_KEY,
                     vapid_claims={'sub': settings.VAPID_ADMIN_EMAIL},
                 )
             except WebPushException as exc:
                 status = exc.response.status_code if exc.response is not None else None
-                if status == 410:
-                    insc.delete()  # Gone: inscrição inválida → limpa o registro
+                if status in (410, 404):
+                    insc.delete()  # Gone/Not Found: inscrição inválida → limpa
                 else:
                     logger.warning('Web push falhou (HTTP %s): %s', status, exc)
             except Exception:
@@ -146,8 +161,8 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
         for tecnico_id in tecnicos:
             _enviar_web_push(
                 tecnico_id,
-                'Central de Chamados',
                 f'Novo chamado #{instance.id}: {instance.titulo}',
+                'Um novo chamado aguarda atendimento na fila.',
                 url_ticket,
             )
     else:
@@ -162,7 +177,7 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
             envolvidos.add(instance.tecnico_responsavel_id)
         envolvidos.discard(_actor_id.get())
         for usuario_id in envolvidos:
-            _enviar_web_push(usuario_id, 'Central de Chamados', mensagem_push, url_ticket)
+            _enviar_web_push(usuario_id, mensagem_push, '', url_ticket)
 
 
 @receiver(post_save, sender=Comentario)
@@ -190,10 +205,11 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
 
         # Web Push nativo: avisa os envolvidos, sem eco para quem escreveu.
         envolvidos = destinatario_ids - {instance.autor_id}
+        preview_mensagem = (instance.mensagem or '').strip()[:120]
         for usuario_id in envolvidos:
             _enviar_web_push(
                 usuario_id,
-                'Central de Chamados',
-                f'Nova mensagem no chamado #{ticket.id}',
+                f'🔔 Nova mensagem de: {_nome_usuario(instance.autor)}',
+                preview_mensagem or f'Nova mensagem no chamado #{ticket.id}',
                 f'/tickets/{ticket.id}/',
             )

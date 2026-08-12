@@ -34,56 +34,54 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Toque na notificação: foca a janela aberta do PWA (ou abre uma nova) e
-// navega direto para o chamado. O payload (url/ticket_id) é gravado pelo
-// showNotification() no base.html.
 self.addEventListener('notificationclick', (event) => {
-  const dados = event.notification.data || {};
-  const url = dados.url || '/tickets/';
   event.notification.close();
+  const destinoRaw = (event.notification.data && event.notification.data.url) || '/tickets/';
+  const destino = new URL(destinoRaw, self.registration.scope).href;
 
   event.waitUntil(
-    (async () => {
-      const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
       for (const cliente of janelas) {
         if ('focus' in cliente) {
+          if (cliente.url === destino) {
+            return cliente.focus();
+          }
+          // Janela aberta noutra rota: navega até o chamado (sem nova aba).
           try {
-            await cliente.navigate(url);
+            cliente.navigate(destinoRaw);
           } catch (e) {
             // Navigate indisponível (janela não controlada): só foca.
           }
           return cliente.focus();
         }
       }
-      return self.clients.openWindow(url);
-    })()
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(destino);
+      }
+    })
   );
 });
 
-// Push nativo (Push API / VAPID): o servidor envia o payload JSON
-// {titulo, mensagem, url} → exibimos a notificação do SO (banner/vibração),
-// funcionando mesmo com o app fechado ou minimizado.
 self.addEventListener('push', (event) => {
-  let payload = {};
-  if (event.data) {
-    try {
-      payload = event.data.json();
-    } catch (e) {
-      // Payload corrompido/inválido: usa os fallbacks abaixo.
-    }
+  if (!event.data) return;
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || 'Nova atualização no chamado.',
+      icon: data.icon || '/static/image/pwa-192x192.png',
+      badge: '/static/image/favicon.png',
+      vibrate: [200, 100, 200],
+      data: { url: data.url || '/' },
+      tag: data.tag || 'chamado-notification',
+      renotify: true,
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Sistema de Chamados', options)
+    );
+  } catch (e) {
+    console.error('Erro ao processar push no Service Worker:', e);
   }
-  const urlAlvo = payload.url || '/tickets/';
-  const opcoes = {
-    body: payload.mensagem || 'Você tem uma nova atualização.',
-    icon: '/static/image/machado.png',
-    badge: '/static/image/favicon.png',
-    vibrate: [200, 100, 200],
-    tag: urlAlvo, // tag por URL: substitui a notificação anterior do mesmo chamado
-    data: { url: urlAlvo },
-  };
-  event.waitUntil(
-    self.registration.showNotification(payload.titulo || 'Central de Chamados', opcoes)
-  );
 });
 
 self.addEventListener('fetch', (event) => {

@@ -443,6 +443,14 @@ class TesteWebPush(BaseChamadoTest):
 
         self.assertFalse(PushSubscription.objects.filter(pk=inscricao.pk).exists())
 
+    def test_404_not_found_remove_a_inscricao(self):
+        inscricao = self._criar_inscricao(self.solicitante)
+        with patch('tickets.signals.webpush') as wp:
+            wp.side_effect = WebPushException('Not Found', response=Mock(status_code=404))
+            _disparar_web_push_worker(self.solicitante.id, 'T', 'M', '/tickets/1/')
+
+        self.assertFalse(PushSubscription.objects.filter(pk=inscricao.pk).exists())
+
     def test_outro_erro_mantem_a_inscricao(self):
         inscricao = self._criar_inscricao(self.solicitante)
         with patch('tickets.signals.webpush') as wp:
@@ -463,7 +471,7 @@ class TesteWebPush(BaseChamadoTest):
         self.assertEqual(kwargs['subscription_info']['endpoint'], inscricao.endpoint)
         self.assertEqual(kwargs['subscription_info']['keys']['p256dh'], inscricao.p256dh)
         payload = json.loads(kwargs['data'])
-        self.assertEqual(payload, {'titulo': 'Título', 'mensagem': 'Mensagem', 'url': '/tickets/5/'})
+        self.assertEqual(payload, {'title': 'Título', 'body': 'Mensagem', 'url': '/tickets/5/', 'tag': 'ticket-5'})
         self.assertEqual(kwargs['vapid_claims'], {'sub': settings.VAPID_ADMIN_EMAIL})
 
     def test_sem_chaves_vapid_nao_dispara_nada(self):

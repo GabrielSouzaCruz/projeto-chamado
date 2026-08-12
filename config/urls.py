@@ -40,7 +40,9 @@ urlpatterns = [
     # Health check (público, para serviços externos como UptimeRobot)
     path('health/', health_check_view, name='health_check'),
 
-    # Web Push nativo (VAPID): salva a inscrição pushManager do navegador
+    # Web Push nativo (VAPID): salva a inscrição pushManager do navegador.
+    # /api/push-subscribe/ é a rota canónica; a antiga fica como alias retroativo.
+    path('api/push-subscribe/', salvar_push_subscription, name='push_subscribe'),
     path('api/save-push-subscription/', salvar_push_subscription, name='save_push_subscription'),
 
     # Service Worker (scope raiz): necessário para push nativo + offline
