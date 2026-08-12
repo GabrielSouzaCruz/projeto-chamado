@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 import json
@@ -20,7 +21,7 @@ import json
 from accounts.decorators import tecnico_required
 
 from .forms import ComentarioForm
-from .models import Ticket, PushSubscription
+from .models import Ticket, Comentario, PushSubscription
 from . import services
 from .signals import evento_do_usuario
 
@@ -61,6 +62,46 @@ def salvar_push_subscription(request):
 # =============================================================================
 # MINI-APIs HTML (FAST PATHS PARA O JAVASCRIPT)
 # =============================================================================
+
+@login_required
+@never_cache
+def resumo_notificacoes(request):
+    """Contagem leve de novidades para o Polling do Sino (5s, sem WebSocket).
+
+    Devolve quantos itens surgiram desde o parâmetro 'desde' (ISO 8601):
+      - Novas mensagens (não internas, de terceiros) nos chamados do usuário;
+      - Novos chamados abertos/em andamento, apenas para técnicos.
+    Sem 'desde', considera os últimos 5 minutos. O frontend usa o resultado para
+    acender o selo vermelho do sino e tocar o áudio local quando há novidade.
+    """
+    desde = None
+    desde_str = request.GET.get('desde')
+    if desde_str:
+        try:
+            desde = timezone.datetime.fromisoformat(desde_str.replace('Z', '+00:00'))
+        except ValueError:
+            desde = None
+    if desde is None:
+        desde = timezone.now() - timezone.timedelta(minutes=5)
+
+    user = request.user
+    eh_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
+
+    qtd = Comentario.objects.filter(
+        interno=False,
+        criado_em__gt=desde,
+    ).filter(
+        Q(ticket__solicitante_id=user.id) | Q(ticket__tecnico_responsavel_id=user.id)
+    ).exclude(autor_id=user.id).count()
+
+    if eh_tecnico:
+        qtd += Ticket.objects.filter(
+            status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO],
+            criado_em__gt=desde,
+        ).count()
+
+    return JsonResponse({'qtd': qtd})
+
 
 @login_required
 @never_cache

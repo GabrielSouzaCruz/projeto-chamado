@@ -225,43 +225,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML)
-    window.atualizarFilaAdmin = function(ticketIdRecebido = null) {
+    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML).
+    // silencioso=true é usado pelo Polling de 5s: troca as linhas sem esqueleto
+    // nem flicker (o botão manual continua com o esqueleto de carregamento).
+    window.atualizarFilaAdmin = function(ticketIdRecebido = null, silencioso = false) {
         const tbodyFila = document.getElementById("fila-tbody");
 
-        if (tbodyFila) {
+        if (!tbodyFila) return;
+
+        if (!silencioso) {
             // Esqueleto: injeta linhas falsas + esqueleto nos stats ANTES do fetch
             tbodyFila.innerHTML = esqueletoTabelaHTML();
             esqueletoEstatisticas();
-
-            const params = new URLSearchParams(window.location.search);
-            params.append('_t', Date.now());
-
-            // Se recebeu um ID novo do WebSocket, coloca na URL para destacar a linha!
-            if (ticketIdRecebido) {
-                params.append('novo_id', ticketIdRecebido);
-            }
-
-            let url = "{% url 'tickets:api_fila_admin_rows' %}?" + params.toString();
-
-            fetch(url)
-                .then(res => res.text())
-                .then(html => {
-                    // Substitui o esqueleto pelo HTML real das linhas!
-                    tbodyFila.innerHTML = html;
-                    restaurarEstatisticas();
-
-                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-                    [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-
-                    mostrarAvisoAtualizacao();
-                })
-                .catch(err => {
-                    console.error('Erro na atualização da fila:', err);
-                    restaurarEstatisticas();
-                });
         }
+
+        const params = new URLSearchParams(window.location.search);
+        params.append('_t', Date.now());
+
+        // Se recebeu um ID novo, coloca na URL para destacar a linha!
+        if (ticketIdRecebido) {
+            params.append('novo_id', ticketIdRecebido);
+        }
+
+        let url = "{% url 'tickets:api_fila_admin_rows' %}?" + params.toString();
+
+        fetch(url)
+            .then(res => res.text())
+            .then(html => {
+                // Substitui o esqueleto pelo HTML real das linhas!
+                tbodyFila.innerHTML = html;
+                if (!silencioso) restaurarEstatisticas();
+
+                const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+                mostrarAvisoAtualizacao();
+            })
+            .catch(err => {
+                console.error('Erro na atualização da fila:', err);
+                if (!silencioso) restaurarEstatisticas();
+            });
     };
+
+    // POLLING (5s) — substitui o Pusher global: recarrega a tabela e as
+    // estatísticas silenciosamente a cada 5 segundos (_fila_table.html).
+    setInterval(function () {
+        window.atualizarFilaAdmin(null, true);
+    }, 5000);
 
     // Selo "Atualizado agora" (estilo do código antigo)
     function mostrarAvisoAtualizacao() {

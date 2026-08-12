@@ -55,52 +55,39 @@ class BaseChamadoTest(TestCase):
 
 
 class TesteSinais(BaseChamadoTest):
-    """Valida que os signals disparam eventos corretamente no Pusher."""
+    """Pós-Rollback: sem Pusher global; só novo_comentario chega ao canal do
+    ticket. O Web Push nativo (que não depende do Pusher) é coberto adiante."""
 
     def _com_pusher(self, fake):
         return patch.object(settings, 'PUSHER_CLIENT', fake)
 
-    def test_ticket_criado_dispara_novo_ticket(self):
+    def test_ticket_criado_nao_dispara_no_pusher_global(self):
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket = self.criar_ticket()
 
-        self.assertEqual(len(fake.calls), 1)
-        canais, evento, dados = fake.calls[0]
-        self.assertEqual(canais, ['fila-global'])
-        self.assertEqual(evento, 'novo_ticket')
-        self.assertEqual(dados['ticket_id'], ticket.id)
-        self.assertEqual(dados['action'], 'novo_ticket')
+        # Rollback tático: Fila/Dashboard/Notificações usam Polling de 5s.
+        self.assertEqual(fake.calls, [])
 
-    def test_ticket_cancelado_dispara_nos_canais_global_e_do_ticket(self):
+    def test_ticket_cancelado_nao_dispara_no_pusher(self):
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket.status = Ticket.Status.CANCELADO
             ticket.save()
 
-        self.assertEqual(len(fake.calls), 1)
-        canais, evento, dados = fake.calls[0]
-        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
-        self.assertEqual(evento, 'ticket_cancelado')
-        self.assertEqual(dados['ticket_id'], ticket.id)
-        self.assertEqual(dados['action'], 'ticket_cancelado')
+        self.assertEqual(fake.calls, [])
 
-    def test_ticket_atualizado_dispara_ticket_atualizado(self):
+    def test_ticket_atualizado_nao_dispara_no_pusher(self):
         ticket = self.criar_ticket(status=Ticket.Status.EM_ANDAMENTO)
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket.status = Ticket.Status.RESOLVIDO
             ticket.save()
 
-        self.assertEqual(len(fake.calls), 1)
-        canais, evento, dados = fake.calls[0]
-        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
-        self.assertEqual(evento, 'ticket_atualizado')
-        self.assertEqual(dados['action'], 'ticket_atualizado')
-        self.assertEqual(dados['status'], Ticket.Status.RESOLVIDO)
+        self.assertEqual(fake.calls, [])
 
-    def test_comentario_criado_dispara_novo_comentario_nos_canais_global_e_do_ticket(self):
+    def test_comentario_dispara_novo_comentario_so_no_canal_do_ticket(self):
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
@@ -110,20 +97,22 @@ class TesteSinais(BaseChamadoTest):
 
         self.assertEqual(len(fake.calls), 1)
         canais, evento, dados = fake.calls[0]
-        self.assertEqual(set(canais), {'fila-global', f'ticket-{ticket.id}'})
+        self.assertEqual(canais, [f'ticket-{ticket.id}'])
+        self.assertNotIn('fila-global', canais)
         self.assertEqual(evento, 'novo_comentario')
         self.assertEqual(dados['ticket_id'], ticket.id)
         self.assertEqual(dados['action'], 'novo_comentario')
         self.assertEqual(dados['remetente_nome'], self.solicitante.username)
         self.assertIn(self.solicitante.id, dados['destinatario_ids'])
 
-    def test_payload_inclui_titulo_do_chamado(self):
-        """O título do chamado vai no payload para o toast exibir texto legível."""
+    def test_payload_comentario_inclui_titulo_do_chamado(self):
+        """O título vai no payload de novo_comentario (exibido no chat)."""
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
-            ticket.status = Ticket.Status.EM_ANDAMENTO
-            ticket.save()
+            Comentario.objects.create(
+                ticket=ticket, autor=self.tecnico, mensagem='Vou ver.'
+            )
 
         _, _, dados = fake.calls[0]
         self.assertEqual(dados['titulo'], ticket.titulo)
@@ -140,13 +129,6 @@ class TesteSinais(BaseChamadoTest):
         _, _, dados = fake.calls[0]
         self.assertEqual(dados['actor_id'], self.tecnico.id)
 
-    def test_actor_id_do_ticket_criado_e_o_solicitante(self):
-        fake = FakePusherClient()
-        with self._com_pusher(fake):
-            ticket = self.criar_ticket()
-        _, _, dados = fake.calls[0]
-        self.assertEqual(dados['actor_id'], ticket.solicitante_id)
-
     def test_destinatarios_incluem_tecnico_atribuido(self):
         ticket = self.criar_ticket()
         ticket.tecnico_responsavel = self.tecnico
@@ -160,6 +142,57 @@ class TesteSinais(BaseChamadoTest):
         _, _, dados = fake.calls[0]
         self.assertIn(self.solicitante.id, dados['destinatario_ids'])
         self.assertIn(self.tecnico.id, dados['destinatario_ids'])
+
+
+class TesteResumoNotificacoes(BaseChamadoTest):
+    """Valida o endpoint de Polling do Sino (api_resumo_notificacoes)."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse('tickets:api_resumo_notificacoes')
+
+    def test_exige_login(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 302)
+
+    def test_solicitante_conta_mensagem_de_terceiros_no_seu_chamado(self):
+        ticket = self.criar_ticket()
+        Comentario.objects.create(ticket=ticket, autor=self.tecnico, mensagem='Oi')
+
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['qtd'], 1)
+
+    def test_solicitante_nao_conta_proprias_mensagens(self):
+        ticket = self.criar_ticket()
+        Comentario.objects.create(ticket=ticket, autor=self.solicitante, mensagem='Eu')
+
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.json()['qtd'], 0)
+
+    def test_tecnico_conta_novo_chamado_aberto(self):
+        self.criar_ticket()
+
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['qtd'], 1)
+
+    def test_comentario_interno_nao_conta_para_solicitante(self):
+        ticket = self.criar_ticket()
+        Comentario.objects.create(
+            ticket=ticket, autor=self.tecnico, mensagem='Nota interna', interno=True
+        )
+
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.json()['qtd'], 0)
 
 
 class TesteServicos(BaseChamadoTest):

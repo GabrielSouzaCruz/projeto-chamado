@@ -179,6 +179,26 @@
             white-space: nowrap;
         }
 
+        /* Sino de notificações (Polling de 5s): selo vermelho de novidades. */
+        #sino-notificacoes { line-height: 1; }
+        #sino-notificacoes:hover { opacity: 0.8; }
+        #sino-notificacoes:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; border-radius: 4px; }
+        #sino-badge {
+            position: absolute;
+            top: -7px;
+            right: -9px;
+            background-color: #dc3545;
+            color: #fff;
+            font-size: 0.6rem;
+            font-weight: 700;
+            line-height: 1.1;
+            padding: 2px 5px;
+            min-width: 16px;
+            border-radius: 10px;
+            border: 2px solid #fff;
+            text-align: center;
+        }
+
         .bg-primary { background-color: var(--primary-color) !important; }
         .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }
 
@@ -382,6 +402,10 @@
                 </div>
 
                 <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-3 top-bar-right">
+                    <a href="{% url 'tickets:dashboard' %}" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações">
+                        <i class="fas fa-bell fa-lg" aria-hidden="true" style="color: var(--primary-color);"></i>
+                        <span id="sino-badge" class="badge d-none" aria-hidden="true">0</span>
+                    </a>
                     <div id="notif-permission-item" class="d-none" title="Notificações do navegador">
                         <button type="button" id="btn-ativar-notificacoes" class="notif-enable-btn" aria-label="Ativar notificações do navegador">
                             <i class="fas fa-bell" aria-hidden="true"></i>
@@ -613,123 +637,62 @@
 </script>
 {% endif %}
 
-{% if user.is_authenticated and PUSHER_ENABLED %}
-<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+<!-- Rollback tático: o WebSocket (Pusher) foi removido do base.html. A Fila,
+     o Dashboard e as notificações usam Polling (fetch de 5s). O Pusher passou
+     a viver exclusivamente na tela de Chat (templates/tickets/ticket_detail.html),
+     onde subscreve apenas o canal ticket-N para novo_comentario. -->
+{% if user.is_authenticated %}
 <script>
-    // 3. Tempo real via Pusher (o servidor envia só metadados; HTML/refresh é local)
-    const pusher = new Pusher("{{ PUSHER_KEY }}", {
-        cluster: "{{ PUSHER_CLUSTER }}",
-        forceTLS: true,
-        // Plano gratuito: apenas WebSocket (sem fallback HTTP que infla conexões/mensagens)
-        enabledTransports: ["ws", "wss"],
-    });
+    // POLLING DE NOTIFICAÇÕES (5s) — sem WebSocket global: o Sino consulta o
+    // backend (api_resumo_notificacoes) e acende o selo vermelho + toca o áudio
+    // local sempre que surge uma novidade inédita (novo chamado p/ técnicos,
+    // nova mensagem nos chamados do usuário).
+    (function () {
+        const sino = document.getElementById('sino-notificacoes');
+        const badge = document.getElementById('sino-badge');
+        if (!sino || !badge) return;
 
-    // 3a. Usuário atual (para filtrar o "eco": eventos do próprio usuário)
-    const CURRENT_USER_ID = {{ request.user.id }};
+        let desde = null;
+        let ultimaRastreada = 0;
+        let primeiro = true;
 
-    // 4. Conexão do Pusher SEMPRE ativa: o WebSocket inicia no load e permanece
-    // conectado em background. Sem listeners de visibilitychange/disconnect —
-    // a aba oculta nunca desliga a ligação e os eventos continuam a chegar
-    // mesmo com a janela minimizada. Se o SO congelar o JS da aba, o próprio
-    // Pusher reconecta sozinho ao voltar (protocolo standard do cliente).
+        function poll() {
+            const agora = new Date().toISOString();
+            const url = "{% url 'tickets:api_resumo_notificacoes' %}" +
+                '?a=' + Date.now() +
+                (desde ? '&desde=' + encodeURIComponent(desde) : '');
 
-    // 5. Texto do aviso a partir dos metadados (nunca HTML vindo do servidor).
-    // Mensagens mostram o nome do remetente; os demais eventos, o chamado.
-    function textoEvento(data) {
-        if (data.action === "novo_comentario" && data.remetente_nome) {
-            return "🔔 Nova mensagem de: " + data.remetente_nome;
-        }
-        const acoes = {
-            novo_ticket: "Novo chamado aberto",
-            ticket_atualizado: "Chamado atualizado",
-            ticket_cancelado: "Chamado cancelado",
-        };
-        const prefixo = acoes[data.action] || "Atualização no chamado";
-        const contexto = data.titulo ? "em: " + data.titulo : "#" + data.ticket_id;
-        return "🔔 " + prefixo + " " + contexto;
-    }
-
-    // 5a. Web Push nativo (Push API/VAPID): os helpers urlBase64ToUint8Array,
-    // tokenCSRF e assinarPushNativo vivem no bloco autenticado principal — o
-    // botão de permissão precisa deles mesmo quando o Pusher está desativado.
-    // O disparo da notificação nativa NÃO ocorre aqui: o servidor envia o push
-    // (VAPID) e o sw.js o exibe via evento 'push', funcionando com app fechado.
-
-    // 5b. Atualiza as telas conforme a URL atual (robusto, sem exceções).
-    function atualizarInterface(data) {
-        const path = window.location.pathname;
-
-        try {
-            // Detalhe do chamado: recarrega o chat/badge apenas se for o MESMO chamado
-            const detailMatch = path.match(/^\/tickets\/(\d+)/);
-            if (detailMatch && Number(detailMatch[1]) === Number(data.ticket_id)) {
-                if (typeof window.atualizarChat === 'function') {
-                    window.atualizarChat();
-                }
-                if (typeof window.atualizarStatusTicket === 'function') {
-                    window.atualizarStatusTicket();
-                }
-                return;
-            }
-            // Fila Admin (técnicos): passa o ID para destacar a linha nova
-            if (path.startsWith('/tickets/fila-admin/') && typeof window.atualizarFilaAdmin === 'function') {
-                window.atualizarFilaAdmin(data.ticket_id);
-                return;
-            }
-            // Dashboard (raiz /tickets/)
-            if (path === '/tickets/' && typeof window.atualizarDashboard === 'function') {
-                window.atualizarDashboard();
-                return;
-            }
-        } catch (err) {
-            console.error('Erro ao atualizar interface via Pusher:', err);
-        }
-    }
-
-    function tratarEvento(data) {
-        // Filtro anti-eco: eventos do PRÓPRIO usuário não mostram toast/áudio.
-        const ehAutor = data.actor_id && Number(data.actor_id) === Number(CURRENT_USER_ID);
-
-        // Mensagens notificam apenas os envolvidos (solicitante/técnico).
-        const ehDestinatario = !data.destinatario_ids || data.destinatario_ids.includes(CURRENT_USER_ID);
-
-        // Com o chat do chamado aberto, a mensagem já aparece ao vivo: sem toast.
-        const detailMatch = window.location.pathname.match(/^\/tickets\/(\d+)/);
-        const chatAbertoDesteTicket = detailMatch && Number(detailMatch[1]) === Number(data.ticket_id);
-
-        const deveNotificar = !ehAutor && ehDestinatario && !chatAbertoDesteTicket;
-
-        if (deveNotificar) {
-            // Áudio
-            notificacaoAudio.play().catch(() => {});
-
-            // Toast visual
-            const tipo = data.action === "novo_comentario" ? "success" : (data.action === "ticket_cancelado" ? "danger" : "info");
-            mostrarNotificacao(textoEvento(data), tipo);
-
-            // NOTA: a notificação NATIVA (banner/vibração) não é mais disparada
-            // aqui — o servidor envia Web Push (VAPID) e o sw.js a exibe via
-            // 'push', mesmo com o app fechado. O Pusher ficou só no DOM/toast.
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+                .then(function (res) { return res.ok ? res.json() : null; })
+                .then(function (data) {
+                    if (!data) return;
+                    if (data.qtd > 0) {
+                        const ehNovidade = !primeiro && data.qtd > ultimaRastreada;
+                        if (ehNovidade) {
+                            notificacaoAudio.play().catch(function () {});
+                        }
+                        badge.textContent = data.qtd > 99 ? '99+' : String(data.qtd);
+                        badge.classList.remove('d-none');
+                        ultimaRastreada = data.qtd;
+                    } else {
+                        badge.classList.add('d-none');
+                        ultimaRastreada = 0;
+                    }
+                    primeiro = false;
+                    desde = agora;
+                })
+                .catch(function () {}); // rede fora: tenta de novo no próximo ciclo
         }
 
-        // 6. Atualização das telas conforme a URL atual
-        atualizarInterface(data);
-    }
+        setInterval(poll, 5000);
+        poll();
 
-    // 7. Canais: fila global + canal específico do chamado em exibição
-    const canais = ["fila-global"];
-    const urlMatch = window.location.pathname.match(/^\/tickets\/(\d+)/);
-    if (urlMatch) {
-        canais.push("ticket-" + urlMatch[1]);
-    }
-
-    canais.forEach(function(nome) {
-        const canal = pusher.subscribe(nome);
-        canal.bind("novo_ticket", tratarEvento);
-        canal.bind("ticket_atualizado", tratarEvento);
-        canal.bind("ticket_cancelado", tratarEvento);
-        canal.bind("novo_comentario", tratarEvento);
-    });
+        // Ao abrir o sino (dashboard) o usuário vê as novidades: limpa o selo.
+        sino.addEventListener('click', function () {
+            badge.classList.add('d-none');
+            ultimaRastreada = 0;
+        });
+    })();
 </script>
 {% endif %}
 

@@ -23,6 +23,7 @@ urlpatterns = [
 
     # 3. ROTAS DE API (MINI-APIs HTML PARA O JAVASCRIPT/WEBSOCKET)
     # 3.1. MINI-APIs OTIMIZADAS
+    path('api/notificacoes/resumo/', api.resumo_notificacoes, name='api_resumo_notificacoes'),
     path('api/dashboard/cards/', api.api_dashboard_cards, name='api_dashboard_cards'),
     path('api/dashboard/table/', api.api_dashboard_table, name='api_dashboard_table'),
     path('api/fila-admin/rows/', api.api_fila_admin_rows, name='api_fila_admin_rows'),

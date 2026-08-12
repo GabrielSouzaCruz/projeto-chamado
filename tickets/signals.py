@@ -132,23 +132,13 @@ def _enviar_web_push(user_id, titulo, mensagem, url):
 
 @receiver(post_save, sender=Ticket)
 def notificar_ticket_event(sender, instance, created, **kwargs):
-    canal_global = ['fila-global']
-    canal_ticket = [f'ticket-{instance.id}']
+    # Rollback tático: sem Pusher global — a Fila Admin, o Dashboard e as
+    # notificações voltaram a Polling (fetch de 5s no frontend). O Pusher
+    # subsiste apenas no canal do ticket, só para novo_comentario (ver
+    # notificar_novo_comentario). O Web Push nativo segue intacto abaixo.
     url_ticket = f'/tickets/{instance.id}/'
 
     if created:
-        _enviar_evento(
-            'novo_ticket',
-            {
-                'ticket_id': instance.id,
-                'action': 'novo_ticket',
-                'titulo': instance.titulo,
-                'actor_id': instance.solicitante_id,
-                'remetente_nome': _nome_usuario(instance.solicitante),
-            },
-            canal_global,
-        )
-
         # Web Push nativo: avisa a EQUIPE TÉCNICA (quem atende a fila).
         tecnicos = User.objects.filter(
             Q(is_technician=True) | Q(is_superuser=True)
@@ -162,23 +152,9 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
             )
     else:
         if instance.status == Ticket.Status.CANCELADO:
-            evento, acao = 'ticket_cancelado', 'ticket_cancelado'
             mensagem_push = f'Chamado #{instance.id} cancelado'
         else:
-            evento, acao = 'ticket_atualizado', 'ticket_atualizado'
             mensagem_push = f'Chamado #{instance.id} atualizado'
-
-        _enviar_evento(
-            evento,
-            {
-                'ticket_id': instance.id,
-                'action': acao,
-                'status': instance.status,
-                'titulo': instance.titulo,
-                'actor_id': _actor_id.get(),
-            },
-            canal_global + canal_ticket,
-        )
 
         # Web Push: solicitante + técnico responsável, sem eco para o autor.
         envolvidos = {instance.solicitante_id}
@@ -207,7 +183,9 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
                 'remetente_nome': _nome_usuario(instance.autor),
                 'destinatario_ids': sorted(destinatario_ids),
             },
-            ['fila-global', f'ticket-{ticket.id}'],
+            # Rollback tático: o Pusher no chat subsiste só no canal do ticket
+            # (a Fila/Dashboard/Notificações usam Polling de 5s no frontend).
+            [f'ticket-{ticket.id}'],
         )
 
         # Web Push nativo: avisa os envolvidos, sem eco para quem escreveu.

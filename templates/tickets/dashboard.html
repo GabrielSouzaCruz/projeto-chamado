@@ -197,8 +197,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
 
-    // Descomente a linha abaixo se quiser que a página já faça um "fetch" logo ao abrir
-    // window.atualizarDashboard();
+    // POLLING (5s) — substitui o Pusher global: recarrega as estatísticas e a
+    // lista de chamados a cada 5 segundos através das mini-APIs e dos parciais
+    // (_dashboard_stats.html / _dashboard_cards.html).
+    setInterval(function () {
+        window.atualizarDashboard();
+        const indicador = document.getElementById('indicador-atualizacao');
+        if (indicador) {
+            indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
+        }
+    }, 5000);
 
     // Relógio Digital
     setInterval(() => {

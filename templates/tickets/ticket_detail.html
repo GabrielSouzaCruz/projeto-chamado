@@ -269,6 +269,31 @@
     };
 </script>
 <script src="{% static 'js/ticket_detail.js' %}"></script>
+{% if PUSHER_ENABLED %}
+<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+<script>
+    // REFÚGIO DO PUSHER: o WebSocket vive SÓ nesta tela (Chat). O cliente liga-se
+    // apenas ao canal ticket-N e adiciona a nova bolha via mini-API
+    // (window.atualizarChat), sem recarregar a página. O eco do próprio autor é
+    // ignorado — a mensagem já foi adicionada localmente pelo submit do form.
+    (function () {
+        const CURRENT_USER_ID = {{ request.user.id }};
+        const pusher = new Pusher("{{ PUSHER_KEY }}", {
+            cluster: "{{ PUSHER_CLUSTER }}",
+            forceTLS: true,
+            enabledTransports: ["ws", "wss"],
+        });
+        const canal = pusher.subscribe("ticket-{{ ticket.id }}");
+        canal.bind("novo_comentario", function (data) {
+            if (!data) return;
+            if (Number(data.actor_id) === CURRENT_USER_ID) return;
+            if (typeof window.atualizarChat === "function") {
+                window.atualizarChat();
+            }
+        });
+    })();
+</script>
+{% endif %}
 <script>
     // Mobile: a coluna de Gestão vira um drawer lateral (WhatsApp-style)
     // acionado pelo botão "Ações" do cabeçalho do chamado. No desktop
