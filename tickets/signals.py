@@ -83,7 +83,7 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
     registro do banco para não acumular lixo nem tentar reenviar para sempre.
     """
     try:
-        inscricoes = PushSubscription.objects.filter(user_id=user_id)
+        inscricoes = PushSubscription.objects.filter(user_id=user_id).order_by('id')
         for insc in inscricoes:
             try:
                 webpush(

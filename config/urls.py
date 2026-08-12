@@ -1,13 +1,37 @@
 # config/urls.py
 
+from pathlib import Path
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 from django.views.generic.base import RedirectView, TemplateView
 
 from tickets.health import health_check_view
 from tickets.api import salvar_push_subscription
+
+
+def service_worker(request):
+    """Serve o Service Worker a partir do scope raiz (/ — sem prefixo).
+
+    Porquê: registado em /static/sw.js, o scope ficaria em /static/ e as páginas
+    da app (/tickets/...) nunca seriam controladas pelo SW — o que impedia o
+    pushManager.subscribe (navigator.serviceWorker.ready nunca resolvia) e o
+    fallback offline. O header Service-Worker-Allowed liberta o scope '/' a um
+    script que não vive na raiz, e sem cache permite que novas versões do sw.js
+    sejam detetadas imediatamente.
+    """
+    caminho = Path(settings.BASE_DIR) / 'static' / 'sw.js'
+    try:
+        conteudo = caminho.read_bytes()
+    except (OSError, FileNotFoundError):
+        return HttpResponse('Not Found', status=404)
+    resp = HttpResponse(conteudo, content_type='application/javascript; charset=utf-8')
+    resp['Service-Worker-Allowed'] = '/'
+    resp['Cache-Control'] = 'no-cache'
+    return resp
 
 urlpatterns = [
     # Admin do Django
@@ -18,6 +42,9 @@ urlpatterns = [
 
     # Web Push nativo (VAPID): salva a inscrição pushManager do navegador
     path('api/save-push-subscription/', salvar_push_subscription, name='save_push_subscription'),
+
+    # Service Worker (scope raiz): necessário para push nativo + offline
+    path('sw.js', service_worker, name='service_worker'),
 
     # Página Offline (servida pelo Service Worker quando não há rede)
     path('offline/', TemplateView.as_view(template_name='offline.html'), name='offline'),

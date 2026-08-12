@@ -842,7 +842,10 @@
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-            navigator.serviceWorker.register("{% static 'sw.js' %}")
+            // Servido via /sw.js (scope raiz) para que o SW controle TODAS as
+            // páginas da app. Com scope /static/ o navigator.serviceWorker.ready
+            // nunca resolvia e o subscribe do push nativo nunca chegava a rodar.
+            navigator.serviceWorker.register("{% url 'service_worker' %}")
                 .catch(function(err) {
                     console.error('Falha ao registrar o Service Worker:', err);
                 });
