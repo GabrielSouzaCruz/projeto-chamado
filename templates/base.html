@@ -77,12 +77,21 @@
         }
 
         #content {
-            width: calc(100% - var(--sidebar-width));
+            width: 100% !important;
+            margin-left: 0 !important;
             box-sizing: border-box;
             min-height: 100vh;
             padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
-            margin-left: var(--sidebar-width);
             transition: margin-left 0.3s ease;
+        }
+
+        /* Desktop: a sidebar é fixa → o conteúdo recua exatamente pela largura
+           dela (sem transbordar à direita). No mobile isto fica em 100%. */
+        @media (min-width: 992px) {
+            #content {
+                width: calc(100% - var(--sidebar-width)) !important;
+                margin-left: var(--sidebar-width) !important;
+            }
         }
 
         @media (max-width: 575.98px) {
