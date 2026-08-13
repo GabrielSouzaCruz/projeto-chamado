@@ -211,6 +211,15 @@ document.addEventListener("DOMContentLoaded", function() {
             // Desabilita o botão, mostra o estado "A enviar..." e evita cliques duplos
             feedbackCarregando(submitBtn, "A enviar...");
 
+            // Limpeza INSTANTÂNEA do campo: o utilizador vê o envio "já feito"
+            // antes mesmo da resposta do servidor (perceção de envio imediato).
+            // Se a rede falhar, o texto é restaurado abaixo no catch.
+            const textoOriginal = chatInput ? chatInput.value : "";
+            this.reset();
+            if (chatFile) chatFile.value = "";
+            atualizarPreviewChat();
+            if (chatInput) chatInput.value = "";
+
             fetch(this.action, {
                 method: "POST",
                 body: formData,
@@ -220,10 +229,6 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .then(response => {
                 if (response.ok) {
-                    this.reset(); // Limpa a caixa de texto
-                    if (chatFile) chatFile.value = "";
-                    atualizarPreviewChat();
-                    if (chatInput) chatInput.value = "";
                     // Atualiza o chat imediatamente (fallback) e também via Pusher,
                     // garantindo que a própria mensagem sempre apareça na tela.
                     window.atualizarChat();
@@ -231,10 +236,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 } else {
                     console.error("Erro ao enviar mensagem.", response.status);
                     mostrarNotificacao("Erro ao enviar a mensagem. Tente novamente.", "danger");
+                    if (chatInput) chatInput.value = textoOriginal;
                 }
             })
             .catch(() => {
                 mostrarNotificacao("Erro de rede ao enviar a mensagem.", "danger");
+                if (chatInput) chatInput.value = textoOriginal;
             })
             .finally(() => {
                 enviando = false;

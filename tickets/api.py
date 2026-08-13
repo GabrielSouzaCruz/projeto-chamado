@@ -231,6 +231,9 @@ def adicionar_comentario(request, pk):
                 arquivos=request.FILES
             )
             messages.success(request, "Comentário adicionado!")
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({'status': 'success'})
     return redirect('tickets:detail', pk=pk)
 
 @login_required

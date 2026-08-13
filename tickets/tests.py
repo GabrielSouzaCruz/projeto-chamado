@@ -361,6 +361,33 @@ class TesteMiniAPIs(BaseChamadoTest):
         self.assertEqual(resp.status_code, 403)
         self.assertIn('error', resp.json())
 
+    def test_comentario_ajax_devolve_json_success(self):
+        """O envio de comentário via AJAX devolve JSON limpo (sem redirect 302)."""
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[ticket.id]),
+            data={'mensagem': 'Teste AJAX', 'interno': 'false'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {'status': 'success'})
+        self.assertTrue(ticket.comentarios.filter(mensagem='Teste AJAX').exists())
+
+    def test_comentario_sem_ajax_redireciona(self):
+        """Envio tradicional (não-AJAX) continua a redirecionar para o detalhe."""
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[ticket.id]),
+            data={'mensagem': 'Teste normal', 'interno': 'false'},
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, reverse('tickets:detail', args=[ticket.id]))
+        self.assertTrue(ticket.comentarios.filter(mensagem='Teste normal').exists())
+
 
 class TestePushSubscriptionAPI(BaseChamadoTest):
     """Valida a API POST /api/save-push-subscription/ (Web Push nativo)."""
