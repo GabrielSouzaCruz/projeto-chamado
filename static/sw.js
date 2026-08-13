@@ -119,6 +119,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Isolamento Total de Rotas Dinâmicas: qualquer URL com /tickets/ (página de
+  // detalhe, partials de chat, status-badge, fila-admin) vai DIRETO à rede,
+  // SEMPRE (Network-Only). Assim o PWA no telemóvel nunca serve HTML/partials
+  // antigos em cache que ocultem comentários recentes. Os assets estáticos
+  // (/static/) não contêm /tickets/ e mantêm o cache intacto abaixo.
+  if (url.pathname.includes('/tickets/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Fallback apenas se estiver offline e perder a rede
+        return caches.match('/offline/');
+      })
+    );
+    return;
+  }
+
   if (request.mode === 'navigate') {
     // Network-first estrito: o HTML das páginas (incluindo o chat em /tickets/)
     // NUNCA é colocado em cache — o F5 recarrega sempre HTML fresco do servidor.
