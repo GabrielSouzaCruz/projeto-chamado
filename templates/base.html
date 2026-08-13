@@ -77,11 +77,18 @@
         }
 
         #content {
-            width: 100%;
+            width: calc(100% - var(--sidebar-width));
+            box-sizing: border-box;
             min-height: 100vh;
-            padding: 30px;
+            padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
             margin-left: var(--sidebar-width);
             transition: margin-left 0.3s ease;
+        }
+
+        @media (max-width: 575.98px) {
+            #content {
+                padding: 16px 12px;
+            }
         }
 
         .no-sidebar #content { margin-left: 0; }

@@ -25,6 +25,12 @@ function anexoIndisponivel(el) {
     caixa.replaceWith(aviso);
 }
 
+// Controlador global do fetch de DESENHO do chat (GET da lista de comentários).
+// Usado para cancelar pedidos de renderização obsoletos quando há muitos envios
+// ou eventos Pusher em cadeia — evita a Race Condition entre atualizarChat().
+// NUNCA toca no POST do formulário (o envio para a base de dados é sagrado).
+let chatFetchController = null;
+
 document.addEventListener("DOMContentLoaded", function() {
     const formComentario = document.getElementById("form-comentario");
     const chatBox = document.getElementById("comentarios-container");
@@ -252,6 +258,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // 7. ATUALIZAR O CHAT SILENCIOSAMENTE E COM ALTA PERFORMANCE
     // Preserva a posição de leitura: só rola ao fim se o usuário JÁ estava no fim.
+    // AbortController: cancela APENAS o GET de desenho da tela quando um novo
+    // atualizarChat() dispara antes do anterior terminar (Race Condition). O
+    // POST do formulário (#form-comentario) NUNCA é tocado por este controlador.
     window.atualizarChat = function() {
         if (!chatBox) return;
 
@@ -261,7 +270,13 @@ document.addEventListener("DOMContentLoaded", function() {
         // Estava no fim? (margem de 60px para não saltar com bordas/paddings)
         const estavaNoFim = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 60;
 
-        fetch(urlApi)
+        // Cancela qualquer GET de renderização ainda pendente (obsoleto).
+        if (chatFetchController) {
+            chatFetchController.abort();
+        }
+        chatFetchController = new AbortController();
+
+        fetch(urlApi, { signal: chatFetchController.signal })
         .then(response => response.text())
         .then(html => {
             // Guarda altura atual para recalcular a posição relativa após o swap
@@ -275,7 +290,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 chatBox.scrollTop += chatBox.scrollHeight - alturaAntes;
             }
         })
-        .catch(error => console.error("Erro ao atualizar o chat:", error));
+        .catch(error => {
+            if (error.name === 'AbortError') return; // cancelado por um GET novo
+            console.error("Erro ao atualizar o chat:", error);
+        });
     };
 
     // 8. AÇÃO RÁPIDA: ALTERAR STATUS (via fetch, sem recarregar)

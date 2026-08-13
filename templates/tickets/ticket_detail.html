@@ -13,8 +13,8 @@
         <article class="col-lg-8">
             <header class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-                        <h1 class="h3 fw-bold mb-0 text-truncate">{{ ticket.titulo }}</h1>
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3" style="min-width: 0;">
+                        <h1 class="h3 fw-bold mb-0 text-truncate" style="min-width: 0;">{{ ticket.titulo }}</h1>
                         <div class="d-flex align-items-center gap-2 flex-shrink-0">
                             {% include 'tickets/_ticket_status_badge.html' %}
                             <button type="button" id="btn-abrir-gestao" class="btn btn-outline-primary btn-sm d-lg-none" aria-expanded="false" aria-controls="aside-gestao" title="Informações e ações do chamado">
@@ -78,7 +78,7 @@
                                 {% if user.is_technician %}
                                 <label class="form-check form-switch mb-0 ms-1" title="Visível apenas para a equipe técnica">
                                     <input class="form-check-input" type="checkbox" name="interno" id="id_interno">
-                                    <span class="form-check-label small text-warning fw-bold">
+                                    <span class="form-check-label small text-warning fw-bold d-none d-sm-inline">
                                         <i class="fas fa-lock me-1" aria-hidden="true"></i>Nota Interna
                                     </span>
                                 </label>

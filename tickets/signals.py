@@ -116,6 +116,14 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
         'unread_count': total_nao_lidos,
     }
 
+    # Blindagem do VAPID_ADMIN_EMAIL: o pywebpush exige 'sub' no formato
+    # 'mailto:' (ou 'https:'). Vazio → fallback; sem prefixo → normaliza.
+    admin_email = getattr(settings, 'VAPID_ADMIN_EMAIL', None)
+    if not admin_email:
+        admin_email = 'mailto:admin@localhost.com'  # Fallback de segurança
+    elif not admin_email.startswith('mailto:') and not admin_email.startswith('https:'):
+        admin_email = f'mailto:{admin_email}'
+
     try:
         inscricoes = PushSubscription.objects.filter(user_id=user_id).order_by('id')
         for insc in inscricoes:
@@ -127,7 +135,7 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
                     },
                     data=json.dumps(payload),
                     vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                    vapid_claims={'sub': settings.VAPID_ADMIN_EMAIL},
+                    vapid_claims={'sub': admin_email},
                 )
             except WebPushException as exc:
                 status = exc.response.status_code if exc.response is not None else None

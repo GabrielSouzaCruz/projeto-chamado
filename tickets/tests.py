@@ -507,7 +507,31 @@ class TesteWebPush(BaseChamadoTest):
             'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
             'unread_count': 0,
         })
-        self.assertEqual(kwargs['vapid_claims'], {'sub': settings.VAPID_ADMIN_EMAIL})
+        self.assertEqual(kwargs['vapid_claims'], {'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'})
+
+    def test_vapid_admin_email_vazio_usa_fallback(self):
+        """VAPID_ADMIN_EMAIL vazio → fallback 'mailto:admin@localhost.com'."""
+        inscricao = self._criar_inscricao(self.solicitante)
+        with (
+            patch('tickets.signals.webpush') as wp,
+            patch.object(settings, 'VAPID_ADMIN_EMAIL', ''),
+        ):
+            _disparar_web_push_worker(self.solicitante.id, 'T', 'M', '/tickets/5/')
+
+        args, kwargs = wp.call_args_list[0]
+        self.assertEqual(kwargs['vapid_claims'], {'sub': 'mailto:admin@localhost.com'})
+
+    def test_vapid_admin_email_ja_normalizado_mantem_prefixo(self):
+        """VAPID_ADMIN_EMAIL já com 'mailto:' não é duplicado."""
+        inscricao = self._criar_inscricao(self.solicitante)
+        with (
+            patch('tickets.signals.webpush') as wp,
+            patch.object(settings, 'VAPID_ADMIN_EMAIL', 'mailto:admin@example.com'),
+        ):
+            _disparar_web_push_worker(self.solicitante.id, 'T', 'M', '/tickets/5/')
+
+        args, kwargs = wp.call_args_list[0]
+        self.assertEqual(kwargs['vapid_claims'], {'sub': 'mailto:admin@example.com'})
 
     def test_sem_chaves_vapid_nao_dispara_nada(self):
         self._criar_inscricao(self.solicitante)
