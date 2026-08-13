@@ -79,7 +79,6 @@ self.addEventListener('push', (event) => {
     const options = {
       body: data.body || 'Nova atualização no chamado.',
       icon: data.icon || '/static/image/pwa-192x192.png',
-      badge: '/static/image/favicon.png',
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
       tag: data.tag || 'chamado-notification',
@@ -87,13 +86,26 @@ self.addEventListener('push', (event) => {
       actions: data.actions || [],
     };
 
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'Sistema de Chamados', options).then(() => {
+    const title = data.title || 'Sistema de Chamados';
+
+    const showNotificationPromise = self.registration.showNotification(title, options)
+      .then(() => {
         if (data.unread_count && navigator.setAppBadge) {
           navigator.setAppBadge(data.unread_count);
         }
       })
-    );
+      .catch((err) => {
+        // Fallback gracioso: Brave/Windows abortam o banner se bloquearem o
+        // download do icon/badge em background. Remove as imagens e tenta uma
+        // notificação "texto-only" limpa, garantindo que o banner aparece.
+        console.warn('Falha ao mostrar notificação rica. Tentando modo texto-only...', err);
+        delete options.icon;
+        delete options.badge;
+        delete options.image;
+        return self.registration.showNotification(title, options);
+      });
+
+    event.waitUntil(showNotificationPromise);
   } catch (e) {
     console.error('Erro ao processar push no Service Worker:', e);
   }
