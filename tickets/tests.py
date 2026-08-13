@@ -478,6 +478,7 @@ class TesteWebPush(BaseChamadoTest):
             'tag': 'ticket-5',
             'renotify': True,
             'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
+            'unread_count': 0,
         })
         self.assertEqual(kwargs['vapid_claims'], {'sub': settings.VAPID_ADMIN_EMAIL})
 

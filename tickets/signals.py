@@ -81,15 +81,31 @@ def _tag_do_url(url):
     return f'ticket-{m.group(1)}' if m else 'chamado-notification'
 
 
+def _total_nao_lidos(user_id):
+    """Calcula o total de chamados pendentes (não lidos) para um usuário.
+
+    Como não há campo booleano 'lido/não lido' no modelo, usamos como proxy o
+    total de chamados em aberto/em andamento em que o usuário está envolvido
+    (solicitante ou técnico responsável). Resultado é sempre um inteiro usado
+    para o App Badge (navigator.setAppBadge).
+    """
+    return Ticket.objects.filter(
+        Q(solicitante_id=user_id) | Q(tecnico_responsavel_id=user_id),
+        status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO],
+    ).count()
+
+
 def _disparar_web_push_worker(user_id, titulo, mensagem, url):
     """Dispara Web Push nativo para TODAS as inscrições do usuário (thread).
 
-    Payload JSON {title, body, url, tag, renotify, actions} → o sw.js exibe a notificação nativa
-    (banner/vibração) mesmo com o app fechado ou minimizado, agrupada por chamado
-    (tag). Erros 410 (Gone) e 404 (Not Found) significam que o navegador do
-    usuário invalidou/deletou a inscrição: apagam o registro do banco para não
-    acumular lixo nem tentar reenviar para sempre.
+    Payload JSON {title, body, url, tag, renotify, actions, unread_count} → o sw.js
+    exibe a notificação nativa (banner/vibração) mesmo com o app fechado ou
+    minimizado, agrupada por chamado (tag), com App Badge (unread_count).
+    Erros 410 (Gone) e 404 (Not Found) significam que o navegador do usuário
+    invalidou/deletou a inscrição: apagam o registro do banco para não acumular
+    lixo nem tentar reenviar para sempre.
     """
+    total_nao_lidos = _total_nao_lidos(user_id)
     payload = {
         'title': titulo,
         'body': mensagem or 'Nova atualização no chamado.',
@@ -97,6 +113,7 @@ def _disparar_web_push_worker(user_id, titulo, mensagem, url):
         'tag': _tag_do_url(url),
         'renotify': True,
         'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
+        'unread_count': total_nao_lidos,
     }
 
     try:

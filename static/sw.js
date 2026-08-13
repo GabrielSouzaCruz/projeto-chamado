@@ -3,7 +3,7 @@
    para navegação (HTML sempre atualizado, com fallback offline para login).
    Update: Versao True Push V2 - 2026-08-12 */
 
-const CACHE_NAME = 'central-chamados-v3';
+const CACHE_NAME = 'central-chamados-v4';
 
 const PRECACHE_URLS = [
   '/',
@@ -37,6 +37,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (navigator.clearAppBadge) {
+    navigator.clearAppBadge();
+  }
   const action = event.action;
   const destinoRaw = (event.notification.data && event.notification.data.url) || '/tickets/';
   const destino = new URL(destinoRaw, self.registration.scope).href;
@@ -80,13 +83,16 @@ self.addEventListener('push', (event) => {
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
       tag: data.tag || 'chamado-notification',
-      renotify: true,
-      requireInteraction: true,
+      renotify: data.renotify === true,
       actions: data.actions || [],
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Sistema de Chamados', options)
+      self.registration.showNotification(data.title || 'Sistema de Chamados', options).then(() => {
+        if (data.unread_count && navigator.setAppBadge) {
+          navigator.setAppBadge(data.unread_count);
+        }
+      })
     );
   } catch (e) {
     console.error('Erro ao processar push no Service Worker:', e);

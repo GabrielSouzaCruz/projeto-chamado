@@ -457,6 +457,21 @@
     const VAPID_PUBLIC_KEY = "{{ VAPID_PUBLIC_KEY }}";
     console.log("VAPID Key carregada:", VAPID_PUBLIC_KEY ? "Sim" : "Não");
 
+    // 1a. App Badge (bolinha vermelha do ícone no SO/taskbar): limpa sempre que
+    // o utilizador volta à aplicação (página visível), para o contador não
+    // ficar preso depois de já ter visto as notificações.
+    function limparAppBadge() {
+        if (navigator.clearAppBadge) {
+            navigator.clearAppBadge();
+        }
+    }
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            limparAppBadge();
+        }
+    });
+    limparAppBadge();
+
     // 1b. Botão discreto "Ativar Alertas" na base da sidebar. O pedido de
     // permissão SÓ acontece por user gesture (clique): o iOS ignora/bloqueia
     // o requestPermission() disparado no load sem interação do utilizador.
