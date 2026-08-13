@@ -120,16 +120,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
-    // Network-first: HTML sempre fresco; sem rede, devolve a página offline
-    // pré-cacheada (em vez da página genérica do navegador).
+    // Network-first estrito: o HTML das páginas (incluindo o chat em /tickets/)
+    // NUNCA é colocado em cache — o F5 recarrega sempre HTML fresco do servidor.
+    // As páginas dinâmicas de chamados misturariam HTML antigo com dados novos
+    // se fossem servidas da cache. Só em caso de rede indisponível servimos o
+    // fallback offline pré-cacheado.
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match('/offline/'))
+      fetch(request).catch(() => caches.match('/offline/'))
     );
     return;
   }

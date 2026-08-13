@@ -70,7 +70,7 @@ class TicketDetailView(ProprietarioOrTecnicoMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['comentarios'] = self.object.comentarios.all().select_related('autor').order_by('criado_em')
+        context['comentarios'] = self.object.comentarios.all().select_related('autor').order_by('criado_em', 'id')
         context['comentario_form'] = ComentarioForm(usuario=self.request.user)
         context['status_form'] = TicketStatusForm(instance=self.object)
         return context

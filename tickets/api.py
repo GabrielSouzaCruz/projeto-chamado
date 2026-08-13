@@ -202,7 +202,7 @@ def ticket_comentarios_partial(request, ticket_id):
     if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         return JsonResponse({'error': 'Sem permissão'}, status=403)
 
-    comentarios = ticket.comentarios.select_related('autor').order_by('criado_em')
+    comentarios = ticket.comentarios.select_related('autor').order_by('criado_em', 'id')
 
     return render(request, 'tickets/_comentarios_list.html', {
         'ticket': ticket,
