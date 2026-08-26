@@ -174,11 +174,8 @@ def _enviar_web_push(user_id, titulo, mensagem, url):
 
 @receiver(post_save, sender=Ticket)
 def notificar_ticket_event(sender, instance, created, **kwargs):
-    # Rollback tático: sem Pusher global — a Fila Admin, o Dashboard e as
-    # notificações voltaram a Polling (fetch de 5s no frontend). O Pusher
-    # subsiste apenas no canal do ticket, só para novo_comentario (ver
-    # notificar_novo_comentario). O Web Push nativo segue intacto abaixo.
     url_ticket = f'/tickets/{instance.id}/'
+    titulo_ticket = instance.titulo
 
     if created:
         # Web Push nativo: avisa a EQUIPE TÉCNICA (quem atende a fila).
@@ -188,15 +185,22 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
         for tecnico_id in tecnicos:
             _enviar_web_push(
                 tecnico_id,
-                f'Novo chamado #{instance.id}: {instance.titulo}',
+                f'Novo chamado: {titulo_ticket}',
                 'Um novo chamado aguarda atendimento na fila.',
                 url_ticket,
             )
+
+        # Pusher Global: notifica dashboard para atualizar contadores/lista.
+        _enviar_evento(
+            'dashboard-update',
+            {'action': 'ticket_created', 'ticket_id': instance.id},
+            ['global-notifications'],
+        )
     else:
         if instance.status == Ticket.Status.CANCELADO:
-            mensagem_push = f'Chamado #{instance.id} cancelado'
+            mensagem_push = f'Chamado cancelado: {titulo_ticket}'
         else:
-            mensagem_push = f'Chamado #{instance.id} atualizado'
+            mensagem_push = f'Chamado atualizado: {titulo_ticket}'
 
         # Web Push: solicitante + técnico responsável, sem eco para o autor.
         envolvidos = {instance.solicitante_id}
@@ -205,6 +209,13 @@ def notificar_ticket_event(sender, instance, created, **kwargs):
         envolvidos.discard(_actor_id.get())
         for usuario_id in envolvidos:
             _enviar_web_push(usuario_id, mensagem_push, '', url_ticket)
+
+        # Pusher Global: notifica dashboard para atualizar contadores/lista.
+        _enviar_evento(
+            'dashboard-update',
+            {'action': 'ticket_updated', 'ticket_id': instance.id, 'status': instance.status},
+            ['global-notifications'],
+        )
 
 
 @receiver(post_save, sender=Comentario)
@@ -223,11 +234,16 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
                 'titulo': ticket.titulo,
                 'actor_id': instance.autor_id,
                 'remetente_nome': _nome_usuario(instance.autor),
-                'destinatario_ids': sorted(destinatario_ids),
+                'destinatario_ids': sorted(destinatario_ids - {instance.autor_id}),
             },
-            # Rollback tático: o Pusher no chat subsiste só no canal do ticket
-            # (a Fila/Dashboard/Notificações usam Polling de 5s no frontend).
             [f'ticket-{ticket.id}'],
+        )
+
+        # Pusher Global: notifica dashboard para atualizar contadores (novo comentário).
+        _enviar_evento(
+            'dashboard-update',
+            {'action': 'novo_comentario', 'ticket_id': ticket.id},
+            ['global-notifications'],
         )
 
         # Web Push nativo: avisa os envolvidos, sem eco para quem escreveu.
@@ -237,6 +253,6 @@ def notificar_novo_comentario(sender, instance, created, **kwargs):
             _enviar_web_push(
                 usuario_id,
                 f'🔔 Nova mensagem de: {_nome_usuario(instance.autor)}',
-                preview_mensagem or f'Nova mensagem no chamado #{ticket.id}',
+                preview_mensagem or f'Nova mensagem em: {ticket.titulo}',
                 f'/tickets/{ticket.id}/',
             )

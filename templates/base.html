@@ -734,6 +734,28 @@
         });
     })();
 </script>
+
+    <!-- Pusher Global (Dashboard + Fila): subscreve canal global-notifications
+         para receber dashboard-update em tempo real, substituindo o polling de 5s. -->
+    {% if PUSHER_ENABLED %}
+    <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+    <script>
+        (function () {
+            const pusher = new Pusher("{{ PUSHER_KEY }}", {
+                cluster: "{{ PUSHER_CLUSTER }}",
+                forceTLS: true,
+                enabledTransports: ["ws", "wss"],
+            });
+            const canal = pusher.subscribe("global-notifications");
+            canal.bind("dashboard-update", function (data) {
+                if (!data) return;
+                if (typeof window.atualizarDashboard === "function") {
+                    window.atualizarDashboard();
+                }
+            });
+        })();
+    </script>
+    {% endif %}
 {% endif %}
 
 <!-- Toast container global (injeção única) -->
