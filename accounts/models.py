@@ -34,6 +34,17 @@ class User(AbstractUser):
         verbose_name='Telefone'
     )
 
+    aceitou_termos = models.BooleanField(
+        default=False,
+        verbose_name='Aceitou os Termos de Uso e Política de Privacidade',
+    )
+
+    data_aceite_termos = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Data da aceitação dos Termos',
+    )
+
     class Meta:
         verbose_name = 'Usuário'
         verbose_name_plural = 'Usuários'

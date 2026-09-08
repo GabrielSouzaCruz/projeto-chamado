@@ -24,6 +24,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, UpdateView
 
@@ -203,6 +204,8 @@ class RegisterView(SuccessMessageMixin, CreateView):
     def form_valid(self, form):
         ip = get_client_ip(self.request)
         cache.delete(f'{CACHE_KEY_REGISTRO_PREFIX}{ip}')
+        form.instance.aceitou_termos = True
+        form.instance.data_aceite_termos = timezone.now()
         response = super().form_valid(form)
         login(self.request, self.object)
         return response
@@ -349,3 +352,16 @@ class SolicitarResetSenhaView(View):
 
     def post(self, request):
         return render(request, 'accounts/esqueci_senha.html')
+
+
+# =============================================================================
+# LGPD — PAGINAS ESTATICAS
+# =============================================================================
+
+class TermosDeUsoView(View):
+    def get(self, request):
+        return render(request, 'accounts/termos_de_uso.html')
+
+class PoliticaPrivacidadeView(View):
+    def get(self, request):
+        return render(request, 'accounts/politica_privacidade.html')

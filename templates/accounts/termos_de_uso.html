@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Termos de Uso - Central de Chamados{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card shadow border-0" style="border-radius: 15px;">
+            <div class="card-header text-white py-4" style="background-color: var(--primary-color);">
+                <h3 class="mb-0 fw-bold"><i class="fas fa-file-contract me-2"></i>Termos de Uso</h3>
+            </div>
+            <div class="card-body p-4 p-lg-5">
+
+                <h5 class="fw-bold">1. Objeto</h5>
+                <p>Os presentes Termos de Uso regulam o acesso e a utilização do sistema <strong>Central de Chamados</strong>, plataforma interna de gerenciamento de chamados de suporte técnico da <strong>[Nome da Empresa / Prefeitura Municipal de Machado]</strong>.</p>
+
+                <h5 class="fw-bold">2. Finalidade</h5>
+                <p>O sistema tem por finalidade o gerenciamento interno de chamados de suporte técnico, incluindo abertura, acompanhamento, atribuição e resolução de demandas de TI.</p>
+
+                <h5 class="fw-bold">3. Dados Coletados</h5>
+                <p>Para operação do sistema, são coletados os seguintes dados pessoais:</p>
+                <ul>
+                    <li>Nome completo</li>
+                    <li>E-mail institucional</li>
+                    <li>Departamento / Secretaria</li>
+                    <li>Telefone ou ramal</li>
+                </ul>
+
+                <h5 class="fw-bold">4. Uso dos Dados</h5>
+                <p>Os dados coletados são utilizados exclusivamente para a operação do sistema interno de chamados, sendo acessíveis apenas pelo usuário titular, técnicos de TI e administradores do sistema.</p>
+
+                <h5 class="fw-bold">5. Responsável</h5>
+                <p>O responsável pelo tratamento dos dados é: <strong>[Nome da Empresa / Prefeitura Municipal de Machado]</strong>.</p>
+
+                <h5 class="fw-bold">6. Contato</h5>
+                <p>Em caso de dúvidas ou solicitações relativas aos dados pessoais, entre em contato com o administrador do sistema: <strong>[e-mail do DPO/admin]</strong>.</p>
+
+                <h5 class="fw-bold">7. Data de Vigência</h5>
+                <p>Estes Termos de Uso entram em vigor na data de sua publicação e vigoram enquanto o sistema estiver disponível.</p>
+
+                <hr>
+                <a href="{% url 'accounts:register' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Voltar ao cadastro
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

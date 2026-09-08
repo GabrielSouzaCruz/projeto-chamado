@@ -87,6 +87,12 @@ class UserRegistrationForm(UserCreationForm):
             'departamento': forms.TextInput(attrs={'class': 'form-control'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    aceitou_termos = forms.BooleanField(
+        required=True,
+        label='Li e aceito os Termos de Uso e a Política de Privacidade',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
     
     def clean_email(self):
         """Valida e-mail único no sistema."""

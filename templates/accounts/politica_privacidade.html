@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Política de Privacidade - Central de Chamados{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card shadow border-0" style="border-radius: 15px;">
+            <div class="card-header text-white py-4" style="background-color: var(--primary-color);">
+                <h3 class="mb-0 fw-bold"><i class="fas fa-shield-halved me-2"></i>Política de Privacidade</h3>
+            </div>
+            <div class="card-body p-4 p-lg-5">
+
+                <h5 class="fw-bold">1. Base Legal</h5>
+                <p>O tratamento de dados pessoais no sistema <strong>Central de Chamados</strong> é fundamentado no <strong>legítimo interesse</strong> (Art. 7º, IX da LGPD), considerando que se trata de sistema interno corporativo destinado ao gerenciamento de chamados de suporte técnico.</p>
+
+                <h5 class="fw-bold">2. Dados Tratados e Finalidade</h5>
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr><th>Dado</th><th>Finalidade</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Nome completo</td><td>Identificação do solicitante</td></tr>
+                        <tr><td>E-mail institucional</td><td>Comunicação sobre chamados</td></tr>
+                        <tr><td>Departamento</td><td>Organização setorial</td></tr>
+                        <tr><td>Telefone / Ramal</td><td>Contato para retorno</td></tr>
+                    </tbody>
+                </table>
+
+                <h5 class="fw-bold">3. Tempo de Retenção</h5>
+                <p>Os dados pessoais são mantidos enquanto o vínculo do usuário com a empresa existir. Após o desligamento, os dados poderão ser anonimizados ou excluídos conforme política de retenção da organização.</p>
+
+                <h5 class="fw-bold">4. Direitos do Titular</h5>
+                <p>Em conformidade com a LGPD, o titular dos dados tem direito a:</p>
+                <ul>
+                    <li><strong>Acesso:</strong> solicitar cópia dos dados pessoais armazenados</li>
+                    <li><strong>Correção:</strong> solicitar correção de dados incompletos ou desatualizados</li>
+                    <li><strong>Exclusão:</strong> solicitar a exclusão dos dados pessoais, quando aplicável</li>
+                </ul>
+                <p>Essas solicitações devem ser dirigidas ao administrador do sistema.</p>
+
+                <h5 class="fw-bold">5. Contato do DPO</h5>
+                <p>Encarregado de Proteção de Dados (DPO): <strong>[Nome / e-mail do DPO]</strong>.</p>
+
+                <h5 class="fw-bold">6. Cookies</h5>
+                <p>O sistema utiliza exclusivamente cookies de <strong>sessão</strong> e <strong>CSRF</strong>, estritamente necessários para o funcionamento da aplicação. Não são utilizados cookies de rastreamento, analytics ou publicidade.</p>
+
+                <hr>
+                <a href="{% url 'accounts:register' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Voltar ao cadastro
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

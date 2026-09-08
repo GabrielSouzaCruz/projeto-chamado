@@ -100,6 +100,20 @@
                     </div>
 
                     <div class="d-grid gap-2 mt-4">
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="aceitou_termos" id="id_aceitou_termos"
+                                   class="form-check-input {% if form.aceitou_termos.errors %}is-invalid{% endif %}" required>
+                            <label class="form-check-label" for="id_aceitou_termos">
+                                Li e aceito os
+                                <a href="{% url 'accounts:termos_de_uso' %}" target="_blank" rel="noopener">Termos de Uso</a>
+                                e a
+                                <a href="{% url 'accounts:politica_privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>.
+                            </label>
+                            {% if form.aceitou_termos.errors %}
+                                <div class="invalid-feedback">{{ form.aceitou_termos.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
                         <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm" id="btn-submit" disabled>
                             <i class="fas fa-check-circle me-1"></i> FINALIZAR CADASTRO
                         </button>

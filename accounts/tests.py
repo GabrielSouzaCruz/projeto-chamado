@@ -150,6 +150,7 @@ class TesteRegistro(TestCase):
             'telefone': '3333-4444',
             'password1': 'senha-forte-999!',
             'password2': 'senha-forte-999!',
+            'aceitou_termos': True,
         }
         cache.clear()
 
@@ -661,3 +662,62 @@ class TesteResetSenha(TestCase):
         })
         self.user.refresh_from_db()
         self.assertFalse(self.user.must_change_password)
+
+
+# =============================================================================
+# 8. LGPD
+# =============================================================================
+
+class TesteLGPD(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.register_url = REGISTER_URL
+        self.dados_validos = {
+            'first_name': 'Maria',
+            'last_name': 'Santos',
+            'email': 'maria.lgpd@example.com',
+            'departamento': 'TI',
+            'telefone': '3333-4444',
+            'password1': 'senha-forte-999!',
+            'password2': 'senha-forte-999!',
+            'aceitou_termos': True,
+        }
+
+    def test_get_termos_de_uso_retorna_200(self):
+        resp = self.client.get(reverse('accounts:termos_de_uso'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'accounts/termos_de_uso.html')
+
+    def test_get_politica_privacidade_retorna_200(self):
+        resp = self.client.get(reverse('accounts:politica_privacidade'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'accounts/politica_privacidade.html')
+
+    def test_termos_de_uso_acesso_publico(self):
+        resp = self.client.get(reverse('accounts:termos_de_uso'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_politica_privacidade_acesso_publico(self):
+        resp = self.client.get(reverse('accounts:politica_privacidade'))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_registro_sem_checkbox_erro(self):
+        dados = self.dados_validos.copy()
+        del dados['aceitou_termos']
+        resp = self.client.post(self.register_url, dados)
+        self.assertEqual(resp.status_code, 200)
+        form = resp.context['form']
+        self.assertIn('aceitou_termos', form.errors)
+
+    def test_registro_com_checkbox_cria_usuario_com_aceite(self):
+        resp = self.client.post(self.register_url, self.dados_validos)
+        self.assertRedirects(resp, DASHBOARD_URL, fetch_redirect_response=False)
+        user = User.objects.get(email='maria.lgpd@example.com')
+        self.assertTrue(user.aceitou_termos)
+        self.assertIsNotNone(user.data_aceite_termos)
+
+    def test_usuario_existente_aceitou_termos_false_default(self):
+        user = criar_usuario(username='legado', email='legado@example.com')
+        self.assertFalse(user.aceitou_termos)
+        self.assertIsNone(user.data_aceite_termos)
