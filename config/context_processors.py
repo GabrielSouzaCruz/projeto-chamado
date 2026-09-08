@@ -15,5 +15,3 @@ def pusher_config(request):
     }
 
 
-def vapid_keys(request):
-    return {'VAPID_PUBLIC_KEY': getattr(settings, 'VAPID_PUBLIC_KEY', '')}

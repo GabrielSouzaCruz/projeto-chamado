@@ -17,7 +17,8 @@ import logging
 from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
@@ -43,6 +44,11 @@ logger = logging.getLogger('accounts')
 MAX_TENTATIVAS_LOGIN = 10
 TEMPO_BLOQUEIO_LOGIN = 600  # 10 minutos em segundos
 CACHE_KEY_PREFIX = 'login_falhas_'
+
+# Rate limiting anti abuso no registro
+MAX_TENTATIVAS_REGISTRO = 5
+TEMPO_BLOQUEIO_REGISTRO = 900  # 15 minutos em segundos
+CACHE_KEY_REGISTRO_PREFIX = 'registro_falhas_'
 
 def get_client_ip(request):
     """
@@ -157,45 +163,70 @@ class CustomLogoutView(LogoutView):
 
 class RegisterView(SuccessMessageMixin, CreateView):
     """
-    View para registro de novos usuários.
-    
-    ⚠️ ATENÇÃO (Segurança):
-    - Registro é ABERTO (qualquer um pode criar conta)
-    - Login automático após registro
-    - Para produção com controle, considere:
-      1. Aprovação via admin (is_active=False até aprovar)
-      2. Whitelist de domínios corporativos
-    
-    Após registro:
-    - Usuário é logado automaticamente
-    - Redirecionado para dashboard
-    - Pode abrir tickets imediatamente
+    View para registro de novos usuarios.
+
+    Seguranca:
+    - Rate limit por IP (5 tentativas / 15 min)
+    - Login automatico apos registro
+    - Para producao com controle, considere aprovacao via admin
     """
-    
+
     model = User
     form_class = UserRegistrationForm
     template_name = 'accounts/register.html'
     success_url = reverse_lazy('tickets:dashboard')
-    success_message = 'Conta criada com sucesso! Você está logado.'
-    
+    success_message = 'Conta criada com sucesso! Voce esta logado.'
+
     def form_valid(self, form):
-        """
-        Salva o usuário e faz login automático.
-        
-        Por que login automático?
-        - Melhor UX para sistemas internos
-        - Evita etapa extra de login após registro
-        """
+        ip = get_client_ip(self.request)
+        cache.delete(f'{CACHE_KEY_REGISTRO_PREFIX}{ip}')
         response = super().form_valid(form)
         login(self.request, self.object)
         return response
+
+    def form_invalid(self, form):
+        ip = get_client_ip(self.request)
+        chave = f'{CACHE_KEY_REGISTRO_PREFIX}{ip}'
+        tentativas = cache.get(chave, 0) + 1
+        cache.set(chave, tentativas, TEMPO_BLOQUEIO_REGISTRO)
+
+        restantes = MAX_TENTATIVAS_REGISTRO - tentativas
+        if restantes > 0:
+            logger.warning(
+                'Falha de registro - IP %s: tentativa %s/%s (restantes: %s)',
+                ip, tentativas, MAX_TENTATIVAS_REGISTRO, restantes,
+            )
+        else:
+            logger.warning(
+                'IP %s BLOQUEADO por abuso de registro apos %s tentativas '
+                '(bloqueio de %ss)',
+                ip, tentativas, TEMPO_BLOQUEIO_REGISTRO,
+            )
+        return super().form_invalid(form)
+
+    def post(self, request, *args, **kwargs):
+        ip = get_client_ip(request)
+        tentativas = cache.get(f'{CACHE_KEY_REGISTRO_PREFIX}{ip}', 0)
+        if tentativas >= MAX_TENTATIVAS_REGISTRO:
+            logger.warning(
+                'IP %s bloqueado - nova tentativa de registro recusada',
+                ip,
+            )
+            form = self.get_form()
+            form.add_error(
+                None,
+                'Muitas tentativas. Por seguranca, aguarde 15 minutos.'
+            )
+            self.object = None
+            return self.render_to_response(self.get_context_data(form=form))
+        return super().post(request, *args, **kwargs)
 
 
 # =============================================================================
 # PERFIL
 # =============================================================================
 
-class ProfileUpdateView(SuccessMessageMixin, UpdateView):
+class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     """
     View para atualização de perfil do usuário logado.
     

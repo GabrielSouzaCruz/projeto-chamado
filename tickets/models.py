@@ -9,8 +9,29 @@ Estrutura:
 """
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+
+import magic as _magic
+
+
+def _validate_file_mime(arquivo):
+    """Validador de magic bytes para FileField — defesa em profundidade."""
+    if not arquivo:
+        return
+    chunk = arquivo.read(2048)
+    arquivo.seek(0)
+    mime = _magic.from_buffer(chunk, mime=True)
+    permitidos = {
+        'image/jpeg', 'image/png', 'image/webp',
+        'image/gif', 'image/bmp', 'application/pdf',
+    }
+    if mime not in permitidos:
+        raise ValidationError(
+            f'Tipo de arquivo nao permitido ({mime}). '
+            'Envie apenas imagens (JPG, PNG, GIF, WEBP) ou PDF.'
+        )
 
 
 class Categoria(models.Model):
@@ -107,7 +128,8 @@ class Ticket(models.Model):
         upload_to='tickets/anexos/%Y/%m/',
         blank=True,
         null=True,
-        verbose_name='Anexo'
+        verbose_name='Anexo',
+        validators=[_validate_file_mime],
     )
     
     # Timestamps
@@ -221,7 +243,8 @@ class Comentario(models.Model):
         upload_to='tickets/comentarios/%Y/%m/',
         blank=True,
         null=True,
-        verbose_name='Anexo'
+        verbose_name='Anexo',
+        validators=[_validate_file_mime],
     )
     
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')

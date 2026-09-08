@@ -6,7 +6,6 @@ Formulários disponíveis:
 - LoginForm: Autenticação de usuários (Bootstrap styled)
 - UserRegistrationForm: Registro de novos usuários
 - ProfileUpdateForm: Atualização de perfil
-- CadastroSimplificadoForm: Alternativa de registro simplificado
 
 Nota: Este arquivo complementa accounts/views.py com formulários
 customizados para as views de autenticação.
@@ -144,57 +143,6 @@ class UserRegistrationForm(UserCreationForm):
             user.save()
             
         return user
-
-
-# =============================================================================
-# CADASTRO SIMPLIFICADO
-# =============================================================================
-
-class CadastroSimplificadoForm(UserCreationForm):
-    """
-    Formulário de cadastro simplificado (alternativa ao UserRegistrationForm).
-    """
-    
-    email = forms.EmailField(
-        required=True,
-        help_text='E-mail válido é obrigatório'
-    )
-    
-    first_name = forms.CharField(
-        max_length=30,
-        required=True,
-        label='Nome'
-    )
-    
-    last_name = forms.CharField(
-        max_length=30,
-        required=True,
-        label='Sobrenome'
-    )
-    
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'first_name', 'last_name']
-        labels = {
-            'username': 'Usuário (login)',
-        }
-        help_texts = {
-            'username': 'Máximo 30 caracteres. Apenas letras, números e @/./+/-/_',
-        }
-    
-    def clean_username(self):
-        """Valida username com mínimo 4 caracteres."""
-        username = self.cleaned_data.get('username')
-        if len(username) < 4:
-            raise forms.ValidationError('Usuário deve ter pelo menos 4 caracteres.')
-        return username
-    
-    def clean_email(self):
-        """Valida e-mail único."""
-        email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError('Este e-mail já está cadastrado.')
-        return email
 
 
 # =============================================================================

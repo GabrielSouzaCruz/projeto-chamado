@@ -9,6 +9,10 @@ pywebpush==2.4.0
 python-dotenv==1.2.2
 whitenoise==6.12.0
 cloudinary==1.40.0
+# NOTA: 0.3.0 e a ultima versao (2020, sem manutencao ativa).
+# Funciona bem com cloudinary SDK 1.40+. Se abandonado completamente,
+# substituir por storage backend customizado usando cloudinary SDK direto.
 django-cloudinary-storage==0.3.0
 sentry-sdk==2.12.0
 django-csp==4.0
+python-magic==0.4.27

@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils.timezone import now
-from django.views.generic import DetailView, CreateView, UpdateView, DeleteView
+from django.views.generic import DetailView, CreateView, UpdateView
 
 from accounts.mixins import ProprietarioOrTecnicoMixin, TecnicoOrStaffRequiredMixin
 from accounts.decorators import tecnico_required, admin_required
@@ -187,11 +187,6 @@ class CategoriaUpdateView(TecnicoOrStaffRequiredMixin, UpdateView):
     model = Categoria
     fields = ['nome', 'descricao']
     template_name = 'tickets/categoria_form.html'
-    success_url = reverse_lazy('tickets:categorias')
-
-class CategoriaDeleteView(TecnicoOrStaffRequiredMixin, DeleteView):
-    model = Categoria
-    template_name = 'tickets/categoria_confirm_delete.html'
     success_url = reverse_lazy('tickets:categorias')
     
 # =============================================================================

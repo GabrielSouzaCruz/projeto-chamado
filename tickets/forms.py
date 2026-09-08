@@ -1,19 +1,37 @@
 # tickets/forms.py
+import magic
 from django import forms
+from django.core.exceptions import ValidationError
 from accounts.models import User
 from .models import Ticket, Comentario, Categoria
 
-EXTENSOES_PERMITIDAS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'pdf'}
 TAMANHO_MAXIMO = 2 * 1024 * 1024  # 2MB
 
+MIME_PERMITIDOS = {
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/bmp',
+    'application/pdf',
+}
+
 def validar_arquivo(arquivo):
-    """Valida que o anexo seja imagem/PDF leve (máx. 2MB)."""
+    """Valida extensao, tamanho e magic bytes do anexo."""
     if arquivo:
-        ext = arquivo.name.split('.')[-1].lower()
-        if ext not in EXTENSOES_PERMITIDAS:
-            raise forms.ValidationError('Formato não permitido. Envie apenas imagens (JPG, PNG, GIF, WEBP) ou PDF.')
+        # Tamanho
         if arquivo.size > TAMANHO_MAXIMO:
-            raise forms.ValidationError('O arquivo não pode exceder 2MB.')
+            raise ValidationError('O arquivo nao pode exceder 2MB.')
+
+        # Magic bytes (verifica o conteudo real, nao so a extensao)
+        chunk = arquivo.read(2048)
+        arquivo.seek(0)
+        mime = magic.from_buffer(chunk, mime=True)
+        if mime not in MIME_PERMITIDOS:
+            raise ValidationError(
+                f'Tipo de arquivo nao permitido ({mime}). '
+                'Envie apenas imagens (JPG, PNG, GIF, WEBP) ou PDF.'
+            )
     return arquivo
 
 class TicketForm(forms.ModelForm):

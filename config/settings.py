@@ -17,6 +17,7 @@ Para produção, ajuste: DEBUG=False, ALLOWED_HOSTS, DATABASES, etc.
 """
 
 import os
+from django.core.exceptions import ImproperlyConfigured
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
@@ -58,10 +59,14 @@ if os.environ.get("SENTRY_DSN"):
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECRET_KEY segura (via .env)
-SECRET_KEY = os.getenv('SECRET_KEY', 'uma-chave-padrao-para-dev-apenas')
+# Em producao (DEBUG=False), SECRET_KEY e obrigatoria.
+DEBUG_LOCAL = os.getenv('DEBUG', 'True').lower() == 'true'
+_secret = os.getenv('SECRET_KEY')
+if not _secret and not DEBUG_LOCAL:
+    raise ImproperlyConfigured('SECRET_KEY e obrigatorio em producao. Configure a variavel de ambiente SECRET_KEY.')
+SECRET_KEY = _secret or 'dev-only-insecure-do-not-deploy'
 
-# DEBUG seguro: converte string para booleano real
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = DEBUG_LOCAL
 
 ALLOWED_HOSTS = ['projeto-chamado.onrender.com', '127.0.0.1', 'localhost']
 
@@ -110,6 +115,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # Anti-cache para autenticados (no-store): roda após Session/Auth middleware
     'accounts.middleware.NoCacheAuthenticatedMiddleware',
+    # Permissions-Policy: restringe APIs do navegador em toda resposta
+    'config.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -131,7 +138,6 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'config.context_processors.pusher_config',
-                'config.context_processors.vapid_keys',
             ],
         },
     },
@@ -163,7 +169,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 6},
+        'OPTIONS': {'min_length': 10},
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -410,6 +422,8 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 # Previne clickjacking (X-Frame-Options: DENY)
 X_FRAME_OPTIONS = 'DENY'
+# Limita envio de referrer para origem same-origin em navegadores modernos
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # -----------------------------------------------------------------------------
 # Proteções de Produção (Apenas se NÃO DEBUG) — reforços de transporte/sessão

@@ -55,39 +55,51 @@ class BaseChamadoTest(TestCase):
 
 
 class TesteSinais(BaseChamadoTest):
-    """Pós-Rollback: sem Pusher global; só novo_comentario chega ao canal do
-    ticket. O Web Push nativo (que não depende do Pusher) é coberto adiante."""
+    """Valida os eventos Pusher: novo_comentario no canal do ticket, e
+    dashboard-update no canal global para criação/atualização/cancelamento."""
 
     def _com_pusher(self, fake):
         return patch.object(settings, 'PUSHER_CLIENT', fake)
 
-    def test_ticket_criado_nao_dispara_no_pusher_global(self):
+    def test_ticket_criado_dispara_dashboard_update_no_global(self):
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket = self.criar_ticket()
 
-        # Rollback tático: Fila/Dashboard/Notificações usam Polling de 5s.
-        self.assertEqual(fake.calls, [])
+        canais_global = [c for c, e, _ in fake.calls if 'global-notifications' in c]
+        self.assertEqual(len(canais_global), 1)
+        _, evento, dados = fake.calls[0]
+        self.assertEqual(evento, 'dashboard-update')
+        self.assertEqual(dados['action'], 'ticket_created')
+        self.assertEqual(dados['ticket_id'], ticket.id)
 
-    def test_ticket_cancelado_nao_dispara_no_pusher(self):
+    def test_ticket_cancelado_dispara_dashboard_update_no_global(self):
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket.status = Ticket.Status.CANCELADO
             ticket.save()
 
-        self.assertEqual(fake.calls, [])
+        canais_global = [c for c, e, _ in fake.calls if 'global-notifications' in c]
+        self.assertEqual(len(canais_global), 1)
+        _, evento, dados = fake.calls[0]
+        self.assertEqual(evento, 'dashboard-update')
+        self.assertEqual(dados['status'], Ticket.Status.CANCELADO)
 
-    def test_ticket_atualizado_nao_dispara_no_pusher(self):
+    def test_ticket_atualizado_dispara_dashboard_update_no_global(self):
         ticket = self.criar_ticket(status=Ticket.Status.EM_ANDAMENTO)
         fake = FakePusherClient()
         with self._com_pusher(fake):
             ticket.status = Ticket.Status.RESOLVIDO
             ticket.save()
 
-        self.assertEqual(fake.calls, [])
+        canais_global = [c for c, e, _ in fake.calls if 'global-notifications' in c]
+        self.assertEqual(len(canais_global), 1)
+        _, evento, dados = fake.calls[0]
+        self.assertEqual(evento, 'dashboard-update')
+        self.assertEqual(dados['status'], Ticket.Status.RESOLVIDO)
 
-    def test_comentario_dispara_novo_comentario_so_no_canal_do_ticket(self):
+    def test_comentario_dispara_novo_comentario_e_dashboard_update(self):
         ticket = self.criar_ticket()
         fake = FakePusherClient()
         with self._com_pusher(fake):
@@ -95,15 +107,18 @@ class TesteSinais(BaseChamadoTest):
                 ticket=ticket, autor=self.solicitante, mensagem='Preciso de ajuda.'
             )
 
-        self.assertEqual(len(fake.calls), 1)
-        canais, evento, dados = fake.calls[0]
-        self.assertEqual(canais, [f'ticket-{ticket.id}'])
-        self.assertNotIn('fila-global', canais)
+        canais_ticket = [c for c, _, _ in fake.calls if f'ticket-{ticket.id}' in c]
+        canais_global = [c for c, _, _ in fake.calls if 'global-notifications' in c]
+        self.assertEqual(len(canais_ticket), 1)
+        self.assertEqual(len(canais_global), 1)
+
+        _, evento, dados = fake.calls[0]
         self.assertEqual(evento, 'novo_comentario')
         self.assertEqual(dados['ticket_id'], ticket.id)
         self.assertEqual(dados['action'], 'novo_comentario')
         self.assertEqual(dados['remetente_nome'], self.solicitante.username)
-        self.assertIn(self.solicitante.id, dados['destinatario_ids'])
+        # Autor é removido da lista de destinatários (sem eco)
+        self.assertNotIn(self.solicitante.id, dados['destinatario_ids'])
 
     def test_payload_comentario_inclui_titulo_do_chamado(self):
         """O título vai no payload de novo_comentario (exibido no chat)."""
@@ -114,7 +129,9 @@ class TesteSinais(BaseChamadoTest):
                 ticket=ticket, autor=self.tecnico, mensagem='Vou ver.'
             )
 
-        _, _, dados = fake.calls[0]
+        eventos_ticket = [(e, d) for _, e, d in fake.calls if e == 'novo_comentario']
+        self.assertEqual(len(eventos_ticket), 1)
+        _, dados = eventos_ticket[0]
         self.assertEqual(dados['titulo'], ticket.titulo)
 
     def test_actor_id_do_comentario_e_o_autor(self):
@@ -126,10 +143,11 @@ class TesteSinais(BaseChamadoTest):
                 ticket=ticket, autor=self.tecnico, mensagem='Vou verificar.'
             )
 
-        _, _, dados = fake.calls[0]
+        eventos_ticket = [(e, d) for _, e, d in fake.calls if e == 'novo_comentario']
+        _, dados = eventos_ticket[0]
         self.assertEqual(dados['actor_id'], self.tecnico.id)
 
-    def test_destinatarios_incluem_tecnico_atribuido(self):
+    def test_destinatarios_incluem_solicitante_sem_eco_ao_autor(self):
         ticket = self.criar_ticket()
         ticket.tecnico_responsavel = self.tecnico
         ticket.save()
@@ -139,9 +157,10 @@ class TesteSinais(BaseChamadoTest):
                 ticket=ticket, autor=self.tecnico, mensagem='Verificando.'
             )
 
-        _, _, dados = fake.calls[0]
+        eventos_ticket = [(e, d) for _, e, d in fake.calls if e == 'novo_comentario']
+        _, dados = eventos_ticket[0]
         self.assertIn(self.solicitante.id, dados['destinatario_ids'])
-        self.assertIn(self.tecnico.id, dados['destinatario_ids'])
+        self.assertNotIn(self.tecnico.id, dados['destinatario_ids'])  # autor removido
 
 
 class TesteResumoNotificacoes(BaseChamadoTest):
