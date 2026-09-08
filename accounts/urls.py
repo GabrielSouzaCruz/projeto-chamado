@@ -39,4 +39,5 @@ urlpatterns = [
     # =============================================================================
     path('profile/', views.ProfileUpdateView.as_view(), name='profile'),
     path('alterar-senha/', views.alterar_senha, name='alterar_senha'),
+    path('esqueci-senha/', views.SolicitarResetSenhaView.as_view(), name='esqueci_senha'),
 ]

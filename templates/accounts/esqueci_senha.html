@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Esqueci minha senha - Central de Chamados PMM{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow border-0" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header text-white text-center py-4" style="background-color: var(--primary-color);">
+                <h4 class="mb-0 fw-bold">
+                    <i class="fas fa-key me-2"></i>Esqueci minha senha
+                </h4>
+            </div>
+            <div class="card-body p-4 p-lg-5 text-center">
+                <div class="mb-4">
+                    <i class="fas fa-info-circle fa-3x text-primary mb-3"></i>
+                    <h5 class="fw-bold">Redefinição de senha</h5>
+                    <p class="text-muted">
+                        Para redefinir sua senha, solicite ao administrador do sistema.
+                    </p>
+                </div>
+
+                <div class="alert alert-light border-2 text-start" role="alert">
+                    <p class="mb-2"><strong>Entre em contato:</strong></p>
+                    <p class="mb-1">
+                        <i class="fas fa-phone me-2"></i>Ramal: <strong>XXXX</strong>
+                    </p>
+                    <p class="mb-0">
+                        <i class="fas fa-envelope me-2"></i>E-mail: <strong>admin@empresa.com</strong>
+                    </p>
+                </div>
+
+                <hr>
+
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Voltar ao login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

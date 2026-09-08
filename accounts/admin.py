@@ -17,7 +17,10 @@ Nós apenas estendemos com campos específicos do sistema de chamados.
 """
 
 from django.contrib import admin
+from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin
+import secrets
+import string
 
 from .models import User
 
@@ -104,7 +107,7 @@ class CustomUserAdmin(UserAdmin):
     
     fieldsets = UserAdmin.fieldsets + (
         ('Informações Adicionais', {
-            'fields': ('is_technician', 'departamento', 'telefone'),
+            'fields': ('is_technician', 'departamento', 'telefone', 'must_change_password'),
             'description': 'Campos específicos do sistema de chamados'
         }),
     )
@@ -173,6 +176,23 @@ class CustomUserAdmin(UserAdmin):
     # =========================================================================
     
     ordering = ['username']
+
+    actions = ['resetar_senha_temporaria']
+
+    def resetar_senha_temporaria(self, request, queryset):
+        """Gera senha temporaria e marca must_change_password=True."""
+        alphabet = string.ascii_letters + string.digits
+        for user in queryset:
+            nova_senha = ''.join(secrets.choice(alphabet) for _ in range(12))
+            user.set_password(nova_senha)
+            user.must_change_password = True
+            user.save(update_fields=['password', 'must_change_password'])
+            messages.success(
+                request,
+                f'Senha de {user.username} redefinida para: {nova_senha} — informe ao usuário.',
+            )
+
+    resetar_senha_temporaria.short_description = 'Resetar senha (gera temporária + força troca)'
     """
     Ordenação padrão da listagem de usuários.
     

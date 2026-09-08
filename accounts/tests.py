@@ -584,3 +584,80 @@ class TesteMixinsDecorators(TestCase):
         url = reverse('tickets:categoria_create')
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
+
+
+# =============================================================================
+# 7. RESET DE SENHA (fluxo interno)
+# =============================================================================
+
+class TesteResetSenha(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = criar_usuario(
+            username='reset.teste',
+            email='reset@example.com',
+            password='senha-atual-123!',
+        )
+        self.esqueci_url = reverse('accounts:esqueci_senha')
+        self.login_url = reverse('accounts:login')
+        self.alterar_url = reverse('accounts:alterar_senha')
+
+    def test_get_esqueci_senha_retorna_200(self):
+        resp = self.client.get(self.esqueci_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'accounts/esqueci_senha.html')
+
+    def test_post_esqueci_senha_exibe_mensagem_sem_criar_nada(self):
+        email_antes = User.objects.count()
+        resp = self.client.post(self.esqueci_url, {'email': 'reset@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(User.objects.count(), email_antes)
+
+    def test_action_admin_gera_senha_e_must_change_password(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from accounts.admin import CustomUserAdmin
+        admin_user = criar_usuario(username='superadmin', email='superadmin@example.com', is_superuser=True, is_staff=True)
+        admin_site = AdminSite()
+        model_admin = CustomUserAdmin(User, admin_site)
+        qs = User.objects.filter(pk=self.user.pk)
+        # Cria request fake com suporte a messages
+        from django.test import RequestFactory
+        request = RequestFactory().post('/admin/')
+        request.user = admin_user
+        setattr(request, 'session', 'session')
+        setattr(request, '_messages', FallbackStorage(request))
+        model_admin.resetar_senha_temporaria(request, qs)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.must_change_password)
+
+    def test_login_must_change_password_true_redireciona_alterar_senha(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=['must_change_password'])
+        resp = self.client.post(self.login_url, {
+            'username': 'reset.teste',
+            'password': 'senha-atual-123!',
+        })
+        self.assertRedirects(resp, self.alterar_url, fetch_redirect_response=False)
+
+    def test_login_must_change_password_false_fluxo_normal(self):
+        resp = self.client.post(self.login_url, {
+            'username': 'reset.teste',
+            'password': 'senha-atual-123!',
+        })
+        self.assertRedirects(resp, DASHBOARD_URL, fetch_redirect_response=False)
+
+    def test_apos_alterar_senha_must_change_password_vira_false(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=['must_change_password'])
+        self.client.login(username='reset.teste', password='senha-atual-123!')
+        # Forca o redirect por must_change_password
+        self.client.get(self.alterar_url)
+        resp = self.client.post(self.alterar_url, {
+            'old_password': 'senha-atual-123!',
+            'new_password1': 'nova-senha-forte-999!',
+            'new_password2': 'nova-senha-forte-999!',
+        })
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)

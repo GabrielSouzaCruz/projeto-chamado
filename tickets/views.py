@@ -4,6 +4,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.db.models import Q, Count
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14,6 +15,7 @@ from django.views.generic import DetailView, CreateView, UpdateView
 from accounts.mixins import ProprietarioOrTecnicoMixin, TecnicoOrStaffRequiredMixin
 from accounts.decorators import tecnico_required, admin_required
 from accounts.models import User
+from accounts.views import RATE_TICKET_MAX, RATE_TICKET_JANELA, _check_rate_limit
 
 from .forms import TicketForm, ComentarioForm, TicketStatusForm
 from .models import Ticket, Categoria
@@ -54,7 +56,18 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
     model = Ticket
     form_class = TicketForm
     template_name = 'tickets/ticket_form.html'
-    
+
+    def dispatch(self, request, *args, **kwargs):
+        cache_key = f'rate_ticket_create_{request.user.id}'
+        bloqueado, _ = _check_rate_limit(cache_key, RATE_TICKET_MAX, RATE_TICKET_JANELA)
+        if bloqueado:
+            messages.error(
+                request,
+                'Limite de criacao de chamados atingido. Aguarde 60 minutos.'
+            )
+            return redirect('tickets:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         form.instance.solicitante = self.request.user
         messages.success(self.request, 'Chamado criado com sucesso!')

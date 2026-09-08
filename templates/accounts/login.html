@@ -44,10 +44,16 @@
                                placeholder="Digite sua senha" required>
                     </div>
 
-                    <div class="d-grid">
+                    <div class="d-grid mb-3">
                         <button type="submit" id="login-btn" class="btn btn-primary btn-lg fw-bold shadow-sm" aria-label="Acessar o sistema com suas credenciais">
                             <i class="fas fa-sign-in-alt me-2"></i> ACESSAR SISTEMA
                         </button>
+                    </div>
+
+                    <div class="text-center">
+                        <a href="{% url 'accounts:esqueci_senha' %}" class="text-decoration-none small">
+                            <i class="fas fa-key me-1"></i> Esqueci minha senha
+                        </a>
                     </div>
                 </form>
             </div>

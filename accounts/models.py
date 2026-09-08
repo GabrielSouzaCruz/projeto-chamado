@@ -17,6 +17,11 @@ class User(AbstractUser):
         help_text='Marque se este usuário é um técnico de suporte'
     )
 
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name='Deve trocar senha no próximo login',
+    )
+
     departamento = models.CharField(
         max_length=100,
         blank=True,

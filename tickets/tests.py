@@ -611,3 +611,148 @@ class TesteWebPush(BaseChamadoTest):
         ids = [call.args[0] for call in envia.call_args_list]
         self.assertIn(self.solicitante.id, ids)
         self.assertNotIn(self.tecnico.id, ids)  # técnico é o autor do cancelamento
+
+
+# =============================================================================
+# TESTES DE RATE LIMIT
+# =============================================================================
+
+from django.core.cache import cache
+from django.test.client import Client
+
+
+class TesteRateLimit(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.solicitante = User.objects.create_user(
+            username='solicitante.rl',
+            password='senha-teste-123!',
+            email='sol_rl@example.com',
+            is_technician=False,
+        )
+        self.outro = User.objects.create_user(
+            username='outro.rl',
+            password='senha-teste-123!',
+            email='outro_rl@example.com',
+            is_technician=False,
+        )
+        self.categoria = Categoria.objects.create(nome='Teste RL')
+        self.ticket = Ticket.objects.create(
+            titulo='Ticket RL',
+            descricao='Desc',
+            solicitante=self.solicitante,
+            categoria=self.categoria,
+        )
+        cache.clear()
+
+    # -- TICKET CREATE --
+
+    def test_10_criacoes_ok_11_bloqueada(self):
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:create')
+        for i in range(10):
+            resp = self.client.post(url, {
+                'titulo': f'Ticket {i}',
+                'descricao': 'Desc',
+                'categoria': self.categoria.pk,
+                'prioridade': 'media',
+            })
+            self.assertIn(resp.status_code, [302, 200], f'Iteracao {i} falhou')
+        # 11a deve ser bloqueada
+        resp = self.client.post(url, {
+            'titulo': 'Ticket bloqueado',
+            'descricao': 'Desc',
+            'categoria': self.categoria.pk,
+            'prioridade': 'media',
+        })
+        self.assertRedirects(resp, reverse('tickets:dashboard'), fetch_redirect_response=False)
+
+    def test_usuarios_diferentes_nao_compartilham_contador(self):
+        # Usuario 1: 10 criacoes
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:create')
+        for i in range(10):
+            self.client.post(url, {
+                'titulo': f'Ticket {i}',
+                'descricao': 'Desc',
+                'categoria': self.categoria.pk,
+                'prioridade': 'media',
+            })
+        # Usuario 2: ainda pode criar
+        self.client.login(username='outro.rl', password='senha-teste-123!')
+        resp = self.client.post(url, {
+            'titulo': 'Ticket do outro',
+            'descricao': 'Desc',
+            'categoria': self.categoria.pk,
+            'prioridade': 'media',
+        })
+        self.assertIn(resp.status_code, [302, 200])
+
+    def test_apos_expirar_janela_criacao_liberada(self):
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:create')
+        for i in range(10):
+            self.client.post(url, {
+                'titulo': f'Ticket {i}',
+                'descricao': 'Desc',
+                'categoria': self.categoria.pk,
+                'prioridade': 'media',
+            })
+        # Forca expiracao do cache
+        cache_key = f'rate_ticket_create_{self.solicitante.id}'
+        cache.delete(cache_key)
+        resp = self.client.post(url, {
+            'titulo': 'Ticket pos-expiracao',
+            'descricao': 'Desc',
+            'categoria': self.categoria.pk,
+            'prioridade': 'media',
+        })
+        self.assertIn(resp.status_code, [302, 200])
+
+    # -- COMENTARIO --
+
+    def test_30_comentarios_ok_31_bloqueada_ajax(self):
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:add_comment', args=[self.ticket.pk])
+        for i in range(30):
+            resp = self.client.post(
+                url,
+                {'mensagem': f'Comentario {i}'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+            self.assertIn(resp.status_code, [200, 302], f'Iteracao {i} falhou')
+        # 31o deve retornar 429
+        resp = self.client.post(
+            url,
+            {'mensagem': 'Bloqueado'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 429)
+
+    def test_30_comentarios_ok_31_bloqueada_normal(self):
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:add_comment', args=[self.ticket.pk])
+        for i in range(30):
+            self.client.post(url, {'mensagem': f'Comentario {i}'})
+        # 31o deve redirecionar
+        resp = self.client.post(url, {'mensagem': 'Bloqueado'})
+        self.assertRedirects(resp, reverse('tickets:detail', args=[self.ticket.pk]), fetch_redirect_response=False)
+
+    def test_comentario_usuarios_diferentes_nao_compartilham(self):
+        # Solicitante: 30 comentarios
+        self.client.login(username='solicitante.rl', password='senha-teste-123!')
+        url = reverse('tickets:add_comment', args=[self.ticket.pk])
+        for i in range(30):
+            self.client.post(url, {'mensagem': f'Comentario {i}'})
+        # Tecnico no mesmo ticket: pode comentar (contator proprio)
+        from accounts.models import User as UserModel
+        tecnico = UserModel.objects.create_user(
+            username='tecnico.rl',
+            password='senha-teste-123!',
+            email='tec_rl@example.com',
+            is_technician=True,
+        )
+        self.client.login(username='tecnico.rl', password='senha-teste-123!')
+        resp = self.client.post(url, {'mensagem': 'Comentario do tecnico'})
+        self.assertIn(resp.status_code, [200, 302])

@@ -24,6 +24,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import CreateView, UpdateView
 
 from tickets.models import Ticket
@@ -49,6 +50,24 @@ CACHE_KEY_PREFIX = 'login_falhas_'
 MAX_TENTATIVAS_REGISTRO = 5
 TEMPO_BLOQUEIO_REGISTRO = 900  # 15 minutos em segundos
 CACHE_KEY_REGISTRO_PREFIX = 'registro_falhas_'
+
+# Rate limiting para tickets e comentarios
+RATE_TICKET_MAX = 10
+RATE_TICKET_JANELA = 60 * 60  # 60 minutos em segundos
+RATE_COMENTARIO_MAX = 30
+RATE_COMENTARIO_JANELA = 10 * 60  # 10 minutos em segundos
+
+
+def _check_rate_limit(cache_key, max_tentativas, janela_segundos):
+    """Verifica e incrementa o contador de rate limit.
+
+    Retorna (bloqueado: bool, restantes: int).
+    """
+    tentativas = cache.get(cache_key, 0)
+    if tentativas >= max_tentativas:
+        return True, 0
+    cache.set(cache_key, tentativas + 1, janela_segundos)
+    return False, max_tentativas - tentativas - 1
 
 def get_client_ip(request):
     """
@@ -87,9 +106,13 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
         return reverse_lazy('tickets:dashboard')
 
     def form_valid(self, form):
-        """Login OK → zera o contador de falhas do IP."""
+        """Login OK → zera o contador e verifica must_change_password."""
         cache.delete(_cache_key(get_client_ip(self.request)))
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        if form.get_user().must_change_password:
+            messages.warning(self.request, 'Sua senha foi redefinida. Defina uma nova senha para continuar.')
+            return redirect('accounts:alterar_senha')
+        return response
 
     def form_invalid(self, form):
         """
@@ -302,7 +325,9 @@ def alterar_senha(request):
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
-            # Atualiza hash da sessão para manter usuário logado após mudar senha
+            if user.must_change_password:
+                user.must_change_password = False
+                user.save(update_fields=['must_change_password'])
             update_session_auth_hash(request, user)
             messages.success(request, 'Senha alterada com sucesso!')
             return redirect('accounts:profile')
@@ -310,3 +335,17 @@ def alterar_senha(request):
         form = PasswordChangeForm(request.user)
     
     return render(request, 'accounts/alterar_senha.html', {'form': form})
+
+
+# =============================================================================
+# RESET DE SENHA (sem e-mail — fluxo interno)
+# =============================================================================
+
+class SolicitarResetSenhaView(View):
+    """Pagina estatica que orienta o usuario a contatar o admin para reset."""
+
+    def get(self, request):
+        return render(request, 'accounts/esqueci_senha.html')
+
+    def post(self, request):
+        return render(request, 'accounts/esqueci_senha.html')

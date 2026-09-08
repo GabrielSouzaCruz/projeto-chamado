@@ -9,6 +9,7 @@ As views clássicas (páginas HTML) continuam em views.py.
 """
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import JsonResponse
@@ -19,6 +20,7 @@ from django.views.decorators.http import require_POST
 import json
 
 from accounts.decorators import tecnico_required
+from accounts.views import RATE_COMENTARIO_MAX, RATE_COMENTARIO_JANELA, _check_rate_limit
 
 from .forms import ComentarioForm
 from .models import Ticket, Comentario, PushSubscription
@@ -219,6 +221,19 @@ def adicionar_comentario(request, pk):
     if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         messages.error(request, "Permissão negada.")
         return redirect('tickets:dashboard')
+
+    # Rate limit: 30 comentarios / 10 minutos por usuario
+    cache_key = f'rate_comentario_{request.user.id}'
+    bloqueado, _ = _check_rate_limit(cache_key, RATE_COMENTARIO_MAX, RATE_COMENTARIO_JANELA)
+    if bloqueado:
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse(
+                {'erro': 'Limite de comentarios atingido. Aguarde 10 minutos.'},
+                status=429,
+            )
+        messages.error(request, 'Limite de comentarios atingido. Aguarde 10 minutos.')
+        return redirect('tickets:detail', pk=pk)
 
     if request.method == 'POST':
         form = ComentarioForm(request.POST, request.FILES, usuario=request.user)
