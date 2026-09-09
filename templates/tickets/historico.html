@@ -6,13 +6,6 @@
 {% block extra_css %}
 <style>
     /* Refinamento dos Filtros */
-    .filter-card {
-        border-radius: 12px;
-        background-color: #fff;
-        border: none;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
     .form-label.small {
         font-size: 0.75rem;
         font-weight: 700;
@@ -32,10 +25,10 @@
 
     select[multiple].form-select-sm:focus {
         border-color: var(--accent-color);
-        box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.1);
+        box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--accent-color) 10%, transparent);
     }
 
-    /* Crachás de Status na Tabela */
+    /* Cabeçalho da tabela */
     .table thead th {
         background-color: #f8f9fa;
         text-transform: uppercase;
@@ -43,20 +36,6 @@
         letter-spacing: 0.5px;
         color: #6c757d;
         border-top: none;
-    }
-
-    .badge-pmm {
-        padding: 0.5em 0.8em;
-        border-radius: 6px;
-        font-weight: 600;
-    }
-
-    /* Consistência de cantos e sombras */
-    .filter-card,
-    .table-card,
-    .stat-card {
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
 </style>
 {% endblock %}

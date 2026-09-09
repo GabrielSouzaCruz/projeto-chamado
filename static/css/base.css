@@ -1,0 +1,320 @@
+:root {
+    --primary-color: #1A4A92;
+    --accent-color: #FFD700;
+    --danger-machado: #D62828;
+    --sidebar-dark: #143569;
+    --bg-body: #f4f7fe;
+    --sidebar-width: 260px;
+}
+
+html, body {
+    overflow-x: hidden;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-body);
+    color: #2d3436;
+}
+
+.wrapper {
+    display: flex;
+    align-items: stretch;
+    min-height: 100vh;
+}
+
+/* =============================================================
+   SIDEBAR — Flexbox responsiva
+   - Desktop (>=993px): fixa e sempre visível
+   - Mobile (<993px): off-canvas, escondida por padrão e ativada
+     pela classe .show (transform, sem quebrar layout)
+   ============================================================= */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--sidebar-dark);
+    color: #fff;
+    min-height: 100vh;
+    overflow-y: auto;
+    z-index: 1000;
+    border-right: 3px solid var(--accent-color);
+    transition: transform 0.3s ease;
+}
+
+#content {
+    width: 100% !important;
+    margin-left: 0 !important;
+    box-sizing: border-box;
+    min-height: 100vh;
+    padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
+    transition: margin-left 0.3s ease;
+}
+
+/* Desktop: a sidebar é fixa → o conteúdo recua exatamente pela largura
+   dela (sem transbordar à direita). No mobile isto fica em 100%. */
+@media (min-width: 992px) {
+    #content {
+        width: calc(100% - var(--sidebar-width)) !important;
+        margin-left: var(--sidebar-width) !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    #content {
+        padding: 16px 12px;
+    }
+}
+
+.no-sidebar #content { margin-left: 0; }
+
+/* Backdrop escurecido — só existe e aparece no mobile */
+#sidebar-backdrop {
+    display: none;
+}
+
+.sidebar-header {
+    padding: 20px 15px;
+    background: rgba(255,255,255,0.05);
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-logo {
+    max-height: 70px;
+    width: auto;
+    margin-bottom: 10px;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));
+}
+
+.sidebar-header h4 {
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#sidebar ul li.small {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-weight: 600;
+    margin-top: 20px;
+    padding: 0 25px;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+#sidebar ul li a {
+    padding: 12px 25px;
+    display: block;
+    color: #d1d1e0;
+    text-decoration: none;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+#sidebar ul li a:hover, #sidebar ul li.active > a {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+    border-left: 4px solid var(--accent-color);
+}
+
+#sidebar ul li a i { margin-right: 12px; width: 20px; text-align: center; }
+
+.top-bar {
+    background: #fff;
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Topbar à prova de overflow no mobile: o lado direito (botão de
+   notificações + perfil) nunca encolhe; o título esquerdo trunca
+   com reticências em vez de empurrar o layout para fora da tela. */
+.top-bar > div { min-width: 0; }
+.top-bar .top-bar-right { flex-shrink: 0; }
+.top-bar h5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sino + perfil: bloco único à direita, colado e sem transbordar o
+   viewport. O nome do usuário trunca com reticências (>100vw nunca). */
+.top-bar .user-badge {
+    min-width: 0;
+    overflow: hidden;
+}
+.top-bar .user-badge > div:first-child { min-width: 0; }
+.top-bar .user-badge .fw-bold,
+.top-bar .user-badge small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Sino de notificações (Polling de 5s): selo vermelho de novidades. */
+#sino-notificacoes { line-height: 1; }
+#sino-notificacoes:hover { opacity: 0.8; }
+#sino-notificacoes:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; border-radius: 4px; }
+#sino-badge {
+    position: absolute;
+    top: -7px;
+    right: -9px;
+    background-color: var(--danger-machado);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    padding: 2px 5px;
+    min-width: 16px;
+    border-radius: 10px;
+    border: 2px solid #fff;
+    text-align: center;
+}
+
+.bg-primary { background-color: var(--primary-color) !important; }
+.btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }
+
+.logout-btn-sidebar {
+    background: none; border: none; color: #f64e60 !important;
+    padding: 12px 25px; width: 100%; text-align: left; font-weight: 500;
+}
+
+/* Botão compacto "Ativar Alertas" na topbar, ao lado do perfil —
+   pedido de permissão SÓ via user gesture; o iOS bloqueia pedidos no
+   load. Em xs o texto some (só o sino) para caber no telemóvel. */
+.notif-enable-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+    border-radius: 20px;
+    transition: all 0.25s ease;
+}
+.notif-enable-btn:hover {
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 6%, transparent);
+    border-color: var(--primary-color);
+}
+.notif-enable-btn.notif-ativa {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+.notif-enable-btn.notif-ativa:hover {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+.notif-enable-btn.notif-bloqueada {
+    color: var(--danger-machado);
+    border-color: color-mix(in srgb, var(--danger-machado) 50%, transparent);
+    background: color-mix(in srgb, var(--danger-machado) 8%, transparent);
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+
+/* Mobile: sidebar off-canvas + backdrop clicável */
+@media (max-width: 992px) {
+    #sidebar {
+        transform: translateX(-100%);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    }
+    #sidebar.show { transform: translateX(0); }
+
+    #content { margin-left: 0; }
+    .no-sidebar #content { margin-left: 0; }
+
+    #sidebar-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    #sidebar-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* =============================================================
+   TOASTS (Pusher + feedback da interface)
+   Mobile: largura 100% com margens seguras e safe-area iOS.
+   Desktop: bloco fixo à direita.
+   ============================================================= */
+#toast-container {
+    position: fixed;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    left: 1rem;
+    right: 1rem;
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+#toast-container .toast-item {
+    pointer-events: auto;
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    animation: toast-in 0.25s ease;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 576px) {
+    #toast-container {
+        left: auto;
+        right: 1rem;
+        width: 420px;
+    }
+}
+
+/* Tela de Carregamento (Global Page Loader) */
+#global-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+#global-loader .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    color: var(--primary-color);
+}

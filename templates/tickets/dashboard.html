@@ -4,22 +4,11 @@
 
 {% block content %}
 <style>
-    /* ===== Polimento global do Dashboard (Soft Shadows & Border-Radius) ===== */
-    .card {
-        border-radius: 16px !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    }
-    .btn { border-radius: 12px !important; }
-    .form-control, .form-select { border-radius: 12px; }
-
-    /* ===== Hero Section com gradiente corporativo ===== */
     .hero-gradient {
-        background: linear-gradient(135deg, #1A4A92 0%, #2a63b5 60%, #3f84d4 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, #2a63b5 60%, #3f84d4 100%);
         border-radius: 16px;
     }
     .hero-shadow { box-shadow: 0 12px 30px rgba(26, 74, 146, 0.25); }
-
-    /* ===== Cartões de KPI ===== */
     .kpi-icon {
         width: 52px; height: 52px;
         border-radius: 14px;

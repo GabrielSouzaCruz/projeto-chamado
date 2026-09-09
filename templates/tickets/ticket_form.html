@@ -287,22 +287,6 @@
         const wPreviewNome = document.getElementById("wizard-anexo-nome");
         const wPreviewTamanho = document.getElementById("wizard-anexo-tamanho");
         const wPreviewRemover = document.getElementById("wizard-anexo-remover");
-        const EXTENSOES_OK = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "pdf"];
-        const TAMANHO_MAX = 2 * 1024 * 1024;
-
-        function anexoClienteValido(arquivo) {
-            if (!arquivo) return false;
-            const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
-            if (!EXTENSOES_OK.includes(ext)) {
-                alert("Formato não permitido. Use apenas imagens (JPG, PNG, GIF, WebP, BMP) ou PDF.");
-                return false;
-            }
-            if (arquivo.size > TAMANHO_MAX) {
-                alert("Arquivo muito grande. O limite é de 2 MB.");
-                return false;
-            }
-            return true;
-        }
 
         function atualizarPreviewWizard() {
             const arquivo = anexoInput.files && anexoInput.files[0];
