@@ -5,8 +5,8 @@
 {% block content %}
 <div class="row justify-content-center mt-5">
     <div class="col-md-5">
-        <div class="card shadow border-0" style="border-radius: 15px; overflow: hidden;">
-            <div class="card-header text-white text-center py-4" style="background-color: var(--primary-color); border-bottom: 3px solid var(--accent-color);">
+        <div class="card shadow border-0 rounded-3 overflow-hidden">
+            <div class="card-header text-white text-center py-4 card-header-pmm">
                 <h4 class="mb-0 fw-bold">
                     <i class="fas fa-landmark me-2"></i>CENTRAL DE CHAMADOS
                 </h4>
@@ -59,7 +59,7 @@
             </div>
             <div class="card-footer text-center py-3 bg-light border-0">
                 <span class="text-muted">Ainda não possui acesso?</span>
-                <a href="{% url 'accounts:register' %}" class="fw-bold text-decoration-none" style="color: var(--primary-color);">Solicite cadastro</a>
+                <a href="{% url 'accounts:register' %}" class="fw-bold text-decoration-none text-primary">Solicite cadastro</a>
             </div>
         </div>
 

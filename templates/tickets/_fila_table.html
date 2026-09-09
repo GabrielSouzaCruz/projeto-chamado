@@ -3,12 +3,12 @@
     <td class="ps-3">
         <span class="fw-bold text-primary">#{{ ticket.id }}</span>
     </td>
-    <td class="text-truncate" style="max-width: 220px;" title="{{ ticket.titulo }}">
+    <td class="text-truncate max-w-220" title="{{ ticket.titulo }}">
         <span class="fw-semibold">{{ ticket.titulo }}</span>
     </td>
     <td>
         <div class="small fw-bold text-dark">{{ ticket.solicitante.username }}</div>
-        <div class="text-muted" style="font-size: 0.7rem;">Solicitante</div>
+        <div class="text-muted text-xs-custom">Solicitante</div>
     </td>
     <td>
         {% if ticket.tecnico_responsavel %}
@@ -47,12 +47,12 @@
     </td>
     <td class="pe-3">
         <div class="d-flex gap-2 justify-content-end">
-            <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-sm btn-outline-primary rounded-circle" title="Ver Detalhes" style="width: 32px; height: 32px; padding: 0; line-height: 32px;">
+            <a href="{% url 'tickets:detail' ticket.id %}" class="btn btn-outline-primary btn-action-circle" title="Ver Detalhes do chamado #{{ ticket.id }}">
                 <i class="fas fa-eye"></i>
             </a>
             
             {% if not ticket.tecnico_responsavel and ticket.status == 'aberto' and user.is_technician %}
-            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-sm btn-success rounded-circle shadow-sm" title="Assumir Chamado" style="width: 32px; height: 32px; padding: 0; line-height: 32px;">
+            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-success btn-action-circle shadow-sm" title="Assumir chamado #{{ ticket.id }}">
                 <i class="fas fa-hand-paper"></i>
             </a>
             {% endif %}

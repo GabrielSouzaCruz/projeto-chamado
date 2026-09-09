@@ -75,3 +75,132 @@ tbody .skeleton-row td { border: 0; padding: 12px 8px; }
 }
 .btn { border-radius: 12px !important; }
 .form-control, .form-select { border-radius: 12px; }
+
+/* ============================================================
+   UTILITY CLASSES CUSTOMIZADAS
+   Substituem inline styles recorrentes nos templates.
+   ============================================================ */
+
+/* Tamanhos de texto extra-pequenos */
+.text-xxs { font-size: 0.65rem; }
+.text-xs-custom { font-size: 0.7rem; }
+
+/* Ícones / avatares com tamanho fixo */
+.icon-sm {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+.icon-md {
+    width: 35px;
+    height: 35px;
+    flex-shrink: 0;
+}
+.icon-lg {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+/* Containers com largura mínima zero (evita overflow em flex) */
+.min-w-0 { min-width: 0; }
+
+/* Largura máxima para truncamento */
+.max-w-220 { max-width: 220px; }
+
+/* Preview de imagem (anexos) */
+.img-preview {
+    max-width: 200px;
+    max-height: 150px;
+    object-fit: cover;
+}
+
+/* Card header com estilo PMM (fundo primary + borda accent) */
+.card-header-pmm {
+    background-color: var(--primary-color);
+    border-bottom: 3px solid var(--accent-color);
+}
+
+/* Barra de progresso fina */
+.progress-sm { height: 4px; }
+
+/* Avatar circular do perfil */
+.avatar-profile {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.6);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+/* Containers de formulário centralizados */
+.form-container {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.form-container-lg {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Touch targets — WCAG 2.1 critério 2.5.5 */
+.btn-action-circle {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    line-height: 1;
+}
+.btn-action-circle i,
+.btn-action-circle svg {
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+/* ============================================================
+   FILTROS RESPONSIVOS — HISTÓRICO E DEMAIS PÁGINAS
+   ============================================================ */
+
+/* Mobile: limitar altura de multi-selects */
+@media (max-width: 575.98px) {
+
+    .filtros-section select[multiple],
+    .filtros-section select[size] {
+        max-height: 110px;
+        font-size: 0.875rem;
+        overflow-y: auto;
+    }
+
+    /* Campos de filtro empilhados: espaçamento entre eles */
+    .filtros-section .col-md-4,
+    .filtros-section .col-md-3,
+    .filtros-section .col-md-2,
+    .filtros-section [class*="col-"] {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Botões de ação dos filtros: largura total no mobile */
+    .filtros-section .btn-filtrar,
+    .filtros-section .btn-limpar {
+        width: 100%;
+        margin-top: 0.25rem;
+    }
+}
+
+/* Tablet (576–768px): multi-selects um pouco menores também */
+@media (min-width: 576px) and (max-width: 767.98px) {
+
+    .filtros-section select[multiple],
+    .filtros-section select[size] {
+        max-height: 150px;
+    }
+}

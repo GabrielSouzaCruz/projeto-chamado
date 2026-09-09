@@ -27,7 +27,7 @@
                 </div>
                 <div>
                     <h4 class="fw-bold mb-0" id="stat-total-hoje">{{ stats.total_hoje|default:0 }}</h4>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Chamados Hoje</small>
+                    <small class="text-muted text-uppercase fw-bold text-xxs">Chamados Hoje</small>
                 </div>
             </div>
         </div>
@@ -40,7 +40,7 @@
                 </div>
                 <div>
                     <h4 class="fw-bold mb-0 text-dark" id="stat-sem-tecnico">{{ stats.sem_tecnico|default:0 }}</h4>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Sem Atribuição</small>
+                    <small class="text-muted text-uppercase fw-bold text-xxs">Sem Atribuição</small>
                 </div>
             </div>
         </div>
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h4 class="fw-bold mb-0 text-danger" id="stat-criticos">{{ stats.criticos|default:0 }}</h4>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Críticos Pendentes</small>
+                    <small class="text-muted text-uppercase fw-bold text-xxs">Críticos Pendentes</small>
                 </div>
             </div>
         </div>
@@ -93,7 +93,7 @@
     </div>
 </div>
 
-<div class="card shadow-sm border-0 overflow-hidden" style="border-radius: 12px;">
+<div class="card shadow-sm border-0 overflow-hidden">
     <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
         <h6 class="mb-0 fw-bold text-primary">
             <i class="fas fa-list-ul me-2" aria-hidden="true"></i>Fila de Chamados (<span id="count-tickets">{{ tickets.count|default:0 }}</span>)
@@ -105,7 +105,7 @@
     </div>
     <div id="fila-container" class="table-responsive">
         <table class="table table-hover align-middle mb-0" aria-label="Tabela de gerenciamento da fila de atendimento" style="table-layout: fixed; width: 100%;">
-            <thead class="bg-light text-muted" style="font-size: 0.85rem;">
+            <thead class="bg-light text-muted small">
                 <tr>
                     <th scope="col" class="ps-4" style="width: 5%;">ID</th>
                     <th scope="col" style="width: 22%;">ASSUNTO</th>
