@@ -1,0 +1,50 @@
+# render.yaml — Central de Chamados PMM
+# Serviço existente: projeto-chamado
+# https://projeto-chamado.onrender.com
+
+services:
+  - type: web
+    name: projeto-chamado
+    runtime: python
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      python manage.py collectstatic --no-input &&
+      python manage.py migrate
+    startCommand: >-
+      gunicorn config.wsgi:application
+      --workers 2
+      --threads 4
+      --timeout 60
+      --max-requests 1000
+    healthCheckPath: /
+    envVars:
+      - key: IS_PRODUCTION
+        value: "true"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings"
+      - key: SECRET_KEY
+        sync: false
+      - key: ALLOWED_HOSTS
+        value: "projeto-chamado.onrender.com"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://projeto-chamado.onrender.com"
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: PUSHER_APP_ID
+        sync: false
+      - key: PUSHER_KEY
+        sync: false
+      - key: PUSHER_SECRET
+        sync: false
+      - key: PUSHER_CLUSTER
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_ADMIN_EMAIL
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

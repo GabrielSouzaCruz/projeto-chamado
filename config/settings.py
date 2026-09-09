@@ -61,17 +61,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECRET_KEY segura (via .env)
 # Em producao (DEBUG=False), SECRET_KEY e obrigatoria.
 DEBUG_LOCAL = os.getenv('DEBUG', 'True').lower() == 'true'
+IS_PRODUCTION = os.environ.get('IS_PRODUCTION', 'false').lower() == 'true'
 _secret = os.getenv('SECRET_KEY')
 if not _secret and not DEBUG_LOCAL:
     raise ImproperlyConfigured('SECRET_KEY e obrigatorio em producao. Configure a variavel de ambiente SECRET_KEY.')
 SECRET_KEY = _secret or 'dev-only-insecure-do-not-deploy'
 
-DEBUG = DEBUG_LOCAL
+DEBUG = not IS_PRODUCTION
 
-ALLOWED_HOSTS = ['projeto-chamado.onrender.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = os.environ.get(
+    'ALLOWED_HOSTS',
+    'localhost,127.0.0.1'
+).split(',')
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://projeto-chamado.onrender.com',
+    origin.strip()
+    for origin in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS',
+        'http://localhost,http://127.0.0.1'
+    ).split(',')
+    if origin.strip()
 ]
 
 # =============================================================================
@@ -152,7 +161,7 @@ TEMPLATES = [
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL'),
-        conn_max_age=0,
+        conn_max_age=600,
         conn_health_checks=True,
         ssl_require=True
     )
@@ -438,6 +447,7 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # -----------------------------------------------------------------------------
 # Configuração do CSP (Content Security Policy) — via django-csp
