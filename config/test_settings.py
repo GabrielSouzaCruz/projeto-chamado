@@ -23,3 +23,15 @@ DATABASES = {
         'NAME': ':memory:',
     }
 }
+
+# CRÍTICO: substituir CompressedManifestStaticFilesStorage por storage simples.
+# CompressedManifestStaticFilesStorage exige collectstatic atualizado para funcionar.
+# Em testes, não precisamos de hashing de arquivos estáticos.
+STORAGES = {
+    **STORAGES,  # manter as outras chaves (default, etc.)
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+STATIC_URL = '/static/'
