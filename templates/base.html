@@ -98,7 +98,7 @@
                 </div>
 
                 <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-2 gap-sm-3 top-bar-right">
-                    <a href="#" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações" onclick="event.preventDefault();">
+                    <a href="#" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações" data-bs-toggle="offcanvas" data-bs-target="#drawerNotificacoes" aria-controls="drawerNotificacoes">
                         <i class="fas fa-bell fa-lg" aria-hidden="true" style="color: var(--primary-color);"></i>
                         <span id="sino-badge" class="badge d-none" aria-hidden="true">0</span>
                     </a>
@@ -122,13 +122,19 @@
             {% endif %}
 
             {% if messages %}
+            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
                 {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border-0 shadow-sm" role="alert">
-                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} me-2"></i>
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="toast align-items-center text-bg-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                            {{ message }}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                    </div>
                 </div>
                 {% endfor %}
+            </div>
             {% endif %}
 
             <main>{% block content %}{% endblock %}</main>
@@ -607,6 +613,32 @@
         btn.setAttribute("aria-busy", "true");
         btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Aguarde...';
     });
+</script>
+
+<!-- Offcanvas: Gaveta de Notificações -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="drawerNotificacoes" aria-labelledby="drawerNotificacoesLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title fw-bold" id="drawerNotificacoesLabel"><i class="fas fa-bell me-2" aria-hidden="true"></i>Notificações</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div id="notificacoes-lista">
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-bell-slash fa-2x mb-3 d-block" aria-hidden="true"></i>
+                <p class="mb-0">Nenhuma notificação no momento.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-init: toasts do Django + poll de notificações -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toast').forEach(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+        toast.show();
+    });
+});
 </script>
 </body>
 </html>
