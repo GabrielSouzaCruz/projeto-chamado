@@ -374,6 +374,7 @@
     (function () {
         const sino = document.getElementById('sino-notificacoes');
         const badge = document.getElementById('sino-badge');
+        const drawerBody = document.querySelector('#drawerNotificacoes .offcanvas-body');
         if (!sino || !badge) return;
 
         let desde = null;
@@ -390,6 +391,8 @@
                 .then(function (res) { return res.ok ? res.json() : null; })
                 .then(function (data) {
                     if (!data) return;
+
+                    // Badge + áudio
                     if (data.qtd > 0) {
                         const ehNovidade = !primeiro && data.qtd > ultimaRastreada;
                         if (ehNovidade) {
@@ -405,16 +408,40 @@
                         badge.classList.add('d-none');
                         ultimaRastreada = 0;
                     }
+
+                    // Gaveta de notificações
+                    if (drawerBody) {
+                        if (data.items && data.items.length > 0) {
+                            var html = '';
+                            for (var i = 0; i < data.items.length; i++) {
+                                var item = data.items[i];
+                                var icone = item.tipo === 'chamado' ? 'fa-ticket-alt' : 'fa-comment-dots';
+                                html += '<a href="' + item.url + '" class="d-block text-decoration-none p-2 mb-1 rounded-2 border-start border-4 border-primary bg-light bg-opacity-50 hover-bg-light">';
+                                html += '<div class="d-flex align-items-start gap-2">';
+                                html += '<i class="fas ' + icone + ' text-primary mt-1" aria-hidden="true"></i>';
+                                html += '<div class="flex-grow-1 min-w-0">';
+                                html += '<div class="fw-bold small text-dark text-truncate">' + item.titulo + '</div>';
+                                html += '<div class="text-muted" style="font-size:0.78rem;">' + item.resumo + '</div>';
+                                html += '<div class="d-flex justify-content-between mt-1">';
+                                html += '<small class="text-muted">' + item.autor + '</small>';
+                                html += '<small class="text-primary fw-bold">' + item.tempo + '</small>';
+                                html += '</div></div></div></a>';
+                            }
+                            drawerBody.innerHTML = html;
+                        } else {
+                            drawerBody.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-bell-slash fa-2x mb-3 d-block" aria-hidden="true"></i><p class="mb-0">Nenhuma notificação no momento.</p></div>';
+                        }
+                    }
+
                     primeiro = false;
                     desde = agora;
                 })
-                .catch(function () {}); // rede fora: tenta de novo no próximo ciclo
+                .catch(function () {});
         }
 
         setInterval(poll, 5000);
         poll();
 
-        // Ao abrir o sino (dashboard) o usuário vê as novidades: limpa o selo.
         sino.addEventListener('click', function () {
             badge.classList.add('d-none');
             ultimaRastreada = 0;
@@ -624,8 +651,8 @@
     <div class="offcanvas-body">
         <div id="notificacoes-lista">
             <div class="text-center text-muted py-5">
-                <i class="fas fa-bell-slash fa-2x mb-3 d-block" aria-hidden="true"></i>
-                <p class="mb-0">Nenhuma notificação no momento.</p>
+                <i class="fas fa-spinner fa-spin fa-2x mb-3 d-block" aria-hidden="true"></i>
+                <p class="mb-0">Carregando notificações...</p>
             </div>
         </div>
     </div>

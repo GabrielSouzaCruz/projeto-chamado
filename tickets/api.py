@@ -68,13 +68,12 @@ def salvar_push_subscription(request):
 @login_required
 @never_cache
 def resumo_notificacoes(request):
-    """Contagem leve de novidades para o Polling do Sino (5s, sem WebSocket).
+    """Contagem + itens de novidades para o Polling do Sino e da Gaveta (5s).
 
-    Devolve quantos itens surgiram desde o parâmetro 'desde' (ISO 8601):
-      - Novas mensagens (não internas, de terceiros) nos chamados do usuário;
-      - Novos chamados abertos/em andamento, apenas para técnicos.
-    Sem 'desde', considera os últimos 5 minutos. O frontend usa o resultado para
-    acender o selo vermelho do sino e tocar o áudio local quando há novidade.
+    Devolve:
+      - qtd: número de itens novos desde 'desde' (ISO 8601);
+      - items: lista de objetos com titulo, resumo, tempo e url para a gaveta.
+    Sem 'desde', considera os últimos 5 minutos.
     """
     desde = None
     desde_str = request.GET.get('desde')
@@ -89,20 +88,65 @@ def resumo_notificacoes(request):
     user = request.user
     eh_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
 
-    qtd = Comentario.objects.filter(
+    items = []
+
+    # Comentários de terceiros nos chamados do usuário
+    comentarios = Comentario.objects.filter(
         interno=False,
         criado_em__gt=desde,
     ).filter(
         Q(ticket__solicitante_id=user.id) | Q(ticket__tecnico_responsavel_id=user.id)
-    ).exclude(autor_id=user.id).count()
+    ).exclude(autor_id=user.id).select_related('ticket', 'autor').order_by('-criado_em')[:20]
 
+    for c in comentarios:
+        items.append({
+            'tipo': 'comentario',
+            'titulo': f'Novo comentário — #{c.ticket.id}',
+            'resumo': c.mensagem[:120] if c.mensagem else 'Anexo enviado',
+            'autor': c.autor.get_full_name() or c.autor.username,
+            'tempo': _tempo_relativo(c.criado_em),
+            'url': f'/tickets/{c.ticket.id}/',
+        })
+
+    # Novos chamados (técnicos)
     if eh_tecnico:
-        qtd += Ticket.objects.filter(
+        tickets = Ticket.objects.filter(
             status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO],
             criado_em__gt=desde,
-        ).count()
+        ).select_related('solicitante', 'categoria').order_by('-criado_em')[:20]
 
-    return JsonResponse({'qtd': qtd})
+        for t in tickets:
+            items.append({
+                'tipo': 'chamado',
+                'titulo': f'#{t.id} — {t.titulo}',
+                'resumo': t.descricao[:120] if t.descricao else (t.categoria.nome if t.categoria else ''),
+                'autor': t.solicitante.get_full_name() or t.solicitante.username,
+                'tempo': _tempo_relativo(t.criado_em),
+                'url': f'/tickets/{t.id}/',
+            })
+
+    items.sort(key=lambda x: x['tempo'], reverse=False)
+
+    return JsonResponse({
+        'qtd': len(items),
+        'items': items,
+    })
+
+
+def _tempo_relativo(dt):
+    """Devolve string de tempo relativo ('há 3 min', 'agora', etc.)."""
+    diff = timezone.now() - dt
+    segundos = int(diff.total_seconds())
+    if segundos < 60:
+        return 'agora'
+    minutos = segundos // 60
+    if minutos < 60:
+        return f'há {minutos} min'
+    horas = minutos // 60
+    if horas < 24:
+        return f'há {horas}h'
+    dias = horas // 24
+    return f'há {dias}d'
 
 
 @login_required

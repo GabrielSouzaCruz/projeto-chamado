@@ -291,6 +291,16 @@
         });
     })();
 </script>
+{% else %}
+<script>
+    // FALLBACK: Pusher desativado — polling de 10s para manter o chat atualizado.
+    (function () {
+        if (typeof window.atualizarChat !== "function") return;
+        setInterval(function () {
+            window.atualizarChat();
+        }, 10000);
+    })();
+</script>
 {% endif %}
 <script>
     // Mobile: a coluna de Gestão vira um drawer lateral (WhatsApp-style)
