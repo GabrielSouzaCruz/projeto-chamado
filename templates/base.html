@@ -27,7 +27,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet" media="print" onload="this.media='all'">
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
@@ -47,7 +47,7 @@
         {% if user.is_authenticated %}
         <nav id="sidebar" aria-label="Menu principal">
             <div class="sidebar-header">
-                <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo">
+                <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo" width="124" height="70" style="height: auto;">
                 <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS</h4>
                 <small style="font-size: 0.65rem; color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
             </div>

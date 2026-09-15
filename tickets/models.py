@@ -153,7 +153,7 @@ class Ticket(models.Model):
     def status_css_class(self):
         classes = {
             self.Status.ABERTO: 'bg-warning text-dark',
-            self.Status.EM_ANDAMENTO: 'bg-info text-white',
+            self.Status.EM_ANDAMENTO: 'bg-info text-dark',
             self.Status.RESOLVIDO: 'bg-success text-white',
             self.Status.CANCELADO: 'bg-danger text-white',
         }
