@@ -49,7 +49,7 @@
             <div class="sidebar-header">
                 <img src="{% static 'image/machado.png' %}" alt="Prefeitura de Machado" class="sidebar-logo" width="124" height="70" style="height: auto;">
                 <h4><i class="fas fa-landmark me-2" style="color: var(--accent-color);"></i>CENTRAL DE CHAMADOS</h4>
-                <small style="font-size: 0.65rem; color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
+                <small class="text-xxs" style="color: var(--accent-color); display: block; margin-top: 5px; font-weight: 600;">Prefeitura de Machado</small>
             </div>
 
             <ul class="list-unstyled mt-4">
@@ -90,7 +90,7 @@
         <div id="content">
             {% if user.is_authenticated %}
             <div class="top-bar">
-                <div class="d-flex align-items-center me-2" style="min-width: 0;">
+                <div class="d-flex align-items-center me-2 min-w-0">
                     <button type="button" id="sidebarCollapse" class="btn btn-light d-lg-none me-2 me-sm-3 flex-shrink-0" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
                         <i class="fas fa-bars"></i>
                     </button>
@@ -110,10 +110,10 @@
                     </div>
                     <div class="user-badge d-flex align-items-center">
                         <div class="text-end d-none d-md-block">
-                            <div class="fw-bold" style="font-size: 0.9rem;">{{ user.get_full_name|default:user.username }}</div>
+                            <div class="fw-bold small">{{ user.get_full_name|default:user.username }}</div>
                             <small class="text-muted">{% if user.is_technician %}Técnico{% else %}Solicitante{% endif %}</small>
                         </div>
-                        <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; font-weight: 700; background-color: var(--primary-color);">
+                        <div class="text-white rounded-circle d-flex align-items-center justify-content-center icon-lg" style="font-weight: 700; background-color: var(--primary-color);">
                             {{ user.username|slice:":1"|upper }}
                         </div>
                     </div>

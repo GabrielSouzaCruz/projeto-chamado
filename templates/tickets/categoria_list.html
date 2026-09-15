@@ -14,10 +14,10 @@
     </a>
 </div>
 
-<div class="card border-0 shadow-sm" style="border-radius: 16px;">
+<div class="card border-0 shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0" aria-label="Tabela de categorias de chamados">
-            <thead class="bg-light text-muted" style="font-size: 0.85rem;">
+            <thead class="bg-light text-muted small">
                 <tr>
                     <th scope="col" class="ps-4 py-3" style="width: 80px;">Ícone</th>
                     <th scope="col" class="py-3">Nome da Categoria</th>
@@ -31,7 +31,7 @@
                 {% for categoria in categorias %}
                 <tr>
                     <td class="ps-4">
-                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px;">
+                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm icon-lg">
                             {% if categoria.icone %}
                                 <i class="fas {{ categoria.icone }} fa-lg" aria-hidden="true"></i>
                             {% else %}

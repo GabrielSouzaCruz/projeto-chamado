@@ -19,7 +19,7 @@
         .wizard-step-transition.wizard-step-run { animation: none; }
     }
 </style>
-<div class="container-fluid py-4" style="max-width: 800px; margin: 0 auto; padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));">
+<div class="container-fluid py-4 form-container-lg" style="padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));">
     
     <div class="text-center mb-4">
         <h2 class="fw-bold text-dark"><i class="fas fa-headset text-primary me-2" aria-hidden="true"></i>Como podemos ajudar?</h2>
@@ -28,15 +28,15 @@
 
     <!-- Barra de Progresso Acessível (WCAG) -->
     <div class="mb-4" aria-live="polite">
-        <div class="progress" style="height: 4px;" role="progressbar"
+        <div class="progress progress-sm" role="progressbar"
              aria-valuemin="0" aria-valuemax="100" aria-valuenow="33" id="progress-bar"
              aria-label="Progresso do formulário">
             <div class="progress-bar bg-primary transition-all" style="width: 33%;" id="progress-fill"></div>
         </div>
         <div class="d-flex justify-content-between align-items-center mt-2">
-            <span class="step-indicator bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-1" style="width: 35px; height: 35px;">1</span>
-            <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-2" style="width: 35px; height: 35px;">2</span>
-            <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold" id="indicator-3" style="width: 35px; height: 35px;">3</span>
+            <span class="step-indicator bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold icon-md" id="indicator-1">1</span>
+            <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold icon-md" id="indicator-2">2</span>
+            <span class="step-indicator bg-light text-muted border rounded-circle d-flex align-items-center justify-content-center shadow-sm fw-bold icon-md" id="indicator-3">3</span>
         </div>
         <span class="visually-hidden" id="step-progress-text" aria-live="polite">Etapa 1 de 3: Identificação do problema</span>
     </div>
@@ -111,11 +111,10 @@
                         </div>
                         <div id="wizard-anexo-preview" class="d-none mx-auto mt-3" style="max-width:280px;">
                             <div class="d-flex align-items-center gap-2 p-2 rounded border bg-white">
-                                <div id="wizard-anexo-thumb" class="flex-shrink-0 d-flex align-items-center justify-content-center rounded bg-light border"
-                                     style="width:44px;height:44px;overflow:hidden;">
+                                <div id="wizard-anexo-thumb" class="flex-shrink-0 d-flex align-items-center justify-content-center rounded bg-light border icon-lg">
                                     <i class="fas fa-image text-secondary" aria-hidden="true"></i>
                                 </div>
-                                <div class="flex-grow-1 text-start" style="min-width:0;">
+                                <div class="flex-grow-1 text-start min-w-0">
                                     <div id="wizard-anexo-nome" class="small text-truncate fw-bold"></div>
                                     <div id="wizard-anexo-tamanho" class="small text-muted"></div>
                                 </div>

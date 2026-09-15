@@ -10,9 +10,8 @@
                     <div class="mt-2">
                         {% if comentario.anexo_eh_imagem %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
-                                <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
-                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm img-preview"
                                      onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
@@ -22,7 +21,7 @@
                         {% endif %}
                     </div>
                 {% endif %}
-                <small class="d-block mt-1 opacity-75" style="font-size: 0.7rem;">
+                <small class="d-block mt-1 opacity-75 text-xs-custom">
                     {{ comentario.criado_em|date:"d/m/Y H:i" }}
                 </small>
             </div>
@@ -34,8 +33,7 @@
                         {% if comentario.anexo_eh_imagem %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
-                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm img-preview"
                                      onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
@@ -45,7 +43,7 @@
                         {% endif %}
                     </div>
                 {% endif %}
-                <small class="d-block mt-1 opacity-75" style="font-size: 0.7rem;">
+                <small class="d-block mt-1 opacity-75 text-xs-custom">
                     Você • {{ comentario.criado_em|date:"d/m/Y H:i" }}
                 </small>
             </div>
@@ -53,7 +51,7 @@
             <div class="chat-bubble bubble-other align-self-start shadow-sm">
                 <div class="fw-bold small text-primary mb-1">
                     <i class="fas fa-user-circle me-1" aria-hidden="true"></i>{{ comentario.autor.get_full_name|default:comentario.autor.username }}
-                    {% if comentario.autor.is_staff %}<span class="badge bg-primary ms-1" style="font-size: 0.65rem;">Suporte TI</span>{% endif %}
+                    {% if comentario.autor.is_staff %}<span class="badge bg-primary ms-1 text-xxs">Suporte TI</span>{% endif %}
                 </div>
                 <p class="mb-0 text-break">{{ comentario.mensagem|linebreaksbr }}</p>
                 {% if comentario.anexo %}
@@ -61,8 +59,7 @@
                         {% if comentario.anexo_eh_imagem %}
                             <a href="{{ comentario.anexo.url }}" target="_blank" class="d-block text-decoration-none" title="Abrir imagem">
                                 <img src="{{ comentario.anexo.url }}" alt="Anexo de imagem"
-                                     class="img-thumbnail rounded border-0 bg-white shadow-sm"
-                                     style="max-width: 200px; max-height: 150px; object-fit: cover;"
+                                     class="img-thumbnail rounded border-0 bg-white shadow-sm img-preview"
                                      onerror="anexoIndisponivel(this)">
                             </a>
                         {% else %}
@@ -72,7 +69,7 @@
                         {% endif %}
                     </div>
                 {% endif %}
-                <small class="d-block mt-1 text-muted" style="font-size: 0.7rem;">
+                <small class="d-block mt-1 text-muted text-xs-custom">
                     {{ comentario.criado_em|date:"d/m/Y H:i" }}
                 </small>
             </div>

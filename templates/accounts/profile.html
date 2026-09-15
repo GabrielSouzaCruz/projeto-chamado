@@ -6,12 +6,11 @@
     <div class="col-md-8 col-lg-6">
 
         <!-- Card Principal de Perfil -->
-        <div class="card shadow-sm border-0" style="border-radius: 16px; overflow: hidden;">
+        <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
 
             <!-- Profile Header -->
             <div class="card-header bg-primary text-white text-center py-4 border-0">
-                <div class="avatar-circle mx-auto d-flex align-items-center justify-content-center"
-                     style="width: 84px; height: 84px; border-radius: 50%; background-color: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.6); font-size: 1.8rem; font-weight: 700;">
+                <div class="avatar-circle mx-auto d-flex align-items-center justify-content-center avatar-profile">
                     {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
                 </div>
                 <h4 class="mb-1 mt-3 fw-bold">{{ user.get_full_name|default:user.username }}</h4>
@@ -91,7 +90,7 @@
                     {% endfor %}
 
                     <div class="d-flex justify-content-end mt-4">
-                        <button type="submit" id="save-btn" class="btn btn-primary px-4 shadow-sm" style="border-radius: 12px;">
+                        <button type="submit" id="save-btn" class="btn btn-primary px-4 shadow-sm">
                             <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                             <i class="fas fa-save me-1"></i><span class="btn-text">Salvar</span>
                         </button>
@@ -109,7 +108,7 @@
         </div>
 
         <!-- Stats de Chamados -->
-        <div class="card mt-4 shadow-sm border-0" style="border-radius: 16px;">
+        <div class="card mt-4 shadow-sm border-0">
             <div class="card-body">
                 <div class="row text-center g-3">
                     <div class="col-md-4">

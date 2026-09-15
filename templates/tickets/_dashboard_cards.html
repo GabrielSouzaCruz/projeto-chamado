@@ -2,7 +2,7 @@
     {# TRAVA DE SEGURANÇA NO HTML #}
     {% if is_technician or ticket.solicitante_id == request.user.id %}
         <div class="col-md-6 col-lg-4 mb-4 ticket-container">
-            <div class="card h-100 shadow-sm border-0 position-relative overflow-hidden" style="border-radius: 15px; transition: transform 0.2s;">
+            <div class="card h-100 shadow-sm border-0 position-relative overflow-hidden">
                 
                 <div class="position-absolute top-0 start-0 h-100" style="width: 6px; background-color: 
                     {% if ticket.status|upper == 'ABERTO' %}#ffc107
@@ -36,7 +36,7 @@
                                 <i class="fas fa-tag me-1 opacity-50"></i>{{ ticket.categoria.nome|default:"Geral" }}
                             </span>
                         {% endif %}
-                        <small class="text-muted" style="font-size: 0.7rem;">
+                        <small class="text-muted text-xs-custom">
                             <i class="far fa-clock me-1"></i>{{ ticket.criado_em|timesince }}
                         </small>
                     </div>

@@ -3,7 +3,7 @@
    para navegação (HTML sempre atualizado, com fallback offline para login).
    Update: Versao True Push V2 - 2026-08-12 */
 
-const CACHE_NAME = 'central-chamados-v4';
+const CACHE_NAME = 'central-chamados-v5';
 
 const PRECACHE_URLS = [
   '/',
@@ -12,6 +12,7 @@ const PRECACHE_URLS = [
   '/static/image/favicon.png',
   '/static/image/pwa-192x192.png',
   '/static/image/pwa-512x512.png',
+  '/static/image/pwa-512x512-maskable.png',
   '/static/audio/notificacao.wav',
 ];
 
