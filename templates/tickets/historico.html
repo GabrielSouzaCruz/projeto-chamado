@@ -3,42 +3,7 @@
 
 {% block title %}Histórico de Chamados - PMM{% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Refinamento dos Filtros */
-    .form-label.small {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: var(--primary-color);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.4rem;
-    }
-
-    /* Multi-select estilizado */
-    select[multiple].form-select-sm {
-        min-height: 100px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        transition: all 0.2s;
-    }
-
-    select[multiple].form-select-sm:focus {
-        border-color: var(--accent-color);
-        box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--accent-color) 10%, transparent);
-    }
-
-    /* Cabeçalho da tabela */
-    .table thead th {
-        background-color: #f8f9fa;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-        color: #6c757d;
-        border-top: none;
-    }
-</style>
-{% endblock %}
+{% block extra_css %}{% endblock %}
 
 {% block content %}
 
@@ -172,14 +137,14 @@
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
-                    <th class="ps-4">ID</th>
-                    <th>Título do Chamado</th>
-                    <th>Solicitante</th>
-                    <th>Prioridade</th>
-                    <th>Status</th>
-                    <th>Criação</th>
-                    <th>Resolução</th>
-                    <th class="text-center">Ações</th>
+                    <th scope="col" class="ps-4">ID</th>
+                    <th scope="col">Título do Chamado</th>
+                    <th scope="col">Solicitante</th>
+                    <th scope="col">Prioridade</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Criação</th>
+                    <th scope="col">Resolução</th>
+                    <th scope="col" class="text-center">Ações</th>
                 </tr>
             </thead>
             <tbody>

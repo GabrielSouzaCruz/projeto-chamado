@@ -47,7 +47,7 @@
 
 /* ---- Skeleton Screens (Esqueletos de Carregamento) ---- */
 .skeleton {
-    background-color: #e9ecef;
+    background-color: var(--skeleton-bg);
     border-radius: 4px;
     display: inline-block;
     position: relative;
@@ -81,10 +81,10 @@ tbody .skeleton-row td { border: 0; padding: 12px 8px; }
 
 /* ---- Dashboard: Overrides globais de cantos arredondados ---- */
 .card {
-    border-radius: 16px !important;
+    border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
-.btn { border-radius: 12px !important; }
+.btn { border-radius: 12px; }
 .form-control, .form-select { border-radius: 12px; }
 
 /* ============================================================
@@ -181,6 +181,48 @@ tbody .skeleton-row td { border: 0; padding: 12px 8px; }
    FILTROS RESPONSIVOS — HISTÓRICO E DEMAIS PÁGINAS
    ============================================================ */
 
+/* ---- Filtros: labels e multi-selects ---- */
+.filtros-section .form-label.small {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.4rem;
+}
+
+.filtros-section select[multiple].form-select-sm {
+    min-height: 100px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.filtros-section select[multiple].form-select-sm:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--accent-color) 10%, transparent);
+}
+
+/* ---- Filtros: cabeçalho da tabela (histórico) ---- */
+.filtros-section .table thead th {
+    background-color: var(--surface-2);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    border-top: none;
+}
+
+/* ---- Botões de ação: touch target mínimo WCAG 2.5.5 (44×44px) ---- */
+.filtros-section .btn-filtrar,
+.filtros-section .btn-limpar,
+.form-filtros .btn[type="submit"] {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Mobile: limitar altura de multi-selects */
 @media (max-width: 575.98px) {
 
@@ -214,4 +256,83 @@ tbody .skeleton-row td { border: 0; padding: 12px 8px; }
     .filtros-section select[size] {
         max-height: 150px;
     }
+}
+
+/* ============================================================
+   DASHBOARD — Hero e KPI icons
+   ============================================================ */
+.hero-gradient {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #2a63b5 60%, #3f84d4 100%);
+    border-radius: 16px;
+}
+.hero-shadow { box-shadow: 0 12px 30px rgba(26, 74, 146, 0.25); }
+.kpi-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+
+/* ============================================================
+   WIZARD — Animação de transição entre passos
+   ============================================================ */
+.border-dashed { border-style: dashed !important; border-width: 2px !important; }
+
+
+@keyframes wizard-fade-slide {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.wizard-step-transition.wizard-step-run {
+    animation: wizard-fade-slide 0.4s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .wizard-step-transition.wizard-step-run { animation: none; }
+}
+
+/* ============================================================
+   DARK MODE — overrides Bootstrap + componentes customizados
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+    .card { background-color: var(--surface-1) !important; border-color: var(--border-color) !important; }
+    .card-header { background-color: var(--surface-2) !important; border-color: var(--border-color) !important; }
+    .card-footer { background-color: var(--surface-2) !important; border-color: var(--border-color) !important; }
+    .table { --bs-table-bg: var(--surface-1); --bs-table-striped-bg: var(--surface-2); color: var(--text-primary); }
+    .table thead th { background-color: var(--surface-2) !important; color: var(--text-secondary) !important; border-color: var(--border-color) !important; }
+    .table td, .table th { border-color: var(--border-color) !important; }
+    .form-control, .form-select {
+        background-color: var(--surface-2);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    .form-control:focus, .form-select:focus {
+        background-color: var(--surface-2);
+        color: var(--text-primary);
+        border-color: var(--primary-color);
+    }
+    .form-control::placeholder { color: var(--text-muted); }
+    .form-control:disabled, .form-control[readonly] {
+        background-color: var(--surface-3);
+        color: var(--text-secondary);
+    }
+    .modal-content { background-color: var(--surface-1); border-color: var(--border-color); }
+    .modal-header, .modal-footer { border-color: var(--border-color); }
+    .offcanvas { background-color: var(--surface-1) !important; color: var(--text-primary); }
+    .offcanvas-header { border-color: var(--border-color) !important; }
+    .alert-info { background-color: color-mix(in srgb, var(--primary-color) 15%, var(--surface-1)); border-color: var(--primary-color); color: var(--text-primary); }
+    .bg-light { background-color: var(--surface-2) !important; }
+    .bg-white { background-color: var(--surface-1) !important; }
+    .text-dark { color: var(--text-primary) !important; }
+    .text-muted { color: var(--text-secondary) !important; }
+    .border { border-color: var(--border-color) !important; }
+    .border-bottom { border-color: var(--border-color) !important; }
+    .input-group-text { background-color: var(--surface-2); border-color: var(--border-color); color: var(--text-secondary); }
+    .btn-light { background-color: var(--surface-2); border-color: var(--border-color); color: var(--text-primary); }
+    .btn-outline-secondary { border-color: var(--border-color); color: var(--text-secondary); }
+    .page-link { background-color: var(--surface-1); border-color: var(--border-color); color: var(--primary-color); }
+    .page-item.active .page-link { background-color: var(--primary-color); border-color: var(--primary-color); }
+    .top-bar { box-shadow: 0 4px 20px var(--shadow-md); }
+    .skeleton { background-color: var(--skeleton-bg); }
+    .stat-card { background-color: var(--surface-1) !important; }
 }

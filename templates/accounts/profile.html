@@ -10,7 +10,7 @@
 
             <!-- Profile Header -->
             <div class="card-header bg-primary text-white text-center py-4 border-0">
-                <div class="avatar-circle mx-auto d-flex align-items-center justify-content-center avatar-profile">
+                <div class="avatar-circle mx-auto d-flex align-items-center justify-content-center avatar-profile" aria-hidden="true">
                     {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
                 </div>
                 <h4 class="mb-1 mt-3 fw-bold">{{ user.get_full_name|default:user.username }}</h4>
@@ -34,7 +34,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Nome de Usuário</label>
-                            <input type="text" value="{{ user.username }}" class="form-control bg-light" disabled>
+                            <input type="text" value="{{ user.username }}" class="form-control bg-light" disabled aria-disabled="true" aria-label="Nome de usuário (somente leitura)">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">E-mail</label>

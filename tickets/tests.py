@@ -526,7 +526,8 @@ class TesteWebPush(BaseChamadoTest):
             'actions': [{'action': 'abrir_chamado', 'title': 'Abrir Chamado'}],
             'unread_count': 0,
         })
-        self.assertEqual(kwargs['vapid_claims'], {'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'})
+        expected_sub = settings.VAPID_ADMIN_EMAIL if settings.VAPID_ADMIN_EMAIL.startswith('mailto:') else f'mailto:{settings.VAPID_ADMIN_EMAIL}'
+        self.assertEqual(kwargs['vapid_claims'], {'sub': expected_sub})
 
     def test_vapid_admin_email_vazio_usa_fallback(self):
         """VAPID_ADMIN_EMAIL vazio → fallback 'mailto:admin@localhost.com'."""

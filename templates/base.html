@@ -8,7 +8,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#1A4A92">
+    <meta name="theme-color" content="#1A4A92" id="meta-theme-color">
     <meta name="description" content="Central de Chamados - Sistema de abertura e acompanhamento de chamados de TI.">
     <!-- Anti-cache: desencoraja o navegador de armazenar páginas autenticadas.
          (Em browsers modernos os meta-tags são o mínimo; a garantia forte vem
@@ -33,6 +33,16 @@
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
     {% block extra_css %}{% endblock %}
     <link rel="icon" href="{% static 'image/favicon.png' %}">
+    <script>
+    (function() {
+        const salvo = localStorage.getItem('theme');
+        if (salvo === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else if (salvo === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
 </head>
 <body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
 
@@ -98,9 +108,12 @@
                 </div>
 
                 <div class="d-flex align-items-center justify-content-end flex-shrink-0 ms-auto gap-2 gap-sm-3 top-bar-right">
+                    <button type="button" id="btn-theme-toggle" class="btn btn-link p-0 border-0" aria-label="Alternar modo escuro" title="Alternar tema">
+                        <i class="fas fa-moon fa-lg" id="theme-icon" aria-hidden="true" style="color: var(--primary-color);"></i>
+                    </button>
                     <a href="#" id="sino-notificacoes" class="position-relative" title="Notificações" aria-label="Notificações" data-bs-toggle="offcanvas" data-bs-target="#drawerNotificacoes" aria-controls="drawerNotificacoes">
                         <i class="fas fa-bell fa-lg" aria-hidden="true" style="color: var(--primary-color);"></i>
-                        <span id="sino-badge" class="badge d-none" aria-hidden="true">0</span>
+                        <span id="sino-badge" class="badge d-none" aria-label="Notificações não lidas: 0" role="status">0</span>
                     </a>
                     <div id="notif-permission-item" class="d-none" title="Notificações do navegador">
                         <button type="button" id="btn-ativar-notificacoes" class="notif-enable-btn" aria-label="Ativar notificações do navegador">
@@ -374,7 +387,7 @@
     (function () {
         const sino = document.getElementById('sino-notificacoes');
         const badge = document.getElementById('sino-badge');
-        const drawerBody = document.querySelector('#drawerNotificacoes .offcanvas-body');
+        const drawerBody = document.getElementById('notificacoes-lista');
         if (!sino || !badge) return;
 
         let desde = null;
@@ -449,6 +462,38 @@
     })();
 </script>
 
+<script>
+    (function() {
+        var btn = document.getElementById('btn-theme-toggle');
+        var icon = document.getElementById('theme-icon');
+        var meta = document.getElementById('meta-theme-color');
+
+        function aplicarTema(tema) {
+            if (tema === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (icon) { icon.classList.remove('fa-moon'); icon.classList.add('fa-sun'); }
+                if (meta) meta.setAttribute('content', '#0f1923');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                if (icon) { icon.classList.remove('fa-sun'); icon.classList.add('fa-moon'); }
+                if (meta) meta.setAttribute('content', '#1A4A92');
+            }
+            localStorage.setItem('theme', tema);
+        }
+
+        var temaAtual = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        aplicarTema(temaAtual);
+
+        if (btn) {
+            btn.addEventListener('click', function() {
+                var atual = document.documentElement.getAttribute('data-theme');
+                aplicarTema(atual === 'dark' ? 'light' : 'dark');
+            });
+        }
+    })();
+</script>
+
     <!-- Pusher Global (Dashboard + Fila): subscreve canal global-notifications
          para receber dashboard-update em tempo real, substituindo o polling de 5s. -->
     {% if PUSHER_ENABLED %}
@@ -472,28 +517,12 @@
     {% endif %}
 {% endif %}
 
-<!-- Toast container global (injeção única) -->
-<div id="toast-container-global" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;" aria-live="polite" aria-atomic="true"></div>
-
 <script>
-    // Helper global para mostrar Toast via Polling
+    // Alias unificado — usa o sistema de toast já existente (mostrarNotificacao)
     window.mostrarToastNotificacao = function(mensagem) {
-        const container = document.getElementById('toast-container-global');
-        if (!container) return;
-        const toastEl = document.createElement('div');
-        toastEl.className = 'toast align-items-center text-white bg-primary border-0 shadow-lg';
-        toastEl.setAttribute('role', 'alert');
-        toastEl.setAttribute('aria-live', 'assertive');
-        toastEl.setAttribute('aria-atomic', 'true');
-        toastEl.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">${mensagem}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
-            </div>`;
-        container.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-        toast.show();
-        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        if (typeof mostrarNotificacao === 'function') {
+            mostrarNotificacao(mensagem, 'info');
+        }
     };
 </script>
 
@@ -643,13 +672,13 @@
 </script>
 
 <!-- Offcanvas: Gaveta de Notificações -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="drawerNotificacoes" aria-labelledby="drawerNotificacoesLabel">
+<div class="offcanvas offcanvas-end" tabindex="-1" id="drawerNotificacoes" aria-labelledby="drawerNotificacoesLabel" role="region" aria-label="Gaveta de notificações">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title fw-bold" id="drawerNotificacoesLabel"><i class="fas fa-bell me-2" aria-hidden="true"></i>Notificações</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
     </div>
     <div class="offcanvas-body">
-        <div id="notificacoes-lista">
+        <div id="notificacoes-lista" aria-live="polite" aria-relevant="additions">
             <div class="text-center text-muted py-5">
                 <i class="fas fa-spinner fa-spin fa-2x mb-3 d-block" aria-hidden="true"></i>
                 <p class="mb-0">Carregando notificações...</p>

@@ -3,22 +3,7 @@
 {% block title %}Novo Chamado - PMM{% endblock %}
 
 {% block content %}
-<style>
-    .border-dashed { border-style: dashed !important; border-width: 2px !important; }
 
-    /* ===== Micro-animação de transição entre passos do Wizard ===== */
-    @keyframes wizard-fade-slide {
-        from { opacity: 0; transform: translateY(16px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-    .wizard-step-transition.wizard-step-run {
-        animation: wizard-fade-slide 0.4s ease-out;
-    }
-    /* Respeita usuários com "reduzir movimento" (WCAG) */
-    @media (prefers-reduced-motion: reduce) {
-        .wizard-step-transition.wizard-step-run { animation: none; }
-    }
-</style>
 <div class="container-fluid py-4 form-container-lg" style="padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));">
     
     <div class="text-center mb-4">
@@ -47,7 +32,7 @@
                 {% csrf_token %}
                 
                 <!-- PASSO 1: Categoria e Título -->
-                <section id="step-1" role="group" aria-labelledby="step-1-title">
+                <section id="step-1" aria-labelledby="step-1-title">
                     <h5 id="step-1-title" class="fw-bold mb-4 text-primary">1. Identificação Básica</h5>
 
                     <div class="mb-4">
@@ -71,7 +56,7 @@
                 </section>
 
                 <!-- PASSO 2: Descrição e Prioridade -->
-                <section id="step-2" role="group" aria-labelledby="step-2-title" class="d-none">
+                <section id="step-2" aria-labelledby="step-2-title" class="d-none">
                     <h5 id="step-2-title" class="fw-bold mb-4 text-primary">2. Detalhes e Prioridade</h5>
 
                     <div class="mb-4">
@@ -99,12 +84,12 @@
                 </section>
 
                 <!-- PASSO 3: Anexo e Envio -->
-                <section id="step-3" role="group" aria-labelledby="step-3-title" class="d-none">
+                <section id="step-3" aria-labelledby="step-3-title" class="d-none">
                     <h5 id="step-3-title" class="fw-bold mb-4 text-primary">3. Evidências e Envio</h5>
 
                     <div class="mb-4 p-4 border rounded-3 bg-light text-center border-dashed">
                         <i class="fas fa-cloud-upload-alt fa-3x text-secondary mb-3" aria-hidden="true"></i>
-                        <legend class="form-label fw-bold d-block">Anexar Ficheiro ou Captura de Ecrã (Opcional)</legend>
+                        <label class="form-label fw-bold d-block">Anexar Ficheiro ou Captura de Ecrã (Opcional)</label>
                         <div class="d-flex justify-content-center flex-column align-items-center gap-2">
                             {{ form.anexo }}
                             <span id="wizard-file-name" class="small text-muted">Também podes colar uma imagem com Ctrl+V nesta etapa.</span>

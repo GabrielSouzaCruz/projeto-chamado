@@ -3,19 +3,7 @@
 {% block title %}Dashboard - Central de Chamados PMM{% endblock %}
 
 {% block content %}
-<style>
-    .hero-gradient {
-        background: linear-gradient(135deg, var(--primary-color) 0%, #2a63b5 60%, #3f84d4 100%);
-        border-radius: 16px;
-    }
-    .hero-shadow { box-shadow: 0 12px 30px rgba(26, 74, 146, 0.25); }
-    .kpi-icon {
-        width: 52px; height: 52px;
-        border-radius: 14px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-</style>
+
 
 <!-- 1. HERO SECTION: Boas-Vindas Dinâmicas + CTA -->
 <section class="hero-gradient hero-shadow text-white mb-4 p-4 p-md-5 position-relative overflow-hidden">
@@ -197,22 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 5000);
 
-    // Relógio Digital
-    setInterval(() => {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador && !indicador.innerHTML.includes('spinner') && !indicador.innerHTML.includes('Atualizado agora')) {
-            const horaAtual = new Date().toLocaleTimeString('pt-BR');
-            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${horaAtual}`;
-        }
-    }, 1000);
-    
-    // Remove o "Atualizado agora" após 15 segundos
-    setInterval(() => {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador && indicador.innerHTML.includes('Atualizado agora')) {
-            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
-        }
-    }, 1000);
+    iniciarRelogioIndicador('indicador-atualizacao');
 });
 </script>
 {% endblock %}

@@ -1,0 +1,26 @@
+{
+  "qtd": 3,
+  "items": [
+    {
+      "titulo": "Chamado #42 atualizado",
+      "resumo": "Técnico assumiu o chamado",
+      "autor": "João Silva",
+      "tempo": "há 5 minutos",
+      "url": "/tickets/42/"
+    },
+    {
+      "titulo": "Chamado #38 resolvido",
+      "resumo": "Status alterado para Resolvido",
+      "autor": "Maria Costa",
+      "tempo": "há 1 hora",
+      "url": "/tickets/38/"
+    },
+    {
+      "titulo": "Novo chamado #50",
+      "resumo": "Aguardando atribuição",
+      "autor": "Pedro Alves",
+      "tempo": "há 2 horas",
+      "url": "/tickets/50/"
+    }
+  ]
+}

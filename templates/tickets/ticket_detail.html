@@ -106,7 +106,7 @@
             </section>
         </article>
 
-        <aside class="col-lg-4" id="aside-gestao">
+        <aside class="col-lg-4" id="aside-gestao" aria-label="Informações e ações do chamado">
 
             <!-- Metadados do Chamado (visível a todos) -->
             <div class="card management-card mb-4 border-0 shadow-sm">
@@ -200,12 +200,12 @@
 
 {% if ticket.solicitante == request.user or request.user.is_superuser %}
 {% if ticket.status != ticket.Status.CANCELADO %}
-<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-hidden="true" aria-labelledby="modalCancelarLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-3">
             <div class="modal-body p-5 text-center">
                 <i class="fas fa-exclamation-circle fa-4x text-danger mb-4"></i>
-                <h4 class="fw-bold">Cancelar Chamado?</h4>
+                <h4 class="fw-bold" id="modalCancelarLabel">Cancelar Chamado?</h4>
                 <p class="text-muted">Esta ação será registrada no histórico e não pode ser desfeita pelo solicitante.</p>
                 <div class="d-flex justify-content-center gap-3 mt-4">
                     <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">Voltar</button>
@@ -222,12 +222,12 @@
 {% endif %}
 
 {% if request.user.is_superuser %}
-<div class="modal fade" id="modalApagarTicket" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalApagarTicket" tabindex="-1" aria-hidden="true" aria-labelledby="modalApagarLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-3">
             <div class="modal-body p-5 text-center">
                 <i class="fas fa-trash-alt fa-4x text-danger mb-4"></i>
-                <h4 class="fw-bold">Apagar Definitivamente?</h4>
+                <h4 class="fw-bold" id="modalApagarLabel">Apagar Definitivamente?</h4>
                 <p class="text-muted">Ação irreversível! O chamado <strong>#{{ ticket.id }}</strong> e todo o seu histórico de comentários será removido do banco de dados.</p>
                 <div class="d-flex justify-content-center gap-3 mt-4">
                     <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">Voltar</button>
@@ -249,6 +249,7 @@
     // (Passo 3 do formulário /tickets/novo/). Se chegamos nesta página
     // recém-saídos do formulário, substituímos o estado atual do histórico
     // para que o "Voltar" siga para o dashboard (/tickets/).
+    document.body.classList.add('page-chat');
     (function () {
         const ref = document.referrer ? document.referrer.split(/[?#]/)[0] : '';
         if (!/\/tickets\/novo\/?$/.test(ref)) return;

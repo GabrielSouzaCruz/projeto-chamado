@@ -62,7 +62,7 @@
 
 <div class="card mb-4 border-0 shadow-sm">
     <div class="card-body p-3">
-        <form method="get" class="row g-3 align-items-end" id="form-filtros-admin">
+        <form method="get" class="row g-3 align-items-end form-filtros" id="form-filtros-admin">
             <div class="col-md-4">
                 <label for="filtro-status" class="form-label small fw-bold text-muted">Status do Ticket</label>
                 <select name="status" id="filtro-status" class="form-select border-2">
@@ -82,10 +82,10 @@
                 </select>
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button type="submit" class="btn btn-primary w-100 fw-bold border-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold border-2 btn-filtrar">
                     <i class="fas fa-search me-2" aria-hidden="true"></i>Filtrar
                 </button>
-                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-light border-2 fw-bold text-muted px-4" title="Limpar Filtros">
+                <a href="{% url 'tickets:fila_admin' %}" class="btn btn-light border-2 fw-bold text-muted btn-action-circle" title="Limpar Filtros">
                     <i class="fas fa-filter-circle-xmark" aria-hidden="true"></i>
                 </a>
             </div>
@@ -244,21 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
 
-    // Relógio Digital
-    setInterval(() => {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador && !indicador.innerHTML.includes('spinner') && !indicador.innerHTML.includes('Atualizado agora')) {
-            const horaAtual = new Date().toLocaleTimeString('pt-BR');
-            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${horaAtual}`;
-        }
-    }, 1000);
-    
-    setInterval(() => {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador && indicador.innerHTML.includes('Atualizado agora')) {
-            indicador.innerHTML = `<i class="fas fa-clock text-primary me-1"></i> ${new Date().toLocaleTimeString('pt-BR')}`;
-        }
-    }, 1000);
+    iniciarRelogioIndicador('indicador-atualizacao');
 });
 </script>
 {% endblock %}

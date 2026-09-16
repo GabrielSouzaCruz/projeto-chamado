@@ -40,3 +40,25 @@ function restaurarBotao(btn) {
     btn.removeAttribute("aria-busy");
     if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
 }
+
+// ---- Relógio digital + indicador de atualização (Dashboard e Fila Admin) ----
+function iniciarRelogioIndicador(idIndicador) {
+    const indicador = document.getElementById(idIndicador);
+    if (!indicador) return;
+
+    function atualizarHora() {
+        if (!indicador.innerHTML.includes('Atualizado agora') &&
+            !indicador.innerHTML.includes('spinner')) {
+            indicador.innerHTML = '<i class="fas fa-clock text-primary me-1"></i> ' +
+                new Date().toLocaleTimeString('pt-BR');
+        }
+    }
+
+    setInterval(function() {
+        if (indicador.innerHTML.includes('Atualizado agora')) {
+            atualizarHora();
+        }
+    }, 15000);
+
+    setInterval(atualizarHora, 1000);
+}
