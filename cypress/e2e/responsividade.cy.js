@@ -36,8 +36,8 @@ describe('Responsividade e Layout (base.html)', () => {
         }
       });
 
-      // O loader global não pode ficar cobrindo a tela após o carregamento.
-      cy.get('#global-loader').should('have.class', 'd-none');
+      // O loader global foi removido do base.html (nenhum overlay pode cobrir a tela).
+      cy.get('#global-loader').should('not.exist');
     });
   });
 

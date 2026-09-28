@@ -46,13 +46,6 @@
 </head>
 <body class="{% if not user.is_authenticated %}no-sidebar{% endif %}">
 
-    <!-- Global Page Loader — visível apenas em Full Page Reloads/Redirections -->
-    <div id="global-loader" class="d-none" aria-hidden="true">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Carregando...</span>
-        </div>
-    </div>
-
     <div class="wrapper">
         {% if user.is_authenticated %}
         <nav id="sidebar" aria-label="Menu principal">
@@ -374,90 +367,56 @@
 </script>
 {% endif %}
 
-<!-- Rollback tático: o WebSocket (Pusher) foi removido do base.html. A Fila,
-     o Dashboard e as notificações usam Polling (fetch de 5s). O Pusher passou
-     a viver exclusivamente na tela de Chat (templates/tickets/ticket_detail.html),
-     onde subscreve apenas o canal ticket-N para novo_comentario. -->
 {% if user.is_authenticated %}
 <script>
-    // POLLING DE NOTIFICAÇÕES (5s) — sem WebSocket global: o Sino consulta o
-    // backend (api_resumo_notificacoes) e acende o selo vermelho + toca o áudio
-    // local sempre que surge uma novidade inédita (novo chamado p/ técnicos,
-    // nova mensagem nos chamados do usuário).
+    // GAVETA DE NOTIFICAÇÕES — o resumo do Sino é buscado SOMENTE ao abrir a
+    // gaveta (sem polling global/setInterval). O clique no sino já abre a
+    // gaveta via data-bs-toggle do Bootstrap; o fetch roda no evento
+    // 'show.bs.offcanvas' e renderiza a lista (ou o estado vazio).
     (function () {
-        const sino = document.getElementById('sino-notificacoes');
         const badge = document.getElementById('sino-badge');
-        const drawerBody = document.getElementById('notificacoes-lista');
-        if (!sino || !badge) return;
+        const sino = document.getElementById('sino-notificacoes');
+        if (!sino) return;
 
-        let desde = null;
-        let ultimaRastreada = 0;
-        let primeiro = true;
-
-        function poll() {
-            const agora = new Date().toISOString();
-            const url = "{% url 'tickets:api_resumo_notificacoes' %}" +
-                '?a=' + Date.now() +
-                (desde ? '&desde=' + encodeURIComponent(desde) : '');
-
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
-                .then(function (res) { return res.ok ? res.json() : null; })
-                .then(function (data) {
-                    if (!data) return;
-
-                    // Badge + áudio
-                    if (data.qtd > 0) {
-                        const ehNovidade = !primeiro && data.qtd > ultimaRastreada;
-                        if (ehNovidade) {
-                            notificacaoAudio.play().catch(function () {});
-                            if (typeof window.mostrarToastNotificacao === 'function') {
-                                window.mostrarToastNotificacao('Você tem novas notificações ou mensagens');
-                            }
-                        }
-                        badge.textContent = data.qtd > 99 ? '99+' : String(data.qtd);
-                        badge.classList.remove('d-none');
-                        ultimaRastreada = data.qtd;
-                    } else {
-                        badge.classList.add('d-none');
-                        ultimaRastreada = 0;
-                    }
-
-                    // Gaveta de notificações
-                    if (drawerBody) {
-                        if (data.items && data.items.length > 0) {
-                            var html = '';
-                            for (var i = 0; i < data.items.length; i++) {
-                                var item = data.items[i];
-                                var icone = item.tipo === 'chamado' ? 'fa-ticket-alt' : 'fa-comment-dots';
-                                html += '<a href="' + item.url + '" class="d-block text-decoration-none p-2 mb-1 rounded-2 border-start border-4 border-primary bg-light bg-opacity-50 hover-bg-light">';
-                                html += '<div class="d-flex align-items-start gap-2">';
-                                html += '<i class="fas ' + icone + ' text-primary mt-1" aria-hidden="true"></i>';
-                                html += '<div class="flex-grow-1 min-w-0">';
-                                html += '<div class="fw-bold small text-dark text-truncate">' + item.titulo + '</div>';
-                                html += '<div class="text-muted" style="font-size:0.78rem;">' + item.resumo + '</div>';
-                                html += '<div class="d-flex justify-content-between mt-1">';
-                                html += '<small class="text-muted">' + item.autor + '</small>';
-                                html += '<small class="text-primary fw-bold">' + item.tempo + '</small>';
-                                html += '</div></div></div></a>';
-                            }
-                            drawerBody.innerHTML = html;
-                        } else {
-                            drawerBody.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-bell-slash fa-2x mb-3 d-block" aria-hidden="true"></i><p class="mb-0">Nenhuma notificação no momento.</p></div>';
-                        }
-                    }
-
-                    primeiro = false;
-                    desde = agora;
-                })
-                .catch(function () {});
+        function renderizar(data) {
+            const drawerBody = document.getElementById('notificacoes-lista');
+            if (!drawerBody) return;
+            if (data.items && data.items.length > 0) {
+                let html = '';
+                for (let i = 0; i < data.items.length; i++) {
+                    const item = data.items[i];
+                    const icone = item.tipo === 'chamado' ? 'fa-ticket-alt' : 'fa-comment-dots';
+                    html += '<a href="' + item.url + '" class="d-block text-decoration-none p-2 mb-1 rounded-2 border-start border-4 border-primary bg-light bg-opacity-50 hover-bg-light">';
+                    html += '<div class="d-flex align-items-start gap-2">';
+                    html += '<i class="fas ' + icone + ' text-primary mt-1" aria-hidden="true"></i>';
+                    html += '<div class="flex-grow-1 min-w-0">';
+                    html += '<div class="fw-bold small text-dark text-truncate">' + item.titulo + '</div>';
+                    html += '<div class="text-muted" style="font-size:0.78rem;">' + item.resumo + '</div>';
+                    html += '<div class="d-flex justify-content-between mt-1">';
+                    html += '<small class="text-muted">' + item.autor + '</small>';
+                    html += '<small class="text-primary fw-bold">' + item.tempo + '</small>';
+                    html += '</div></div></div></a>';
+                }
+                drawerBody.innerHTML = html;
+            } else {
+                drawerBody.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-bell-slash fa-2x mb-3 d-block" aria-hidden="true"></i><p class="mb-0">Nenhuma notificação no momento.</p></div>';
+            }
         }
 
-        setInterval(poll, 5000);
-        poll();
-
-        sino.addEventListener('click', function () {
-            badge.classList.add('d-none');
-            ultimaRastreada = 0;
+        // A gaveta é montada DEPOIS deste script no DOM: registra no DOMContentLoaded.
+        document.addEventListener('DOMContentLoaded', function () {
+            const drawer = document.getElementById('drawerNotificacoes');
+            if (!drawer) return;
+            drawer.addEventListener('show.bs.offcanvas', function () {
+                if (badge) badge.classList.add('d-none');
+                fetch("{% url 'tickets:api_resumo_notificacoes' %}" + '?a=' + Date.now(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    cache: 'no-store'
+                })
+                    .then(function (res) { return res.ok ? res.json() : null; })
+                    .then(function (data) { if (data) renderizar(data); })
+                    .catch(function () {});
+            });
         });
     })();
 </script>
@@ -494,27 +453,6 @@
     })();
 </script>
 
-    <!-- Pusher Global (Dashboard + Fila): subscreve canal global-notifications
-         para receber dashboard-update em tempo real, substituindo o polling de 5s. -->
-    {% if PUSHER_ENABLED %}
-    <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
-    <script>
-        (function () {
-            const pusher = new Pusher("{{ PUSHER_KEY }}", {
-                cluster: "{{ PUSHER_CLUSTER }}",
-                forceTLS: true,
-                enabledTransports: ["ws", "wss"],
-            });
-            const canal = pusher.subscribe("global-notifications");
-            canal.bind("dashboard-update", function (data) {
-                if (!data) return;
-                if (typeof window.atualizarDashboard === "function") {
-                    window.atualizarDashboard();
-                }
-            });
-        })();
-    </script>
-    {% endif %}
 {% endif %}
 
 <script>
@@ -593,25 +531,6 @@
     });
 </script>
 
-<!-- Global Page Loader: exibido apenas em Full Page Reloads/Redirections.
-     beforeunload dispara antes de qualquer navegação de página inteira;
-     pageshow esconde o loader ao voltar do BFCache (botão Voltar do navegador).
-     Requisições AJAX (chat, filtros, etc.) NÃO disparam beforeunload. -->
-<script>
-    (function() {
-        const loader = document.getElementById("global-loader");
-        if (!loader) return;
-
-        window.addEventListener("beforeunload", function() {
-            loader.classList.remove("d-none");
-        });
-
-        window.addEventListener("pageshow", function() {
-            loader.classList.add("d-none");
-        });
-    })();
-</script>
-
 <!-- Registro do Service Worker (PWA) — roda apenas se o navegador suportar -->
 <script>
     if ('serviceWorker' in navigator) {
@@ -625,50 +544,6 @@
                 });
         });
     }
-</script>
-
-<!-- BFCache killer: impede acesso "fantasma" a páginas autenticadas via botão
-     Voltar. Quando a página é restaurada do Back-Forward Cache
-     (event.persisted === true), recarrega imediatamente para o servidor
-     revalidar a sessão — se a sessão já morreu (ex.: após Logout), o Django
-     redireciona para o login em vez de deixar a Dashboard/Fila "quebrada"
-     tentando reconectar serviços (Pusher) sem autorização. -->
-<script>
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            window.location.reload();
-        }
-    });
-</script>
-
-<!-- Prevenção GLOBAL de Duplo Clique (Double Submit): em qualquer <form>
-     submetido, desativa o botão de submit e mostra um spinner Bootstrap 5.
-     - Só age no evento submit: botões do tipo "button" (passos do wizard,
-       abrir modal, etc.) nunca disparam isto.
-     - AJAX (chat, ...): se outro handler já chamou event.preventDefault(),
-       defaultPrevented fica true e este listener não interfere.
-     - Wizard (novalidate): usa validação própria por passo; não bloqueamos
-       com checkValidity().
-     - Forms com spinner local (cadastro, cancelar): o botão já vem disabled
-       quando este listener roda (fase de bubble) → skip. -->
-<script>
-    document.addEventListener("submit", function(event) {
-        const form = event.target;
-        if (!(form instanceof HTMLFormElement)) return;
-
-        // Já tratado por uma lógica AJAX/local (event.preventDefault()).
-        if (event.defaultPrevented) return;
-
-        // Validação nativa do HTML5; wizard (novalidate) valida por conta própria.
-        if (!form.noValidate && !form.checkValidity()) return;
-
-        const btn = form.querySelector('button[type="submit"], input[type="submit"]');
-        if (!btn || btn.disabled) return; // sem submit ou já processado localmente
-
-        btn.disabled = true;
-        btn.setAttribute("aria-busy", "true");
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Aguarde...';
-    });
 </script>
 
 <!-- Offcanvas: Gaveta de Notificações -->
@@ -687,7 +562,7 @@
     </div>
 </div>
 
-<!-- Auto-init: toasts do Django + poll de notificações -->
+<!-- Auto-init: toasts do Django -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.toast').forEach(function(toastEl) {
