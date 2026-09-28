@@ -52,9 +52,12 @@
             </a>
             
             {% if not ticket.tecnico_responsavel and ticket.status == 'aberto' and user.is_technician %}
-            <a href="{% url 'tickets:take' ticket.id %}" class="btn btn-success btn-action-circle shadow-sm" title="Assumir chamado #{{ ticket.id }}">
-                <i class="fas fa-hand-paper"></i>
-            </a>
+            <form method="post" action="{% url 'tickets:take' ticket.id %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-action-circle shadow-sm" title="Assumir chamado #{{ ticket.id }}">
+                    <i class="fas fa-hand-paper"></i>
+                </button>
+            </form>
             {% endif %}
         </div>
     </td>

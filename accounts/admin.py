@@ -136,7 +136,11 @@ class CustomUserAdmin(UserAdmin):
     add_fieldsets = UserAdmin.add_fieldsets + (
         ('Informações Adicionais', {
             'fields': ('is_technician', 'departamento', 'telefone'),
-            'description': 'Campos específicos do sistema de chamados'
+            'description': (
+                'Campos específicos do sistema de chamados. '
+                'Contas criadas aqui são salvas com must_change_password=True: '
+                'o usuário é obrigado a trocar a senha no primeiro acesso.'
+            ),
         }),
     )
     """
@@ -178,6 +182,17 @@ class CustomUserAdmin(UserAdmin):
     ordering = ['username']
 
     actions = ['resetar_senha_temporaria']
+
+    def save_model(self, request, obj, form, change):
+        """
+        Contas criadas APENAS pelo admin (cadastro público removido).
+
+        Em criações (change=False) força must_change_password=True, garantindo
+        que o usuário troque a senha temporária definida no primeiro acesso.
+        """
+        if not change:
+            obj.must_change_password = True
+        super().save_model(request, obj, form, change)
 
     def resetar_senha_temporaria(self, request, queryset):
         """Gera senha temporaria e marca must_change_password=True."""

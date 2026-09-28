@@ -4,18 +4,17 @@ Formulários de autenticação e gerenciamento de usuários.
 
 Formulários disponíveis:
 - LoginForm: Autenticação de usuários (Bootstrap styled)
-- UserRegistrationForm: Registro de novos usuários
 - ProfileUpdateForm: Atualização de perfil
 
 Nota: Este arquivo complementa accounts/views.py com formulários
 customizados para as views de autenticação.
+
+Nota: O formulário de registro público (UserRegistrationForm) foi removido
+junto com a rota register/ — contas são criadas apenas pelo admin.
 """
 
-import unicodedata
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
+from django.contrib.auth.forms import AuthenticationForm
 
 from .models import User
 
@@ -47,108 +46,6 @@ class LoginForm(AuthenticationForm):
             'autocomplete': 'current-password'
         })
     )
-
-
-# =============================================================================
-# REGISTRO
-# =============================================================================
-
-class UserRegistrationForm(UserCreationForm):
-    """
-    Formulário principal de registro de novos usuários.
-    O 'username' foi ocultado da tela e é gerado automaticamente no backend.
-    """
-    
-    email = forms.EmailField(
-        required=True,
-        widget=forms.EmailInput(attrs={'class': 'form-control'}),
-        help_text='E-mail válido é obrigatório'
-    )
-    
-    first_name = forms.CharField(
-        max_length=30,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        label='Nome'
-    )
-    
-    last_name = forms.CharField(
-        max_length=30,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        label='Sobrenome'
-    )
-    
-    class Meta:
-        model = User
-        # 'username' removido daqui para não aparecer no formulário HTML
-        fields = ['email', 'first_name', 'last_name', 'departamento', 'telefone']
-        widgets = {
-            'departamento': forms.TextInput(attrs={'class': 'form-control'}),
-            'telefone': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-    aceitou_termos = forms.BooleanField(
-        required=True,
-        label='Li e aceito os Termos de Uso e a Política de Privacidade',
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-    )
-    
-    def clean_email(self):
-        """Valida e-mail único no sistema."""
-        email = self.cleaned_data.get('email')
-        
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError('Este e-mail já está cadastrado.')
-        
-        return email
-    
-    def clean_password1(self):
-        """Valida força da senha usando validadores do Django."""
-        password = self.cleaned_data.get('password1')
-        
-        try:
-            validate_password(password)
-        except ValidationError as e:
-            raise forms.ValidationError(e.messages)
-        
-        return password
-
-    def save(self, commit=True):
-        """
-        Sobrescreve o método save para gerar o username automaticamente
-        baseado no nome e sobrenome do usuário.
-        """
-        # Cria a instância do usuário, mas não salva no banco ainda
-        user = super().save(commit=False)
-        
-        # Pega o primeiro nome e o último sobrenome digitados
-        first = self.cleaned_data.get('first_name', '').strip().lower().split(' ')[0]
-        last = self.cleaned_data.get('last_name', '').strip().lower().split(' ')[-1]
-        
-        # Junta com ponto
-        base_username = f"{first}.{last}"
-        
-        # Remove acentos (ex: joão.conceição -> joao.conceicao)
-        base_username = ''.join(
-            c for c in unicodedata.normalize('NFD', base_username) 
-            if unicodedata.category(c) != 'Mn'
-        )
-        
-        # Garante que o username será único (se existir joao.silva, vira joao.silva2)
-        username = base_username
-        contador = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}{contador}"
-            contador += 1
-            
-        # Atribui o username gerado de forma transparente
-        user.username = username
-        
-        if commit:
-            user.save()
-            
-        return user
 
 
 # =============================================================================

@@ -7,9 +7,11 @@ Namespace: 'accounts'
 Rotas disponíveis:
 - login/       : Autenticação de usuários
 - logout/      : Encerramento de sessão
-- register/    : Registro de novos usuários
 - profile/     : Visualização e edição de perfil
 - alterar-senha/ : Troca de senha
+
+Nota: O cadastro público (register/) foi REMOVIDO. Novas contas são criadas
+exclusivamente pelo admin (/admin/), com must_change_password=True.
 
 Exemplo de uso em templates:
 {% url 'accounts:login' %}
@@ -28,12 +30,7 @@ urlpatterns = [
     # =============================================================================
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
-    
-    # =============================================================================
-    # REGISTRO
-    # =============================================================================
-    path('register/', views.RegisterView.as_view(), name='register'),
-    
+
     # =============================================================================
     # PERFIL E SENHA
     # =============================================================================

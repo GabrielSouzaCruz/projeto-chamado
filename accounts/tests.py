@@ -2,8 +2,12 @@
 """
 Testes completos do app accounts.
 
-Cobertas: Login, Registro, Perfil, Alterar Senha, Logout, Mixins, Decorators.
+Cobertas: Login, Perfil, Alterar Senha, Logout, Mixins, Decorators,
+Reset de Senha, LGPD, cadastro fechado (rota register/ removida → 404) e
+forçamento de troca de senha no primeiro acesso (middleware).
 """
+import json
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, Client
@@ -12,7 +16,6 @@ from django.urls import reverse
 User = get_user_model()
 
 LOGIN_URL = reverse('accounts:login')
-REGISTER_URL = reverse('accounts:register')
 PROFILE_URL = reverse('accounts:profile')
 DASHBOARD_URL = reverse('tickets:dashboard')
 CHANGE_PASSWORD_URL = reverse('accounts:alterar_senha')
@@ -134,15 +137,26 @@ class TesteLogin(TestCase):
 
 
 # =============================================================================
-# 2. REGISTERVIEW
+# 2. CADASTRO FECHADO (rota register/ removida)
 # =============================================================================
 
-class TesteRegistro(TestCase):
+REGISTER_PATH = '/accounts/register/'
+
+
+class TesteCadastroFechado(TestCase):
+    """O cadastro público foi removido: a rota não existe mais (404)."""
 
     def setUp(self):
         self.client = Client()
-        self.url = REGISTER_URL
-        self.dados_validos = {
+        cache.clear()
+
+    def test_get_register_retorna_404(self):
+        resp = self.client.get(REGISTER_PATH)
+        self.assertEqual(resp.status_code, 404)
+
+    def test_post_register_retorna_404_e_nao_cria_usuario(self):
+        antes = User.objects.count()
+        resp = self.client.post(REGISTER_PATH, {
             'first_name': 'Maria',
             'last_name': 'Santos',
             'email': 'maria@example.com',
@@ -151,106 +165,53 @@ class TesteRegistro(TestCase):
             'password1': 'senha-forte-999!',
             'password2': 'senha-forte-999!',
             'aceitou_termos': True,
-        }
-        cache.clear()
+        })
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(User.objects.count(), antes)
 
-    def test_registro_dados_validos_cria_usuario_redireciona(self):
-        resp = self.client.post(self.url, self.dados_validos)
-        self.assertRedirects(resp, DASHBOARD_URL, fetch_redirect_response=False)
-        self.assertTrue(User.objects.filter(email='maria@example.com').exists())
-        self.assertIn('_auth_user_id', self.client.session)
+    def test_nome_de_url_register_nao_existe(self):
+        from django.urls import NoReverseMatch
+        with self.assertRaises(NoReverseMatch):
+            reverse('accounts:register')
 
-    def test_username_gerado_automaticamente_nome_sobrenome(self):
-        self.client.post(self.url, self.dados_validos)
-        user = User.objects.get(email='maria@example.com')
-        self.assertEqual(user.username, 'maria.santos')
-
-    def test_username_remove_acentos(self):
-        dados = self.dados_validos.copy()
-        dados['first_name'] = 'Joao'
-        dados['last_name'] = 'Conceicao'
-        dados['email'] = 'joao.conceicao@example.com'
-        self.client.post(self.url, dados)
-        user = User.objects.get(email='joao.conceicao@example.com')
-        self.assertEqual(user.username, 'joao.conceicao')
-
-    def test_username_duplicado_adiciona_numero(self):
-        criar_usuario(username='maria.santos', email='outra@example.com')
-        self.client.post(self.url, self.dados_validos)
-        user = User.objects.get(email='maria@example.com')
-        self.assertEqual(user.username, 'maria.santos1')
-
-    def test_registro_email_duplicado_erro(self):
-        criar_usuario(email='maria@example.com', username='existente')
-        resp = self.client.post(self.url, self.dados_validos)
+    def test_login_nao_possui_link_de_cadastro(self):
+        resp = self.client.get(LOGIN_URL)
         self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        self.assertIn('email', form.errors)
-        self.assertTrue(any('cadastrado' in str(e) for e in form.errors['email']))
+        self.assertNotContains(resp, 'accounts:register')
+        self.assertNotContains(resp, 'Solicite cadastro')
 
-    def test_registro_senha_fraca_curta_erro(self):
-        dados = self.dados_validos.copy()
-        dados['password1'] = '123'
-        dados['password2'] = '123'
-        resp = self.client.post(self.url, dados)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        self.assertTrue(form.errors.get('password1') or form.errors.get('password2'))
+    def test_paginas_lgpd_nao_possuem_link_de_cadastro(self):
+        for name in ('accounts:termos_de_uso', 'accounts:politica_privacidade'):
+            resp = self.client.get(reverse(name))
+            self.assertEqual(resp.status_code, 200)
+            self.assertNotContains(resp, 'accounts:register')
 
-    def test_registro_senha_100_percentual_numerica_erro(self):
-        dados = self.dados_validos.copy()
-        dados['password1'] = '1234567890'
-        dados['password2'] = '1234567890'
-        resp = self.client.post(self.url, dados)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        self.assertTrue(form.errors.get('password1') or form.errors.get('password2'))
+    def test_conta_criada_no_admin_forca_troca_de_senha(self):
+        """Contas são criadas só pelo admin, com must_change_password=True."""
+        from django.contrib.admin.sites import AdminSite
+        from accounts.admin import CustomUserAdmin
 
-    def test_registro_senha_comum_erro(self):
-        dados = self.dados_validos.copy()
-        dados['password1'] = 'password'
-        dados['password2'] = 'password'
-        resp = self.client.post(self.url, dados)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        self.assertTrue(form.errors.get('password1') or form.errors.get('password2'))
+        model_admin = CustomUserAdmin(User, AdminSite())
+        user = User(
+            username='novo.admin',
+            email='novo.admin@example.com',
+            first_name='Novo',
+            last_name='Admin',
+        )
+        model_admin.save_model(None, user, None, change=False)
+        user.refresh_from_db()
+        self.assertTrue(user.must_change_password)
 
-    def test_rate_limit_bloqueio_apos_5_falhas(self):
-        for i in range(5):
-            dados = self.dados_validos.copy()
-            dados['email'] = f'fail{i}@example.com'
-            dados['password2'] = 'nao-bate'
-            self.client.post(self.url, dados)
-        dados = self.dados_validos.copy()
-        dados['email'] = 'novo@example.com'
-        resp = self.client.post(self.url, dados)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        non_field_errors = [e for e in form.non_field_errors()]
-        self.assertTrue(any('aguarde' in str(e).lower() for e in non_field_errors))
+    def test_edicao_no_admin_nao_altera_must_change_password(self):
+        from django.contrib.admin.sites import AdminSite
+        from accounts.admin import CustomUserAdmin
 
-    def test_rate_limit_reseta_apos_registro_sucesso(self):
-        for i in range(4):
-            dados = self.dados_validos.copy()
-            dados['email'] = f'fail{i}@example.com'
-            dados['password2'] = 'nao-bate'
-            self.client.post(self.url, dados)
-        # Registro OK reseta
-        self.client.post(self.url, self.dados_validos)
-        # Verifica que pode tentar novamente
-        dados2 = self.dados_validos.copy()
-        dados2['email'] = 'pos-reset@example.com'
-        dados2['password2'] = 'errada'
-        resp = self.client.post(self.url, dados2)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        non_field_errors = [e for e in form.non_field_errors()]
-        self.assertFalse(any('aguarde' in str(e).lower() for e in non_field_errors))
-
-    def test_registro_GET_retorna_formulario(self):
-        resp = self.client.get(self.url)
-        self.assertEqual(resp.status_code, 200)
-        self.assertTemplateUsed(resp, 'accounts/register.html')
+        user = criar_usuario(username='existente.admin', email='existente.admin@example.com')
+        model_admin = CustomUserAdmin(User, AdminSite())
+        user.must_change_password = False
+        model_admin.save_model(None, user, None, change=True)
+        user.refresh_from_db()
+        self.assertFalse(user.must_change_password)
 
 
 # =============================================================================
@@ -672,17 +633,6 @@ class TesteLGPD(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.register_url = REGISTER_URL
-        self.dados_validos = {
-            'first_name': 'Maria',
-            'last_name': 'Santos',
-            'email': 'maria.lgpd@example.com',
-            'departamento': 'TI',
-            'telefone': '3333-4444',
-            'password1': 'senha-forte-999!',
-            'password2': 'senha-forte-999!',
-            'aceitou_termos': True,
-        }
 
     def test_get_termos_de_uso_retorna_200(self):
         resp = self.client.get(reverse('accounts:termos_de_uso'))
@@ -702,22 +652,104 @@ class TesteLGPD(TestCase):
         resp = self.client.get(reverse('accounts:politica_privacidade'))
         self.assertEqual(resp.status_code, 200)
 
-    def test_registro_sem_checkbox_erro(self):
-        dados = self.dados_validos.copy()
-        del dados['aceitou_termos']
-        resp = self.client.post(self.register_url, dados)
-        self.assertEqual(resp.status_code, 200)
-        form = resp.context['form']
-        self.assertIn('aceitou_termos', form.errors)
-
-    def test_registro_com_checkbox_cria_usuario_com_aceite(self):
-        resp = self.client.post(self.register_url, self.dados_validos)
-        self.assertRedirects(resp, DASHBOARD_URL, fetch_redirect_response=False)
-        user = User.objects.get(email='maria.lgpd@example.com')
-        self.assertTrue(user.aceitou_termos)
-        self.assertIsNotNone(user.data_aceite_termos)
-
     def test_usuario_existente_aceitou_termos_false_default(self):
         user = criar_usuario(username='legado', email='legado@example.com')
         self.assertFalse(user.aceitou_termos)
         self.assertIsNone(user.data_aceite_termos)
+
+
+# =============================================================================
+# 9. FORÇA TROCA DE SENHA NO PRIMEIRO ACESSO (ForcePasswordChangeMiddleware)
+# =============================================================================
+
+class TesteForcarTrocaDeSenha(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = criar_usuario(
+            username='primeiro.acesso',
+            email='primeiro.acesso@example.com',
+            password='senha-inicial-123!',
+            must_change_password=True,
+        )
+        self.tickets_url = DASHBOARD_URL
+        self.alterar_url = CHANGE_PASSWORD_URL
+        cache.clear()
+
+    def _login(self):
+        """Loga sem passar pela view de login (que também força a troca)."""
+        self.client.login(username='primeiro.acesso', password='senha-inicial-123!')
+
+    def test_middleware_registrado_apos_authentication_middleware(self):
+        from django.conf import settings as django_settings
+        mw = django_settings.MIDDLEWARE
+        idx_auth = mw.index('django.contrib.auth.middleware.AuthenticationMiddleware')
+        idx_forcar = mw.index('accounts.middleware.ForcePasswordChangeMiddleware')
+        self.assertGreater(idx_forcar, idx_auth)
+
+    def test_com_flag_acessando_tickets_redireciona_alterar_senha(self):
+        self._login()
+        resp = self.client.get(self.tickets_url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self.alterar_url, fetch_redirect_response=False)
+
+    def test_pagina_alterar_senha_acessivel_com_flag(self):
+        self._login()
+        resp = self.client.get(self.alterar_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'accounts/alterar_senha.html')
+
+    def test_apos_trocar_senha_acessa_normalmente(self):
+        self._login()
+        resp = self.client.get(self.tickets_url)
+        self.assertRedirects(resp, self.alterar_url, fetch_redirect_response=False)
+
+        resp = self.client.post(self.alterar_url, {
+            'old_password': 'senha-inicial-123!',
+            'new_password1': 'nova-senha-forte-999!',
+            'new_password2': 'nova-senha-forte-999!',
+        })
+        self.assertRedirects(resp, PROFILE_URL, fetch_redirect_response=False)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+
+        resp = self.client.get(self.tickets_url)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_logout_funciona_com_flag_ativa(self):
+        self._login()
+        resp = self.client.post(reverse('accounts:logout'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, LOGIN_URL, fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_ajax_com_flag_recebe_403_json(self):
+        self._login()
+        resp = self.client.get(
+            self.tickets_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn('application/json', resp['Content-Type'])
+        payload = json.loads(resp.content)
+        self.assertIn('detail', payload)
+        self.assertEqual(payload['redirecionar_para'], self.alterar_url)
+
+    def test_api_com_flag_recebe_403_json(self):
+        self._login()
+        resp = self.client.get('/api/push-subscribe/')
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn('application/json', resp['Content-Type'])
+        self.assertIn('detail', json.loads(resp.content))
+
+    def test_static_com_flag_nao_e_bloqueado(self):
+        self._login()
+        resp = self.client.get('/static/arquivo-inexistente.css')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_usuario_sem_flag_acessa_normalmente(self):
+        criar_usuario(username='sem.flag', email='sem.flag@example.com')
+        self.client.login(username='sem.flag', password='senha-teste-123!')
+        resp = self.client.get(self.tickets_url)
+        self.assertEqual(resp.status_code, 200)

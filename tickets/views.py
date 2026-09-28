@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils.timezone import now
+from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, CreateView, UpdateView
 
 from accounts.mixins import ProprietarioOrTecnicoMixin, TecnicoOrStaffRequiredMixin
@@ -83,7 +84,11 @@ class TicketDetailView(ProprietarioOrTecnicoMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['comentarios'] = self.object.comentarios.all().select_related('autor').order_by('criado_em', 'id')
+        comentarios = self.object.comentarios.all().select_related('autor').order_by('criado_em', 'id')
+        usuario = self.request.user
+        if not (getattr(usuario, 'is_technician', False) or usuario.is_superuser):
+            comentarios = comentarios.filter(interno=False)
+        context['comentarios'] = comentarios
         context['comentario_form'] = ComentarioForm(usuario=self.request.user)
         context['status_form'] = TicketStatusForm(instance=self.object)
         return context
@@ -100,6 +105,7 @@ class TicketUpdateView(ProprietarioOrTecnicoMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('tickets:detail', kwargs={'pk': self.object.pk})
 
+@require_POST
 @login_required
 def cancelar_ticket(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
@@ -111,6 +117,7 @@ def cancelar_ticket(request, pk):
     messages.warning(request, "Ticket cancelado com sucesso.")
     return redirect('tickets:dashboard')
 
+@require_POST
 @login_required
 def apagar_ticket(request, pk):
     if not request.user.is_superuser:
@@ -139,7 +146,7 @@ def historico(request):
         'prioridade': request.GET.getlist('prioridade'),
         'categoria': request.GET.getlist('categoria'),
         'tecnico': request.GET.get('tecnico'),
-        'ordenar': request.GET.get('ordenar', '-criado_em'),
+        'ordenar': selectors.ordenacao_historico(request.GET.get('ordenar')),
     }
 
     tickets_qs = selectors.get_historico_tickets(filtros)

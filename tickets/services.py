@@ -44,14 +44,25 @@ def cancelar_ticket_service(ticket_id: int) -> Ticket:
 
 @transaction.atomic
 def adicionar_comentario_service(ticket_id: int, autor, dados_comentario: dict, arquivos=None) -> Comentario:
-    """Insere um comentário atrelado ao lock do ticket principal."""
+    """Insere um comentário atrelado ao lock do ticket principal.
+
+    Comentário interno é privilégio de técnico/superusuário: se o autor não
+    for técnico, 'interno' é forçado a False mesmo que venha marcado no POST.
+    """
     ticket = Ticket.objects.select_for_update().get(id=ticket_id)
+
+    autor_eh_tecnico = bool(
+        getattr(autor, 'is_technician', False) or getattr(autor, 'is_superuser', False)
+    )
+    interno_solicitado = dados_comentario.get('interno', False)
+    if isinstance(interno_solicitado, str):
+        interno_solicitado = interno_solicitado.lower() in ('1', 'true', 'on', 'yes', 'sim')
 
     comentario = Comentario(
         ticket=ticket,
         autor=autor,
         mensagem=dados_comentario.get('mensagem'),
-        interno=dados_comentario.get('interno', False),
+        interno=bool(interno_solicitado) and autor_eh_tecnico,
         anexo=arquivos.get('anexo') if arquivos else None
     )
     comentario.save()

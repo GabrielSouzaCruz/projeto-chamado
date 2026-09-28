@@ -3,9 +3,11 @@ import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from . import selectors
+from .health import health_check_view
 from .models import Categoria, Comentario, Ticket, PushSubscription
 from .services import (
     adicionar_comentario_service,
@@ -448,14 +450,15 @@ class TestePushSubscriptionAPI(BaseChamadoTest):
 
     def test_chaves_planas_tambem_sao_aceitas(self):
         self.client.force_login(self.solicitante)
-        resp = self._post({'endpoint': 'https://ex.com/e', 'p256dh': 'C' * 87, 'auth': 'D' * 22})
+        resp = self._post({'endpoint': 'https://fcm.googleapis.com/fcm/send/plano',
+                           'p256dh': 'C' * 87, 'auth': 'D' * 22})
 
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(PushSubscription.objects.filter(user=self.solicitante).exists())
 
     def test_dados_incompletos_retorna_400(self):
         self.client.force_login(self.solicitante)
-        resp = self._post({'endpoint': 'https://ex.com/e'})
+        resp = self._post({'endpoint': 'https://fcm.googleapis.com/fcm/send/incompleto'})
 
         self.assertEqual(resp.status_code, 400)
         self.assertFalse(PushSubscription.objects.exists())
@@ -471,6 +474,50 @@ class TestePushSubscriptionAPI(BaseChamadoTest):
         resp = self.client.get(self.url)
 
         self.assertEqual(resp.status_code, 405)
+
+    # -- SSRF: allowlist de hosts de push --
+
+    def test_endpoint_http_interno_retorna_400(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({**self.payload, 'endpoint': 'http://127.0.0.1/push'})
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()['ok'])
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_endpoint_host_falso_com_path_de_fcm_retorna_400(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({**self.payload, 'endpoint': 'https://evil.com/fcm.googleapis.com'})
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_endpoint_host_sufixado_malicioso_retorna_400(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({**self.payload, 'endpoint': 'https://fcm.googleapis.com.evil.com/fcm/send/x'})
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_endpoint_fcm_valido_retorna_200(self):
+        self.client.force_login(self.solicitante)
+        resp = self._post({**self.payload, 'endpoint': 'https://fcm.googleapis.com/fcm/send/x'})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+
+    def test_endpoint_sufixos_confiables_retornam_200(self):
+        self.client.force_login(self.solicitante)
+        endpoints = [
+            'https://updates.push.services.mozilla.com/wpush/v2/abc',
+            'https://db3.notify.windows.com/canaldenotificacao',
+            'https://web.push.apple.com/QWxhZG8',
+        ]
+        for endpoint in endpoints:
+            with self.subTest(endpoint=endpoint):
+                resp = self._post({**self.payload, 'endpoint': endpoint})
+                self.assertEqual(resp.status_code, 200)
+                self.assertTrue(resp.json()['ok'])
 
 
 class TesteWebPush(BaseChamadoTest):
@@ -757,3 +804,319 @@ class TesteRateLimit(TestCase):
         self.client.login(username='tecnico.rl', password='senha-teste-123!')
         resp = self.client.post(url, {'mensagem': 'Comentario do tecnico'})
         self.assertIn(resp.status_code, [200, 302])
+
+
+class TesteComentarioInterno(BaseChamadoTest):
+    """Comentário interno só é visível para técnico/superusuário."""
+
+    def setUp(self):
+        super().setUp()
+        self.outro_tecnico = User.objects.create_user(
+            username='tecnico2', password='senha123', is_technician=True
+        )
+        self.ticket = self.criar_ticket()
+        self.mensagem_publica = 'Resposta publica ao solicitante'
+        self.mensagem_interna = 'Nota interna sigilosa'
+        Comentario.objects.create(
+            ticket=self.ticket, autor=self.tecnico, mensagem=self.mensagem_publica
+        )
+        Comentario.objects.create(
+            ticket=self.ticket, autor=self.tecnico,
+            mensagem=self.mensagem_interna, interno=True,
+        )
+
+    def _html(self, resp):
+        self.assertEqual(resp.status_code, 200)
+        return resp.content.decode()
+
+    # -- DETALHE --
+
+    def test_solicitante_nao_ve_comentario_interno_no_detalhe(self):
+        self.client.force_login(self.solicitante)
+        html = self._html(self.client.get(
+            reverse('tickets:detail', args=[self.ticket.id])
+        ))
+        self.assertIn(self.mensagem_publica, html)
+        self.assertNotIn(self.mensagem_interna, html)
+
+    def test_tecnico_ve_comentario_interno_no_detalhe(self):
+        ticket = self.criar_ticket(solicitante=self.tecnico)
+        Comentario.objects.create(
+            ticket=ticket, autor=self.outro_tecnico,
+            mensagem=self.mensagem_interna, interno=True,
+        )
+        self.client.force_login(self.tecnico)
+        html = self._html(self.client.get(
+            reverse('tickets:detail', args=[ticket.id])
+        ))
+        self.assertIn(self.mensagem_interna, html)
+
+    def test_superuser_ve_comentario_interno_no_detalhe(self):
+        self.client.force_login(self.superuser)
+        html = self._html(self.client.get(
+            reverse('tickets:detail', args=[self.ticket.id])
+        ))
+        self.assertIn(self.mensagem_interna, html)
+
+    # -- PARTIAL (AJAX) --
+
+    def test_solicitante_nao_ve_comentario_interno_no_partial(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[self.ticket.id])
+        )
+        html = self._html(resp)
+        self.assertIn(self.mensagem_publica, html)
+        self.assertNotIn(self.mensagem_interna, html)
+
+    def test_tecnico_ve_comentario_interno_no_partial(self):
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[self.ticket.id])
+        )
+        self.assertIn(self.mensagem_interna, self._html(resp))
+
+    def test_superuser_ve_comentario_interno_no_partial(self):
+        self.client.force_login(self.superuser)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[self.ticket.id])
+        )
+        self.assertIn(self.mensagem_interna, self._html(resp))
+
+    # -- CRIAÇÃO --
+
+    def test_post_solicitante_com_interno_on_salva_interno_false(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[self.ticket.id]),
+            {'mensagem': 'Tentativa de nota interna', 'interno': 'on'},
+        )
+        self.assertEqual(resp.status_code, 302)
+        comentario = Comentario.objects.get(mensagem='Tentativa de nota interna')
+        self.assertFalse(comentario.interno)
+
+    def test_post_tecnico_com_interno_on_salva_interno_true(self):
+        self.client.force_login(self.tecnico)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[self.ticket.id]),
+            {'mensagem': 'Nota interna do tecnico', 'interno': 'on'},
+        )
+        self.assertEqual(resp.status_code, 302)
+        comentario = Comentario.objects.get(mensagem='Nota interna do tecnico')
+        self.assertTrue(comentario.interno)
+
+    def test_post_superuser_com_interno_on_salva_interno_true(self):
+        self.client.force_login(self.superuser)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[self.ticket.id]),
+            {'mensagem': 'Nota interna do admin', 'interno': 'on'},
+        )
+        self.assertEqual(resp.status_code, 302)
+        comentario = Comentario.objects.get(mensagem='Nota interna do admin')
+        self.assertTrue(comentario.interno)
+
+    def test_servico_forca_interno_false_para_nao_tecnico(self):
+        comentario = adicionar_comentario_service(
+            ticket_id=self.ticket.id,
+            autor=self.solicitante,
+            dados_comentario={'mensagem': 'Chamada direta ao servico', 'interno': True},
+        )
+        self.assertFalse(comentario.interno)
+
+    def test_servico_preserva_interno_para_tecnico(self):
+        comentario = adicionar_comentario_service(
+            ticket_id=self.ticket.id,
+            autor=self.tecnico,
+            dados_comentario={'mensagem': 'Chamada direta tecnico', 'interno': True},
+        )
+        self.assertTrue(comentario.interno)
+
+    # -- NOTIFICAÇÕES (SINO/GAVETA) --
+
+    def test_resumo_solicitante_nao_conta_comentario_interno(self):
+        ticket = self.criar_ticket()
+        Comentario.objects.create(
+            ticket=ticket, autor=self.tecnico,
+            mensagem=self.mensagem_interna, interno=True,
+        )
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(reverse('tickets:api_resumo_notificacoes'))
+        self.assertEqual(resp.status_code, 200)
+        resumos = [
+            item['resumo'] for item in resp.json()['items']
+            if item['tipo'] == 'comentario'
+        ]
+        self.assertNotIn(self.mensagem_interna, resumos)
+        self.assertEqual(len(resumos), 1)
+
+    def test_resumo_tecnico_conta_comentario_interno(self):
+        ticket = self.criar_ticket(status=Ticket.Status.RESOLVIDO, solicitante=self.tecnico)
+        Comentario.objects.create(
+            ticket=ticket, autor=self.outro_tecnico,
+            mensagem=self.mensagem_interna, interno=True,
+        )
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:api_resumo_notificacoes'))
+        self.assertEqual(resp.status_code, 200)
+        resumos = [
+            item['resumo'] for item in resp.json()['items']
+            if item['tipo'] == 'comentario'
+        ]
+        self.assertIn(self.mensagem_interna, resumos)
+
+
+class TesteAcoesSomentePost(BaseChamadoTest):
+    """Ações de estado aceitam apenas POST: GET responde 405."""
+
+    def setUp(self):
+        super().setUp()
+        self.ticket = self.criar_ticket()
+
+    def test_get_cancelar_retorna_405(self):
+        resp = self.client.get(reverse('tickets:cancelar', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 405)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, Ticket.Status.ABERTO)
+
+    def test_get_apagar_retorna_405(self):
+        resp = self.client.get(reverse('tickets:apagar', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 405)
+        self.assertTrue(Ticket.objects.filter(id=self.ticket.id).exists())
+
+    def test_get_assumir_retorna_405(self):
+        resp = self.client.get(reverse('tickets:take', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 405)
+
+    def test_get_alterar_status_retorna_405(self):
+        resp = self.client.get(reverse('tickets:change_status', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 405)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, Ticket.Status.ABERTO)
+
+    def test_get_adicionar_comentario_retorna_405(self):
+        resp = self.client.get(reverse('tickets:add_comment', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(self.ticket.comentarios.count(), 0)
+
+    def test_post_cancelar_continua_funcionando(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(reverse('tickets:cancelar', args=[self.ticket.id]))
+
+        self.assertEqual(resp.status_code, 302)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.status, Ticket.Status.CANCELADO)
+
+
+class TesteFormPostNaFila(BaseChamadoTest):
+    """Assumir chamado na fila é <form method="post"> com csrf, nunca <a href>."""
+
+    def setUp(self):
+        super().setUp()
+        self.ticket = self.criar_ticket()
+        self.client.force_login(self.tecnico)
+        self.acao = reverse('tickets:take', args=[self.ticket.id])
+
+    def test_partial_de_linhas_renderiza_form_post_com_csrf(self):
+        resp = self.client.get(reverse('tickets:api_fila_admin_rows'))
+        html = resp.content.decode()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(f'<form method="post" action="{self.acao}"', html)
+        self.assertIn('name="csrfmiddlewaretoken"', html)
+        self.assertIn('<button type="submit"', html)
+        self.assertNotIn(f'<a href="{self.acao}"', html)
+
+    def test_nenhum_template_usa_href_para_as_acoes_post(self):
+        from pathlib import Path
+
+        rotas = (
+            'tickets:take', 'tickets:cancelar', 'tickets:apagar',
+            'tickets:change_status', 'tickets:add_comment',
+        )
+        raiz = Path(settings.BASE_DIR) / 'templates'
+
+        for caminho in raiz.rglob('*.html'):
+            linhas = caminho.read_text(encoding='utf-8').splitlines()
+            for numero, linha in enumerate(linhas, 1):
+                if 'href' not in linha:
+                    continue
+                for rota in rotas:
+                    self.assertNotIn(
+                        f"'{rota}'", linha,
+                        f'{caminho}:{numero} declara href para {rota}',
+                    )
+
+
+class TesteEndurecimentoConfiguracao(BaseChamadoTest):
+    """DEBUG vem da env (default False), ordenação do histórico usa whitelist
+    e o health check não expõe a mensagem da exceção."""
+
+    def _carregar_settings_isolado(self, **extras):
+        """Reexecuta config/settings.py num módulo novo e sem a env herdada."""
+        import importlib.util
+        import os
+        from pathlib import Path
+
+        import config as pacote_config
+
+        caminho = Path(pacote_config.__file__).resolve().parent / 'settings.py'
+        spec = importlib.util.spec_from_file_location('config._settings_probe', caminho)
+        modulo = importlib.util.module_from_spec(spec)
+
+        with patch.dict(os.environ):  # devolve o ambiente original ao sair
+            for chave in ('DEBUG', 'IS_PRODUCTION', 'SECRET_KEY', 'SENTRY_DSN'):
+                os.environ.pop(chave, None)
+            os.environ.update(extras)
+            with patch('dotenv.load_dotenv'):  # ignora o .env da raiz
+                spec.loader.exec_module(modulo)
+
+        return modulo
+
+    def test_sem_env_debug_o_settings_fica_false(self):
+        self.assertFalse(self._carregar_settings_isolado().DEBUG)
+
+    def test_env_debug_true_liga_o_debug(self):
+        self.assertTrue(self._carregar_settings_isolado(DEBUG='true').DEBUG)
+
+    def test_ordenar_fora_da_whitelist_usa_o_default(self):
+        qs = selectors.get_historico_tickets({'ordenar': 'solicitante__password'})
+
+        self.assertEqual(tuple(qs.query.order_by), ('-criado_em',))
+
+    def test_ordenar_na_whitelist_e_aplicado(self):
+        qs = selectors.get_historico_tickets({'ordenar': '-prioridade'})
+
+        self.assertEqual(tuple(qs.query.order_by), ('-prioridade',))
+
+    def test_view_do_historico_sanitiza_o_parametro_ordenar(self):
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(
+            reverse('tickets:historico'), {'ordenar': 'solicitante__password'}
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['filtros']['ordenar'], '-criado_em')
+
+    def test_health_com_banco_ok_retorna_200(self):
+        resp = self.client.get(reverse('health_check'))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {'status': 'healthy'})
+
+    def test_health_com_banco_falhando_nao_expoe_a_mensagem(self):
+        with patch('tickets.health.connection') as conexao:
+            conexao.cursor.side_effect = Exception('senha-interna-123')
+            with self.assertLogs('tickets', level='ERROR') as registros:
+                resp = health_check_view(RequestFactory().get('/health/'))
+
+        self.assertEqual(resp.status_code, 503)
+        self.assertEqual(json.loads(resp.content.decode()), {'status': 'unhealthy'})
+        self.assertNotIn('senha-interna-123', resp.content.decode())
+        self.assertTrue(
+            any('Health check falhou' in linha for linha in registros.output)
+        )

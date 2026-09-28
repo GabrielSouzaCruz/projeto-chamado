@@ -46,10 +46,10 @@ if os.environ.get("SENTRY_DSN"):
     sentry_sdk.init(
         dsn=os.environ.get("SENTRY_DSN"),
         integrations=[DjangoIntegration()],
-        # Captura 100% das transações (traces)
-        traces_sample_rate=1.0,
-        # Envia dados pessoais (nome/ID do usuário logado que causou o erro)
-        send_default_pii=True,
+        # Amostra 10% das transações (traces) para não estourar a cota
+        traces_sample_rate=0.1,
+        # Nunca envia dados pessoais (nome/ID/e-mail do usuário logado)
+        send_default_pii=False,
     )
 
 # =============================================================================
@@ -59,15 +59,16 @@ if os.environ.get("SENTRY_DSN"):
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECRET_KEY segura (via .env)
-# Em producao (DEBUG=False), SECRET_KEY e obrigatoria.
-DEBUG_LOCAL = os.getenv('DEBUG', 'True').lower() == 'true'
 IS_PRODUCTION = os.environ.get('IS_PRODUCTION', 'false').lower() == 'true'
 _secret = os.getenv('SECRET_KEY')
-if not _secret and not DEBUG_LOCAL:
+# Em producao SECRET_KEY e obrigatoria (o boot aborta sem ela).
+if not _secret and IS_PRODUCTION:
     raise ImproperlyConfigured('SECRET_KEY e obrigatorio em producao. Configure a variavel de ambiente SECRET_KEY.')
 SECRET_KEY = _secret or 'dev-only-insecure-do-not-deploy'
 
-DEBUG = not IS_PRODUCTION
+# DEBUG vem SOMENTE da variavel de ambiente DEBUG (default False: modo seguro
+# para qualquer ambiente que não declare explicitamente que é desenvolvimento).
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = os.environ.get(
     'ALLOWED_HOSTS',
@@ -120,6 +121,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Força troca de senha no primeiro acesso (precisa de request.user, por
+    # isso vem logo após o AuthenticationMiddleware)
+    'accounts.middleware.ForcePasswordChangeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # Anti-cache para autenticados (no-store): roda após Session/Auth middleware
@@ -435,9 +439,11 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # -----------------------------------------------------------------------------
-# Proteções de Produção (Apenas se NÃO DEBUG) — reforços de transporte/sessão
+# Proteções de Produção (apenas com IS_PRODUCTION=true) — reforços de transporte
 # -----------------------------------------------------------------------------
-if not DEBUG:
+# Ativadas por IS_PRODUCTION (render.yaml) e não por DEBUG: assim DEBUG pode
+# ficar False por padrão sem quebrar desenvolvimento/testes rodando em http.
+if IS_PRODUCTION:
     # Redireciona todo HTTP -> HTTPS (SECURE_SSL_REDIRECT)
     SECURE_SSL_REDIRECT = True
     # Cookies só trafegam via HTTPS (pacote nunca vazado em texto plano)

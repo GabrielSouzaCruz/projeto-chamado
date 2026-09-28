@@ -17,6 +17,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
+from urllib.parse import urlparse
 import json
 
 from accounts.decorators import tecnico_required
@@ -30,6 +31,37 @@ from .signals import evento_do_usuario
 # =============================================================================
 # WEB PUSH NATIVO (PUSH API / VAPID)
 # =============================================================================
+
+# Allowlist de hosts de push (proteção SSRF): só endpoints de provedores
+# conhecidos são aceitos no cadastro de inscrição.
+PUSH_HOST_EXATO = frozenset({'fcm.googleapis.com'})
+PUSH_HOST_SUFIXOS = (
+    '.push.services.mozilla.com',
+    '.notify.windows.com',
+    '.push.apple.com',
+)
+
+
+def endpoint_push_valido(endpoint: str) -> bool:
+    """Valida o endpoint Web Push contra SSRF usando urllib.parse.
+
+    Exige esquema https e host exato 'fcm.googleapis.com' ou terminando em
+    '.push.services.mozilla.com', '.notify.windows.com' ou '.push.apple.com'.
+    """
+    try:
+        parsed = urlparse(endpoint)
+        host = parsed.hostname or ''
+    except ValueError:
+        return False
+
+    if parsed.scheme != 'https' or not host:
+        return False
+
+    host = host.lower().rstrip('.')
+    if host in PUSH_HOST_EXATO:
+        return True
+    return any(host.endswith(sufixo) for sufixo in PUSH_HOST_SUFIXOS)
+
 
 @login_required
 @never_cache
@@ -53,6 +85,17 @@ def salvar_push_subscription(request):
 
     if not endpoint or not p256dh or not auth:
         return JsonResponse({'ok': False, 'erro': 'Dados incompletos.'}, status=400)
+
+    if not endpoint_push_valido(endpoint):
+        return JsonResponse(
+            {
+                'ok': False,
+                'erro': 'Endpoint inválido: use um servidor de push https confiável '
+                        '(fcm.googleapis.com, .push.services.mozilla.com, '
+                        '.notify.windows.com ou .push.apple.com).',
+            },
+            status=400,
+        )
 
     PushSubscription.objects.update_or_create(
         user=request.user,
@@ -90,13 +133,16 @@ def resumo_notificacoes(request):
 
     items = []
 
-    # Comentários de terceiros nos chamados do usuário
+    # Comentários de terceiros nos chamados do usuário.
+    # Comentário interno só notifica técnico/superusuário.
     comentarios = Comentario.objects.filter(
-        interno=False,
         criado_em__gt=desde,
     ).filter(
         Q(ticket__solicitante_id=user.id) | Q(ticket__tecnico_responsavel_id=user.id)
-    ).exclude(autor_id=user.id).select_related('ticket', 'autor').order_by('-criado_em')[:20]
+    ).exclude(autor_id=user.id)
+    if not eh_tecnico:
+        comentarios = comentarios.filter(interno=False)
+    comentarios = comentarios.select_related('ticket', 'autor').order_by('-criado_em')[:20]
 
     for c in comentarios:
         items.append({
@@ -249,6 +295,8 @@ def ticket_comentarios_partial(request, ticket_id):
         return JsonResponse({'error': 'Sem permissão'}, status=403)
 
     comentarios = ticket.comentarios.select_related('autor').order_by('criado_em', 'id')
+    if not (request.user.is_technician or request.user.is_superuser):
+        comentarios = comentarios.filter(interno=False)
 
     return render(request, 'tickets/_comentarios_list.html', {
         'ticket': ticket,
@@ -259,6 +307,7 @@ def ticket_comentarios_partial(request, ticket_id):
 # AÇÕES AJAX EM TEMPO REAL (via fetch + Pusher)
 # =============================================================================
 
+@require_POST
 @login_required
 def adicionar_comentario(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
@@ -279,22 +328,22 @@ def adicionar_comentario(request, pk):
         messages.error(request, 'Limite de comentarios atingido. Aguarde 10 minutos.')
         return redirect('tickets:detail', pk=pk)
 
-    if request.method == 'POST':
-        form = ComentarioForm(request.POST, request.FILES, usuario=request.user)
+    form = ComentarioForm(request.POST, request.FILES, usuario=request.user)
 
-        if form.is_valid():
-            services.adicionar_comentario_service(
-                ticket_id=pk,
-                autor=request.user,
-                dados_comentario=form.cleaned_data,
-                arquivos=request.FILES
-            )
-            messages.success(request, "Comentário adicionado!")
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if is_ajax:
-                return JsonResponse({'status': 'success'})
+    if form.is_valid():
+        services.adicionar_comentario_service(
+            ticket_id=pk,
+            autor=request.user,
+            dados_comentario=form.cleaned_data,
+            arquivos=request.FILES
+        )
+        messages.success(request, "Comentário adicionado!")
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({'status': 'success'})
     return redirect('tickets:detail', pk=pk)
 
+@require_POST
 @login_required
 def assumir_ticket(request, pk):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -314,27 +363,27 @@ def assumir_ticket(request, pk):
 
     return redirect('tickets:detail', pk=pk)
 
+@require_POST
 @tecnico_required
 def alterar_status(request, pk):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    if request.method == 'POST':
-        novo_status = request.POST.get('status')
-        if novo_status:
-            try:
-                with evento_do_usuario(request.user):
-                    services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
-            except ValidationError:
-                messages.error(request, 'Erro ao atualizar: Status inválido.')
-                if is_ajax:
-                    return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
-                return redirect('tickets:detail', pk=pk)
-            messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
-            if is_ajax:
-                return JsonResponse({'status': 'success'})
-        else:
+    novo_status = request.POST.get('status')
+    if novo_status:
+        try:
+            with evento_do_usuario(request.user):
+                services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
+        except ValidationError:
             messages.error(request, 'Erro ao atualizar: Status inválido.')
             if is_ajax:
                 return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
+            return redirect('tickets:detail', pk=pk)
+        messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
+        if is_ajax:
+            return JsonResponse({'status': 'success'})
+    else:
+        messages.error(request, 'Erro ao atualizar: Status inválido.')
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
 
     return redirect('tickets:detail', pk=pk)

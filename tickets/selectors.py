@@ -3,6 +3,24 @@ from django.utils import timezone
 
 from .models import Ticket
 
+# Whitelist de campos aceitos na ordenação do histórico. Qualquer outro valor
+# (ex.: solicitante__password) cai no default '-criado_em', impedindo que o
+# parâmetro ?ordenar= injete campos arbitrários na consulta.
+CAMPOS_ORDENACAO_HISTORICO = frozenset({
+    'criado_em', '-criado_em',
+    'prioridade', '-prioridade',
+    'status', '-status',
+    'id', '-id',
+})
+ORDENACAO_PADRAO_HISTORICO = '-criado_em'
+
+
+def ordenacao_historico(ordenar) -> str:
+    """Devolve a ordenação solicitada se estiver na whitelist, senão o default."""
+    if ordenar in CAMPOS_ORDENACAO_HISTORICO:
+        return ordenar
+    return ORDENACAO_PADRAO_HISTORICO
+
 
 def get_tickets_dashboard(usuario, busca: str = None, status: str = None) -> QuerySet:
     """Retorna a base de tickets do dashboard segundo o nível de acesso do usuário."""
@@ -85,7 +103,7 @@ def get_historico_tickets(filtros: dict) -> QuerySet:
     if tecnico_id and tecnico_id != 'todos':
         tickets_qs = tickets_qs.filter(tecnico_responsavel_id=tecnico_id)
 
-    ordenar = filtros.get('ordenar', '-criado_em')
+    ordenar = ordenacao_historico(filtros.get('ordenar'))
 
     return tickets_qs.order_by(ordenar).select_related('solicitante', 'tecnico_responsavel', 'categoria')
 
