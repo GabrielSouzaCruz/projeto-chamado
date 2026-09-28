@@ -295,9 +295,9 @@ def _comentarios_visiveis(request, ticket):
 
 
 def _parcial_comentarios(request, ticket):
-    """Parcial da lista de comentários com a versão atual (hx-post / polling)."""
+    """Parcial do container de comentários com a versão atual (hx-post / polling)."""
     comentarios = _comentarios_visiveis(request, ticket)
-    return render(request, 'tickets/_comentarios_list.html', {
+    return render(request, 'tickets/_comentarios_container.html', {
         'ticket': ticket,
         'comentarios': comentarios,
         'versao': selectors.versao_de(comentarios, 'criado_em'),
@@ -320,7 +320,7 @@ def ticket_comentarios_partial(request, ticket_id):
     if selectors.eh_htmx(request) and request.GET.get('versao', '') == versao:
         return HttpResponse(status=204)
 
-    return render(request, 'tickets/_comentarios_list.html', {
+    return render(request, 'tickets/_comentarios_container.html', {
         'ticket': ticket,
         'comentarios': comentarios,
         'versao': versao,

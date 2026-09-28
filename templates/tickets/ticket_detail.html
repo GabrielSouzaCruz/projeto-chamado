@@ -54,9 +54,7 @@
                     <h2 id="historico-header" class="h6 mb-0 fw-bold">Interações e Histórico</h2>
                 </div>
                 
-                <div id="comentarios-container" aria-live="polite" role="log" aria-relevant="additions">
-                    {% include 'tickets/_comentarios_list.html' %}
-                </div>
+                {% include 'tickets/_comentarios_container.html' %}
 
                 <div class="chat-input-area p-3 bg-light border-top">
                     <form id="form-comentario" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">

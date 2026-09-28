@@ -384,6 +384,49 @@ class TesteMiniAPIs(BaseChamadoTest):
         self.assertEqual(resp.status_code, 403)
         self.assertIn('error', resp.json())
 
+    def test_comentarios_dono_versao_igual_retorna_204(self):
+        ticket = self.criar_ticket()
+        Comentario.objects.create(ticket=ticket, autor=self.solicitante, mensagem='Olá')
+        comentarios = ticket.comentarios.filter(interno=False).order_by('criado_em', 'id')
+        versao_atual = selectors.versao_de(comentarios, 'criado_em')
+        from urllib.parse import quote
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[ticket.id]) + f'?versao={quote(versao_atual)}',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 204)
+
+    def test_comentarios_dono_versao_diferente_retorna_200_com_container_e_versao_na_url(self):
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        # Versão diferente da atual (vazia) para forçar mudança e renderização
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[ticket.id]) + '?versao=diferente',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('id="comentarios-container"', html)
+        self.assertIn('?versao=', html)
+
+    def test_comentario_interno_ausente_no_partial_para_solicitante(self):
+        """O parcial do container não exibe comentário interno para solicitante."""
+        ticket = self.criar_ticket()
+        Comentario.objects.create(
+            ticket=ticket, autor=self.tecnico,
+            mensagem='Nota interna sigilosa', interno=True,
+        )
+        self.client.force_login(self.solicitante)
+        # Passar versão diferente para forçar renderização do container
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[ticket.id]) + '?versao=diferente',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertNotIn('Nota interna sigilosa', html)
+
     def test_comentario_ajax_devolve_json_success(self):
         """O envio de comentário via AJAX devolve JSON limpo (sem redirect 302)."""
         ticket = self.criar_ticket()

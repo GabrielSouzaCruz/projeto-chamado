@@ -1,0 +1,6 @@
+<div id="comentarios-container" aria-live="polite" role="log" aria-relevant="additions"
+     hx-get="{% url 'tickets:ticket_comentarios_partial' ticket.id %}?versao={{ versao }}"
+     hx-trigger="every 15s [document.visibilityState=='visible'], visibilitychange[document.visibilityState=='visible'] from:document"
+     hx-swap="outerHTML">
+    {% include 'tickets/_comentarios_list.html' %}
+</div>
