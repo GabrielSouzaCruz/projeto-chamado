@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -25,6 +25,7 @@ from accounts.views import RATE_COMENTARIO_MAX, RATE_COMENTARIO_JANELA, _check_r
 
 from .forms import ComentarioForm
 from .models import Ticket, Comentario, PushSubscription
+from . import selectors
 from . import services
 from .signals import evento_do_usuario
 
@@ -285,33 +286,58 @@ def ticket_status_badge_partial(request, pk):
         return JsonResponse({'error': 'Sem permissão'}, status=403)
     return render(request, 'tickets/_ticket_status_badge.html', {'ticket': ticket})
 
+def _comentarios_visiveis(request, ticket):
+    """Comentários do ticket filtrados pelo papel do usuário (interno = equipe)."""
+    comentarios = ticket.comentarios.select_related('autor').order_by('criado_em', 'id')
+    if not (request.user.is_technician or request.user.is_superuser):
+        comentarios = comentarios.filter(interno=False)
+    return comentarios
+
+
+def _parcial_comentarios(request, ticket):
+    """Parcial da lista de comentários com a versão atual (hx-post / polling)."""
+    comentarios = _comentarios_visiveis(request, ticket)
+    return render(request, 'tickets/_comentarios_list.html', {
+        'ticket': ticket,
+        'comentarios': comentarios,
+        'versao': selectors.versao_de(comentarios, 'criado_em'),
+    })
+
+
 @login_required
 def ticket_comentarios_partial(request, ticket_id):
-    """
-    Mini-API que devolve apenas o HTML limpo da lista de comentários.
+    """Mini-API: HTML da lista de comentários.
+
+    Com HX-Request devolve 204 quando a versão pedida (?versao=) ainda é a
+    atual; caso contrário devolve o parcial com a nova versão.
     """
     ticket = get_object_or_404(Ticket, id=ticket_id)
     if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
         return JsonResponse({'error': 'Sem permissão'}, status=403)
 
-    comentarios = ticket.comentarios.select_related('autor').order_by('criado_em', 'id')
-    if not (request.user.is_technician or request.user.is_superuser):
-        comentarios = comentarios.filter(interno=False)
+    comentarios = _comentarios_visiveis(request, ticket)
+    versao = selectors.versao_de(comentarios, 'criado_em')
+    if selectors.eh_htmx(request) and request.GET.get('versao', '') == versao:
+        return HttpResponse(status=204)
 
     return render(request, 'tickets/_comentarios_list.html', {
         'ticket': ticket,
         'comentarios': comentarios,
+        'versao': versao,
     })
 
 # =============================================================================
-# AÇÕES AJAX EM TEMPO REAL (via fetch + Pusher)
+# AÇÕES AJAX (HTMX no chat; XHR clássico mantido para compatibilidade)
 # =============================================================================
 
 @require_POST
 @login_required
 def adicionar_comentario(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    htmx = selectors.eh_htmx(request)
     if not request.user.is_technician and not request.user.is_superuser and ticket.solicitante != request.user:
+        if htmx:
+            return HttpResponse('Permissão negada.', status=403)
         messages.error(request, "Permissão negada.")
         return redirect('tickets:dashboard')
 
@@ -319,6 +345,8 @@ def adicionar_comentario(request, pk):
     cache_key = f'rate_comentario_{request.user.id}'
     bloqueado, _ = _check_rate_limit(cache_key, RATE_COMENTARIO_MAX, RATE_COMENTARIO_JANELA)
     if bloqueado:
+        if htmx:
+            return HttpResponse('Limite de comentarios atingido. Aguarde 10 minutos.', status=429)
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if is_ajax:
             return JsonResponse(
@@ -331,24 +359,35 @@ def adicionar_comentario(request, pk):
     form = ComentarioForm(request.POST, request.FILES, usuario=request.user)
 
     if form.is_valid():
+        # HTMX exige conteúdo: mensagem ou anexo (nunca comentário vazio).
+        if htmx and not (form.cleaned_data.get('mensagem') or request.FILES.get('anexo')):
+            return HttpResponse('Envie uma mensagem ou um anexo.', status=400)
         services.adicionar_comentario_service(
             ticket_id=pk,
             autor=request.user,
             dados_comentario=form.cleaned_data,
             arquivos=request.FILES
         )
+        if htmx:
+            # Resposta = parcial de comentários (troca o container sem reload).
+            return _parcial_comentarios(request, ticket)
         messages.success(request, "Comentário adicionado!")
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if is_ajax:
             return JsonResponse({'status': 'success'})
+    elif htmx:
+        return HttpResponse('Comentário inválido.', status=400)
     return redirect('tickets:detail', pk=pk)
 
 @require_POST
 @login_required
 def assumir_ticket(request, pk):
+    htmx = selectors.eh_htmx(request)
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if not request.user.is_technician and not request.user.is_superuser:
+        if htmx:
+            return HttpResponse('Apenas técnicos podem assumir chamados.', status=403)
         if is_ajax:
             return JsonResponse({'status': 'error', 'mensagem': 'Apenas técnicos podem assumir chamados.'}, status=403)
         messages.error(request, "Apenas técnicos podem assumir chamados.")
@@ -356,6 +395,10 @@ def assumir_ticket(request, pk):
 
     with evento_do_usuario(request.user):
         services.assumir_ticket_service(ticket_id=pk, tecnico=request.user)
+
+    if htmx:
+        # 200 vazio: o HTMX esvazia #assumir-area (o botão já não se aplica).
+        return HttpResponse('')
     messages.success(request, f"Você assumiu o chamado #{pk}")
 
     if is_ajax:
@@ -366,6 +409,7 @@ def assumir_ticket(request, pk):
 @require_POST
 @tecnico_required
 def alterar_status(request, pk):
+    htmx = selectors.eh_htmx(request)
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     novo_status = request.POST.get('status')
@@ -374,14 +418,22 @@ def alterar_status(request, pk):
             with evento_do_usuario(request.user):
                 services.alterar_status_ticket_service(ticket_id=pk, novo_status=novo_status)
         except ValidationError:
+            if htmx:
+                return HttpResponse('Status inválido.', status=400)
             messages.error(request, 'Erro ao atualizar: Status inválido.')
             if is_ajax:
                 return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)
             return redirect('tickets:detail', pk=pk)
+        if htmx:
+            # Resposta = badge novo do cabeçalho (hx-target outerHTML).
+            ticket = get_object_or_404(Ticket, pk=pk)
+            return render(request, 'tickets/_ticket_status_badge.html', {'ticket': ticket})
         messages.success(request, f'Status do chamado #{pk} atualizado com sucesso!')
         if is_ajax:
             return JsonResponse({'status': 'success'})
     else:
+        if htmx:
+            return HttpResponse('Status inválido.', status=400)
         messages.error(request, 'Erro ao atualizar: Status inválido.')
         if is_ajax:
             return JsonResponse({'status': 'error', 'mensagem': 'Status inválido.'}, status=400)

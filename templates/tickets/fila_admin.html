@@ -12,7 +12,11 @@
         <small class="text-muted"><i class="fas fa-lock me-1" aria-hidden="true"></i>Módulo de Gerenciamento Institucional</small>
     </div>
     <div class="d-flex gap-2">
-        <button class="btn btn-white shadow-sm border fw-bold" onclick="atualizarFilaAdmin()">
+        <button class="btn btn-white shadow-sm border fw-bold"
+                hx-get="{% url 'tickets:fila_admin' %}"
+                hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search))}'
+                hx-target="#fila-container"
+                hx-swap="innerHTML">
             <i class="fas fa-sync-alt me-2 text-primary" aria-hidden="true"></i>Atualizar Fila
         </button>
     </div>
@@ -103,134 +107,21 @@
             <div id="indicador-atualizacao" class="small text-muted" role="status" aria-live="polite">Sincronizado</div>
         </div>
     </div>
-    <div id="fila-container" class="table-responsive">
-        <table class="table table-hover align-middle mb-0" aria-label="Tabela de gerenciamento da fila de atendimento" style="table-layout: fixed; width: 100%;">
-            <thead class="bg-light text-muted small">
-                <tr>
-                    <th scope="col" class="ps-4" style="width: 5%;">ID</th>
-                    <th scope="col" style="width: 22%;">ASSUNTO</th>
-                    <th scope="col" style="width: 14%;">SOLICITANTE</th>
-                    <th scope="col" style="width: 14%;">ATRIBUÍDO</th>
-                    <th scope="col" style="width: 10%;">PRIORIDADE</th>
-                    <th scope="col" style="width: 10%;">STATUS</th>
-                    <th scope="col" style="width: 10%;">CATEGORIA</th>
-                    <th scope="col" style="width: 8%;">TEMPO</th>
-                    <th scope="col" class="text-end pe-4" style="width: 7%;">AÇÕES</th>
-                </tr>
-            </thead>
-            <tbody id="fila-tbody" class="border-top-0">
-                {% include 'tickets/_fila_table.html' %}
-            </tbody>
-        </table>
+    {# Polling HTMX único da página: 15s com aba visível; 204 = inalterado. #}
+    <div id="fila-container" class="table-responsive"
+         hx-get="{% url 'tickets:fila_admin' %}"
+         hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search)), versao: (document.querySelector("#fila-container .versao-atual")||{dataset:{}}).dataset.v || ""}'
+         hx-trigger="every 15s [document.visibilityState=='visible']"
+         hx-swap="innerHTML"
+         hx-on::after-swap="document.getElementById('indicador-atualizacao').textContent='Atualizado agora'">
+        {% include 'tickets/_fila_conteudo.html' %}
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-let ultimaSincronizacao = new Date();
-
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // Guarda os valores originais das estatísticas para restaurar após o fetch
-    const valoresEstatisticas = {
-        'stat-total-hoje': (document.getElementById('stat-total-hoje') || {}).innerHTML,
-        'stat-sem-tecnico': (document.getElementById('stat-sem-tecnico') || {}).innerHTML,
-        'stat-criticos': (document.getElementById('stat-criticos') || {}).innerHTML
-    };
-
-    // Gera o HTML do esqueleto (linhas falsas com barras cinzentas)
-    function esqueletoTabelaHTML(linhas = 5) {
-        let html = '';
-        for (let i = 0; i < linhas; i++) {
-            html += `
-            <tr class="skeleton-row">
-                <td><span class="skeleton" style="width:38px; height:16px;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:75%;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:60%;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:50%;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:45%;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:50%;"></span></td>
-                <td><span class="skeleton skeleton-block" style="width:55%;"></span></td>
-                <td class="text-end"><span class="skeleton" style="width:32px; height:32px; border-radius:50%;"></span></td>
-            </tr>`;
-        }
-        return html;
-    }
-
-    // Mostra esqueletos também nos cartões de estatísticas
-    function esqueletoEstatisticas() {
-        const ids = ['stat-total-hoje', 'stat-sem-tecnico', 'stat-criticos'];
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = '<span class="skeleton" style="width:44px; height:22px;"></span>';
-        });
-    }
-
-    function restaurarEstatisticas() {
-        Object.keys(valoresEstatisticas).forEach(id => {
-            const el = document.getElementById(id);
-            if (el && valoresEstatisticas[id] !== undefined) el.innerHTML = valoresEstatisticas[id];
-        });
-    }
-
-    // FUNÇÃO GLOBAL DE ATUALIZAÇÃO DA FILA ADMIN (Via rápida - Mini-API HTML).
-    // silencioso=true é usado pelo Polling de 5s: troca as linhas sem esqueleto
-    // nem flicker (o botão manual continua com o esqueleto de carregamento).
-    window.atualizarFilaAdmin = function(ticketIdRecebido = null, silencioso = false) {
-        const tbodyFila = document.getElementById("fila-tbody");
-
-        if (!tbodyFila) return;
-
-        if (!silencioso) {
-            // Esqueleto: injeta linhas falsas + esqueleto nos stats ANTES do fetch
-            tbodyFila.innerHTML = esqueletoTabelaHTML();
-            esqueletoEstatisticas();
-        }
-
-        const params = new URLSearchParams(window.location.search);
-        params.append('_t', Date.now());
-
-        // Se recebeu um ID novo, coloca na URL para destacar a linha!
-        if (ticketIdRecebido) {
-            params.append('novo_id', ticketIdRecebido);
-        }
-
-        let url = "{% url 'tickets:api_fila_admin_rows' %}?" + params.toString();
-
-        fetch(url)
-            .then(res => res.text())
-            .then(html => {
-                // Substitui o esqueleto pelo HTML real das linhas!
-                tbodyFila.innerHTML = html;
-                if (!silencioso) restaurarEstatisticas();
-
-                const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-                [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-
-                mostrarAvisoAtualizacao();
-            })
-            .catch(err => {
-                console.error('Erro na atualização da fila:', err);
-                if (!silencioso) restaurarEstatisticas();
-            });
-    };
-
-    // POLLING (0ms + 5s) — substitui o Pusher global: executa logo no load
-    // (dados frescos sobre o SSR inicial, sem esperar) e agenda a cada 5s.
-    atualizarFilaAdmin(null, true);
-    setInterval(function () {
-        atualizarFilaAdmin(null, true);
-    }, 5000);
-
-    // Selo "Atualizado agora" (estilo do código antigo)
-    function mostrarAvisoAtualizacao() {
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador) {
-            ultimaSincronizacao = new Date();
-            indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
-        }
-    };
 
     // Filtros reativos nos selects
     const filtros = document.querySelectorAll('#form-filtros-admin select');
@@ -243,8 +134,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ativa tooltips
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-
-    iniciarRelogioIndicador('indicador-atualizacao');
 });
 </script>
 {% endblock %}

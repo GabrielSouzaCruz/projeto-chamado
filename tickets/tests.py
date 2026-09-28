@@ -3,7 +3,9 @@ import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory, TestCase
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import RequestFactory, TestCase, TransactionTestCase
 from django.urls import reverse
 
 from . import selectors
@@ -1207,4 +1209,40 @@ class TesteEndurecimentoConfiguracao(BaseChamadoTest):
         self.assertNotIn('senha-interna-123', resp.content.decode())
         self.assertTrue(
             any('Health check falhou' in linha for linha in registros.output)
+        )
+
+
+class Migracao0010Tests(TransactionTestCase):
+    """0010 blindada: ticket com categoria NULL no estado 0009 vira
+    'Não categorizado' antes do AlterField que torna a coluna NOT NULL."""
+
+    estado_0009 = [('tickets', '0009_remover_rls')]
+    estado_0010 = [(
+        'tickets',
+        '0010_alter_comentario_anexo_alter_ticket_anexo_and_more',
+    )]
+
+    def test_ticket_com_categoria_null_vira_nao_categorizado(self):
+        usuario = User.objects.create_user(username='migracao', password='senha123')
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.estado_0009)
+        executor.loader.build_graph()
+        apps_0009 = executor.loader.project_state(self.estado_0009).apps
+
+        TicketAntigo = apps_0009.get_model('tickets', 'Ticket')
+        ticket = TicketAntigo.objects.create(
+            titulo='Chamado sem categoria',
+            descricao='Criado no estado 0009 com categoria NULL.',
+            solicitante_id=usuario.pk,
+            categoria_id=None,
+        )
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.estado_0010)
+
+        migrado = Ticket.objects.get(pk=ticket.pk)
+        self.assertEqual(migrado.categoria.nome, 'Não categorizado')
+        self.assertTrue(
+            Categoria.objects.filter(nome='Não categorizado', ativa=True).exists()
         )

@@ -40,13 +40,27 @@ def dashboard(request):
         busca=busca,
         status=status_filtro
     )
-    stats = selectors.get_estatisticas_dashboard(usuario=request.user)
+    versao = selectors.versao_de(tickets)
     is_team = getattr(request.user, 'is_technician', False) or request.user.is_superuser
+
+    # Polling HTMX: 204 quando a versão pedida ainda é a atual; 200 com o
+    # parcial da lista (que carrega a nova versão) quando algo mudou.
+    if selectors.eh_htmx(request):
+        if request.GET.get('versao', '') == versao:
+            return HttpResponse(status=204)
+        return render(request, 'tickets/_dashboard_lista.html', {
+            'tickets': tickets,
+            'is_technician': is_team,
+            'versao': versao,
+        })
+
+    stats = selectors.get_estatisticas_dashboard(usuario=request.user)
 
     return render(request, 'tickets/dashboard.html', {
         'tickets': tickets,
         'is_technician': is_team,
-        'stats': stats
+        'stats': stats,
+        'versao': versao
     })
 
 # =============================================================================
@@ -89,6 +103,7 @@ class TicketDetailView(ProprietarioOrTecnicoMixin, DetailView):
         if not (getattr(usuario, 'is_technician', False) or usuario.is_superuser):
             comentarios = comentarios.filter(interno=False)
         context['comentarios'] = comentarios
+        context['versao'] = selectors.versao_de(comentarios, 'criado_em')
         context['comentario_form'] = ComentarioForm(usuario=self.request.user)
         context['status_form'] = TicketStatusForm(instance=self.object)
         return context
@@ -173,16 +188,40 @@ def historico(request):
     }
     return render(request, 'tickets/historico.html', context)
 
+def _tickets_fila(get_params):
+    """Base de tickets da Fila Admin aplicando os filtros da URL.
+
+    Sem filtro de status (ou 'todos') mostra apenas abertos e em andamento —
+    comportamento SSR herdado; com filtro explícito mostra o status pedido.
+    """
+    qs = Ticket.objects.select_related('solicitante', 'tecnico_responsavel', 'categoria')
+    status_f = (get_params.get('status') or '').strip().lower()
+    if status_f and status_f != 'todos':
+        qs = qs.filter(status__iexact=status_f)
+    else:
+        qs = qs.filter(status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO])
+    cat_f = (get_params.get('categoria') or '').strip()
+    if cat_f.isdigit():
+        qs = qs.filter(categoria_id=cat_f)
+    return qs
+
+
 @tecnico_required
 def fila_admin(request):
-    # Dados iniciais para não depender da atualização AJAX (SSR instantâneo).
-    # tickets_novos_ids vai vazio no render: é usado apenas pelo polling para
-    # destacar a linha recém-chegada (ver api_fila_admin_rows).
-    tickets = Ticket.objects.filter(
-        status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO]
-    ).select_related('solicitante', 'categoria')
-    categorias = Categoria.objects.filter(ativa=True)
+    tickets = _tickets_fila(request.GET)
+    versao = selectors.versao_de(tickets)
 
+    # Polling HTMX: 204 = nada mudou; 200 = parcial da tabela + nova versão.
+    if selectors.eh_htmx(request):
+        if request.GET.get('versao', '') == versao:
+            return HttpResponse(status=204)
+        return render(request, 'tickets/_fila_conteudo.html', {
+            'tickets': tickets,
+            'tickets_novos_ids': [],
+            'versao': versao,
+        })
+
+    categorias = Categoria.objects.filter(ativa=True)
     stats = selectors.get_estatisticas_fila_admin()
 
     return render(request, 'tickets/fila_admin.html', {
@@ -190,6 +229,7 @@ def fila_admin(request):
         'tickets_novos_ids': [],
         'categorias': categorias,
         'stats': stats,
+        'versao': versao,
         'filtros': request.GET
     })
 

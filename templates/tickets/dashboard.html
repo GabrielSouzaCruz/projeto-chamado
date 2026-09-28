@@ -94,10 +94,17 @@
 </div>
 {% endif %}
 
-<div id="indicador-atualizacao" class="text-end mb-3 small text-muted" style="height: 20px;"></div>
+<div id="indicador-atualizacao" class="text-end mb-3 small text-muted" style="height: 20px;" role="status" aria-live="polite"><i class="fas fa-sync text-primary me-1" aria-hidden="true"></i> Atualização automática</div>
 
-<div class="row g-4" id="dashboard-table-container">
-    {% include 'tickets/_dashboard_cards.html' %}
+{# Polling HTMX único da página: a cada 15s (só com aba visível) pede a lista #}
+{# com a versão atual; 204 = nada mudou, 200 = troca o parcial. #}
+<div class="row g-4" id="dashboard-live"
+     hx-get="{% url 'tickets:dashboard' %}"
+     hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search)), versao: (document.querySelector("#dashboard-live .versao-atual")||{dataset:{}}).dataset.v || ""}'
+     hx-trigger="every 15s [document.visibilityState=='visible']"
+     hx-swap="innerHTML"
+     hx-on::after-swap="document.getElementById('indicador-atualizacao').textContent='Atualizado agora'">
+    {% include 'tickets/_dashboard_lista.html' %}
 </div>
 
 <div class="modal fade" id="modalCancelarTicket" tabindex="-1" aria-hidden="true">
@@ -122,10 +129,8 @@
 
 {% block extra_js %}
 <script>
-let ultimaSincronizacao = new Date();
-
 document.addEventListener('DOMContentLoaded', function() {
-    
+
     // 1. DELEGAÇÃO DE EVENTOS PARA O MODAL (Garante que botões novos abram o modal)
     document.addEventListener('click', function(e) {
         const btnCancelar = e.target.closest('[data-bs-target="#modalCancelarTicket"]');
@@ -150,42 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 2. FUNÇÃO GLOBAL DE ATUALIZAÇÃO (Via rápida - Mini-APIs HTML)
-    window.atualizarDashboard = function() {
-        const cardsContainer = document.getElementById("dashboard-cards-container");
-        const tableContainer = document.getElementById("dashboard-table-container");
-
-        if (cardsContainer) {
-            fetch("{% url 'tickets:api_dashboard_cards' %}")
-                .then(res => res.text())
-                .then(html => cardsContainer.innerHTML = html);
-        }
-
-        if (tableContainer) {
-            const params = new URLSearchParams(window.location.search);
-            params.append('_t', Date.now());
-            fetch("{% url 'tickets:api_dashboard_table' %}?" + params.toString())
-                .then(res => res.text())
-                .then(html => tableContainer.innerHTML = html);
-        }
-    };
-
-    // Ativa os tooltips da primeira vez
+    // 2. Ativa os tooltips da primeira vez
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-
-    // POLLING (5s) — substitui o Pusher global: recarrega as estatísticas e a
-    // lista de chamados a cada 5 segundos através das mini-APIs e dos parciais
-    // (_dashboard_stats.html / _dashboard_cards.html).
-    setInterval(function () {
-        window.atualizarDashboard();
-        const indicador = document.getElementById('indicador-atualizacao');
-        if (indicador) {
-            indicador.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Atualizado agora';
-        }
-    }, 5000);
-
-    iniciarRelogioIndicador('indicador-atualizacao');
 });
 </script>
 {% endblock %}

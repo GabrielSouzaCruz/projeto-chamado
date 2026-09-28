@@ -5,6 +5,20 @@ import tickets.models
 from django.db import migrations, models
 
 
+def atribuir_nao_categorizado(apps, schema_editor):
+    """Tickets com categoria NULL ganham 'Não categorizado' antes do NOT NULL."""
+    Categoria = apps.get_model('tickets', 'Categoria')
+    Ticket = apps.get_model('tickets', 'Ticket')
+    padrao, _ = Categoria.objects.get_or_create(
+        nome='Não categorizado',
+        defaults={
+            'icone': 'fa-tag',
+            'descricao': 'Categoria padrão para chamados sem classificação.',
+        },
+    )
+    Ticket.objects.filter(categoria__isnull=True).update(categoria=padrao)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -22,6 +36,7 @@ class Migration(migrations.Migration):
             name='anexo',
             field=models.FileField(blank=True, null=True, upload_to='tickets/anexos/%Y/%m/', validators=[tickets.models._validate_file_mime], verbose_name='Anexo'),
         ),
+        migrations.RunPython(atribuir_nao_categorizado, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='ticket',
             name='categoria',

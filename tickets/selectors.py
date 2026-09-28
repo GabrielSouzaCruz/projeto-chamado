@@ -1,4 +1,4 @@
-from django.db.models import Q, QuerySet, Count, Avg, DurationField, F
+from django.db.models import Q, QuerySet, Count, Avg, DurationField, F, Max
 from django.utils import timezone
 
 from .models import Ticket
@@ -17,10 +17,25 @@ ORDENACAO_PADRAO_HISTORICO = '-criado_em'
 
 
 def ordenacao_historico(ordenar) -> str:
-    """Devolve a ordenação solicitada se estiver na whitelist, senão o default."""
+    """Devolve a ordenação solicitada na whitelist, senão o default."""
     if ordenar in CAMPOS_ORDENACAO_HISTORICO:
         return ordenar
     return ORDENACAO_PADRAO_HISTORICO
+
+
+def eh_htmx(request) -> bool:
+    """True quando a requisição veio do HTMX (header HX-Request)."""
+    return request.headers.get('HX-Request') == 'true'
+
+
+def versao_de(qs: QuerySet, campo: str = 'atualizado_em') -> str:
+    """Versão da tela para o polling: maior timestamp do queryset em ISO 8601.
+
+    String vazia quando o queryset está vazio — o cliente devolve a mesma
+    string e a view responde 204 (nada mudou).
+    """
+    ultimo = qs.aggregate(valor=Max(campo))['valor']
+    return ultimo.isoformat() if ultimo else ''
 
 
 def get_tickets_dashboard(usuario, busca: str = None, status: str = None) -> QuerySet:
