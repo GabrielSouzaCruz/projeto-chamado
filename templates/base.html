@@ -16,6 +16,10 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <!-- Config do htmx: allowEval=false. A CSP do projeto não tem 'unsafe-eval',
+         então os atributos de evento e as expressões 'js:' do htmx (compilados
+         via new Function) seriam bloqueados. O comportamento vive em JS externo. -->
+    <meta name="htmx-config" content='{"allowEval": false}'>
     <title>{% block title %}Central de Chamados{% endblock %}</title>
 
     <link rel="manifest" href="{% static 'manifest.json' %}">

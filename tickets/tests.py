@@ -427,6 +427,55 @@ class TesteMiniAPIs(BaseChamadoTest):
         html = resp.content.decode()
         self.assertNotIn('Nota interna sigilosa', html)
 
+    def test_comentario_htmx_valido_retorna_200_com_container_e_mensagem(self):
+        """POST HX válido devolve 200 com o container atualizado e o comentário."""
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[ticket.id]),
+            data={'mensagem': 'Comentário enviado via HTMX'},
+            HTTP_HX_Request='true',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('id="comentarios-container"', html)
+        self.assertIn('Comentário enviado via HTMX', html)
+        self.assertTrue(ticket.comentarios.filter(mensagem='Comentário enviado via HTMX').exists())
+
+    def test_comentario_htmx_vazio_retorna_422_com_erro_acima_do_form(self):
+        """Envio vazio em HX devolve 422 com a mensagem de erro acima do form."""
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[ticket.id]),
+            data={'mensagem': ''},
+            HTTP_HX_Request='true',
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        html = resp.content.decode()
+        self.assertIn('Envie uma mensagem ou um anexo.', html)
+        # Erro renderizado depois do container (logo acima da área do form).
+        self.assertIn('role="alert"', html)
+        self.assertIn('data-erro-comentario', html)
+        self.assertLess(html.index('id="comentarios-container"'), html.index('role="alert"'))
+        self.assertFalse(ticket.comentarios.exists())
+
+    def test_comentario_htmx_solicitante_com_interno_gera_publico(self):
+        """Solicitante manda interno=True via HX e o comentário salva público."""
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.post(
+            reverse('tickets:add_comment', args=[ticket.id]),
+            data={'mensagem': 'Tentativa de nota interna', 'interno': 'on'},
+            HTTP_HX_Request='true',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        comentario = ticket.comentarios.get(mensagem='Tentativa de nota interna')
+        self.assertFalse(comentario.interno)
+
     def test_comentario_ajax_devolve_json_success(self):
         """O envio de comentário via AJAX devolve JSON limpo (sem redirect 302)."""
         ticket = self.criar_ticket()

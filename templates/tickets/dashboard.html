@@ -96,14 +96,12 @@
 
 <div id="indicador-atualizacao" class="text-end mb-3 small text-muted" style="height: 20px;" role="status" aria-live="polite"><i class="fas fa-sync text-primary me-1" aria-hidden="true"></i> Atualização automática</div>
 
-{# Polling HTMX único da página: a cada 15s (só com aba visível) pede a lista #}
-{# com a versão atual; 204 = nada mudou, 200 = troca o parcial. #}
+{# Polling HTMX único da página: a cada 15s (cancelado via JS com aba oculta)
+     pede a lista com a versão atual; 204 = nada mudou, 200 = troca o parcial. #}
 <div class="row g-4" id="dashboard-live"
      hx-get="{% url 'tickets:dashboard' %}"
-     hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search)), versao: (document.querySelector("#dashboard-live .versao-atual")||{dataset:{}}).dataset.v || ""}'
-     hx-trigger="every 15s [document.visibilityState=='visible']"
-     hx-swap="innerHTML"
-     hx-on::after-swap="document.getElementById('indicador-atualizacao').textContent='Atualizado agora'">
+     hx-trigger="every 15s, visibilitychange from:document"
+     hx-swap="innerHTML">
     {% include 'tickets/_dashboard_lista.html' %}
 </div>
 
@@ -158,6 +156,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. Ativa os tooltips da primeira vez
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+    // 3. Integração do polling HTMX sem eval (CSP/allowEval=false):
+    //    parâmetros da URL + versão da lista entram aqui (antes hx-vals js:),
+    //    o indicador de atualização e o cancelamento com aba oculta também.
+    document.addEventListener('htmx:configRequest', function (e) {
+        if (!e.detail || !e.detail.target || e.detail.target.id !== 'dashboard-live') return;
+        var params = {};
+        new URLSearchParams(window.location.search).forEach(function (v, k) { params[k] = v; });
+        var versao = document.querySelector('#dashboard-live .versao-atual');
+        params.versao = (versao && versao.dataset && versao.dataset.v) || '';
+        Object.keys(params).forEach(function (k) { e.detail.parameters[k] = params[k]; });
+    });
+
+    document.addEventListener('htmx:afterSwap', function (e) {
+        var alvo = e.target;
+        if (alvo && alvo.closest && alvo.closest('#dashboard-live')) {
+            var ind = document.getElementById('indicador-atualizacao');
+            if (ind) ind.textContent = 'Atualizado agora';
+        }
+    });
+
+    document.addEventListener('htmx:beforeRequest', function (e) {
+        var alvo = e.target;
+        if (document.hidden && alvo && alvo.id === 'dashboard-live') {
+            e.preventDefault();
+        }
+    });
 });
 </script>
 {% endblock %}

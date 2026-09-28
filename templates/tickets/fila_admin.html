@@ -14,7 +14,6 @@
     <div class="d-flex gap-2">
         <button class="btn btn-white shadow-sm border fw-bold"
                 hx-get="{% url 'tickets:fila_admin' %}"
-                hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search))}'
                 hx-target="#fila-container"
                 hx-swap="innerHTML">
             <i class="fas fa-sync-alt me-2 text-primary" aria-hidden="true"></i>Atualizar Fila
@@ -107,13 +106,11 @@
             <div id="indicador-atualizacao" class="small text-muted" role="status" aria-live="polite">Sincronizado</div>
         </div>
     </div>
-    {# Polling HTMX único da página: 15s com aba visível; 204 = inalterado. #}
+    {# Polling HTMX único da página: 15s (requisição cancelada via JS com aba oculta); 204 = inalterado. #}
     <div id="fila-container" class="table-responsive"
          hx-get="{% url 'tickets:fila_admin' %}"
-         hx-vals='js:{...Object.fromEntries(new URLSearchParams(location.search)), versao: (document.querySelector("#fila-container .versao-atual")||{dataset:{}}).dataset.v || ""}'
-         hx-trigger="every 15s [document.visibilityState=='visible']"
-         hx-swap="innerHTML"
-         hx-on::after-swap="document.getElementById('indicador-atualizacao').textContent='Atualizado agora'">
+         hx-trigger="every 15s, visibilitychange from:document"
+         hx-swap="innerHTML">
         {% include 'tickets/_fila_conteudo.html' %}
     </div>
 </div>
@@ -134,6 +131,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ativa tooltips
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
+
+    // Integração do polling HTMX sem eval (CSP/allowEval=false): os parâmetros
+    // da URL + versão da fila entram aqui (antes hx-vals js: — valia para o
+    // polling e para o botão "Atualizar Fila", ambos com alvo #fila-container);
+    // o indicador de atualização e o cancelamento com aba oculta também.
+    document.addEventListener('htmx:configRequest', function (e) {
+        if (!e.detail || !e.detail.target || e.detail.target.id !== 'fila-container') return;
+        var params = {};
+        new URLSearchParams(window.location.search).forEach(function (v, k) { params[k] = v; });
+        var versao = document.querySelector('#fila-container .versao-atual');
+        params.versao = (versao && versao.dataset && versao.dataset.v) || '';
+        Object.keys(params).forEach(function (k) { e.detail.parameters[k] = params[k]; });
+    });
+
+    document.addEventListener('htmx:afterSwap', function (e) {
+        var alvo = e.target;
+        if (alvo && alvo.closest && alvo.closest('#fila-container')) {
+            var ind = document.getElementById('indicador-atualizacao');
+            if (ind) ind.textContent = 'Atualizado agora';
+        }
+    });
+
+    document.addEventListener('htmx:beforeRequest', function (e) {
+        var alvo = e.target;
+        if (document.hidden && alvo && alvo.id === 'fila-container') {
+            e.preventDefault();
+        }
+    });
 });
 </script>
 {% endblock %}

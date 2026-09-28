@@ -57,7 +57,12 @@
                 {% include 'tickets/_comentarios_container.html' %}
 
                 <div class="chat-input-area p-3 bg-light border-top">
-                    <form id="form-comentario" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data">
+                    <form id="form-comentario" method="post" action="{% url 'tickets:add_comment' ticket.id %}" enctype="multipart/form-data"
+                          hx-post="{% url 'tickets:add_comment' ticket.id %}"
+                          hx-encoding="multipart/form-data"
+                          hx-target="#comentarios-container"
+                          hx-swap="outerHTML"
+                          hx-disabled-elt="find button.chat-send">
                         {% csrf_token %}
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
                         <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." ></textarea>

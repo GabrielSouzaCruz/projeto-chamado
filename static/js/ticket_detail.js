@@ -372,3 +372,102 @@ document.addEventListener("DOMContentLoaded", function() {
             .catch(err => console.error("Erro ao atualizar status:", err));
     };
 });
+
+// ---------------------------------------------------------------------------
+// Integração HTMX do chat — código que antes vivia em <script> inline no
+// #form-comentario. A CSP do projeto não tem 'unsafe-eval' e o htmx foi
+// configurado com allowEval=false, então hx-on é proibido: o comportamento
+// (troca condicional, rolagem, polling com aba oculta e reset do form)
+// acontece aqui, em JS externo.
+// ---------------------------------------------------------------------------
+
+// 1. TROCA CONDICIONAL: o container só é substituído quando a resposta é a
+//    parcial real (o 422 de validação vem com o alert e entra acima do form;
+//    respostas sem o container não devem destruí-lo). O alvo é resolvido no
+//    momento da troca: o polling e o envio podem chegar quase juntos e trocar
+//    o nó do container — mirar sempre o nó vivo evita swap em nó desanexado.
+document.addEventListener('htmx:beforeSwap', function (e) {
+    var d = e.detail;
+    if (!d || !d.target || d.target.id !== 'comentarios-container') return;
+    var atual = document.getElementById('comentarios-container');
+    if (!atual) { d.shouldSwap = false; return; }
+    d.target = atual;
+    d.shouldSwap = (d.serverResponse || '').indexOf('comentarios-container') !== -1;
+    if (d.shouldSwap) {
+        document.querySelectorAll('[data-erro-comentario]').forEach(function (el) { el.remove(); });
+    }
+});
+
+// 2. Após a troca, o container novo rola até a última mensagem.
+document.addEventListener('htmx:afterSwap', function (e) {
+    var alvo = e.target;
+    if (!alvo || !alvo.closest || !alvo.closest('#comentarios-container')) return;
+    var el = document.getElementById('comentarios-container');
+    if (!el) return;
+    if (el.scrollTo) { el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }
+    else { el.scrollTop = el.scrollHeight; }
+});
+
+// 3. Polling do chat não roda com a aba oculta — substitui o antigo filtro
+//    [document.visibilityState=='visible'] do hx-trigger (que exigia eval).
+//    htmx:beforeRequest é cancelável: cancela antes do send (sem rede).
+document.addEventListener('htmx:beforeRequest', function (e) {
+    var alvo = e.target;
+    if (document.hidden && alvo && alvo.id === 'comentarios-container') {
+        e.preventDefault();
+    }
+});
+
+// 4. Envio bem-sucedido via HTMX → reset no formulário (comentário já está
+//    na tela via swap; erros 422 preservam o que o usuário digitou).
+//    O alvo é o #form-comentario para não zerar o form a cada polling GET.
+document.addEventListener('htmx:afterRequest', function (e) {
+    if (e.detail && e.detail.successful && e.target && e.target.id === 'form-comentario') {
+        e.target.reset();
+    }
+});
+
+// 5. GUARDA ANTI-DUPLA GRAVAÇÃO: o form mantém o handler legado (fetch) intacto
+//    como fallback, e ele também faz POST para /comentar/. Quem grava agora é o
+//    htmx — para não salvar o comentário DUAS vezes (2ª gravação estourava o
+//    rate limit/lock do SQLite e o legado restaurava o texto com erro), o fetch
+//    legado do envio recebe uma resposta sintética ASSIM QUE o htmx termina:
+//    o legado segue cuidando de reset/spinner/atualizarChat, sem gravar de novo.
+//    Se o htmx não emitir o envio, a flag nunca sobe e o fetch legado continua
+//    real (fallback 100% preservado).
+var fetchOriginalLegado = window.fetch;
+var envioLegadoPendente = null;
+
+document.addEventListener('htmx:beforeRequest', function (e) {
+    if (e.target && e.target.id === 'form-comentario') {
+        window.__htmxEnviouComentario = true;
+    }
+});
+
+document.addEventListener('htmx:afterRequest', function (e) {
+    if (!envioLegadoPendente) return;
+    if (!e.target || e.target.id !== 'form-comentario') return;
+    var pendente = envioLegadoPendente;
+    envioLegadoPendente = null;
+    var status = (e.detail && e.detail.xhr) ? e.detail.xhr.status : 0;
+    if (status === 0) {
+        pendente.rejeitar(new TypeError('Failed to fetch'));
+    } else {
+        pendente.resolver(new Response(JSON.stringify({ status: status >= 200 && status < 400 ? 'success' : 'error' }), {
+            status: status,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+    }
+});
+
+window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var metodo = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    if (metodo === 'POST' && window.__htmxEnviouComentario && /\/comentar\/?$/.test(String(url).split('?')[0])) {
+        window.__htmxEnviouComentario = false;
+        return new Promise(function (resolver, rejeitar) {
+            envioLegadoPendente = { resolver: resolver, rejeitar: rejeitar };
+        });
+    }
+    return fetchOriginalLegado.apply(this, arguments);
+};

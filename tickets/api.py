@@ -15,6 +15,7 @@ from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.utils.html import format_html
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from urllib.parse import urlparse
@@ -304,6 +305,24 @@ def _parcial_comentarios(request, ticket):
     })
 
 
+def _erro_comentario_htmx(request, ticket, mensagem):
+    """422 de validação em requisição HX: container intacto + erro acima do form."""
+    container = _parcial_comentarios(request, ticket).content.decode()
+    alerta = format_html(
+        '<div class="alert alert-danger mt-2 mb-0" role="alert" data-erro-comentario>{}</div>',
+        mensagem,
+    )
+    return HttpResponse(container + alerta, status=422)
+
+
+def _mensagem_erro_do_form(form):
+    """Primeira mensagem de validação do formulário (ou fallback genérico)."""
+    for erros in form.errors.values():
+        for erro in erros:
+            return str(erro)
+    return 'Comentário inválido.'
+
+
 @login_required
 def ticket_comentarios_partial(request, ticket_id):
     """Mini-API: HTML da lista de comentários.
@@ -361,7 +380,7 @@ def adicionar_comentario(request, pk):
     if form.is_valid():
         # HTMX exige conteúdo: mensagem ou anexo (nunca comentário vazio).
         if htmx and not (form.cleaned_data.get('mensagem') or request.FILES.get('anexo')):
-            return HttpResponse('Envie uma mensagem ou um anexo.', status=400)
+            return _erro_comentario_htmx(request, ticket, 'Envie uma mensagem ou um anexo.')
         services.adicionar_comentario_service(
             ticket_id=pk,
             autor=request.user,
@@ -376,7 +395,7 @@ def adicionar_comentario(request, pk):
         if is_ajax:
             return JsonResponse({'status': 'success'})
     elif htmx:
-        return HttpResponse('Comentário inválido.', status=400)
+        return _erro_comentario_htmx(request, ticket, _mensagem_erro_do_form(form))
     return redirect('tickets:detail', pk=pk)
 
 @require_POST
