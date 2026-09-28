@@ -16,13 +16,22 @@ Importante: UserAdmin já traz configurações padrão para:
 Nós apenas estendemos com campos específicos do sistema de chamados.
 """
 
+from django import forms
 from django.contrib import admin
 from django.contrib import messages
+from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth.admin import UserAdmin
 import secrets
 import string
 
 from .models import User
+from .views import (
+    MENSAGEM_BLOQUEIO_LOGIN,
+    get_client_ip,
+    login_bloqueado,
+    registrar_falha_login,
+    resetar_falha_login,
+)
 
 
 @admin.register(User)
@@ -210,11 +219,44 @@ class CustomUserAdmin(UserAdmin):
     resetar_senha_temporaria.short_description = 'Resetar senha (gera temporária + força troca)'
     """
     Ordenação padrão da listagem de usuários.
-    
+
     Opções comuns:
     - ['username']: Ordena alfabeticamente por username
     - ['-date_joined']: Mais recentes primeiro
     - ['last_name', 'first_name']: Por nome completo
-    
+
     ⚠️ A ordenação pode ser sobrescrita pelo usuário clicando nos headers
     """
+
+
+# =============================================================================
+# RATE LIMIT NO LOGIN DO /admin/ (10 falhas / 10 min por IP)
+#
+# Reutiliza a MESMA lógica do /accounts/login/ (get_client_ip,
+# login_bloqueado, registrar_falha_login, resetar_falha_login) — sem duplicar
+# código: o AdminSite.login() usa `self.login_form or AdminAuthenticationForm`,
+# então basta trocar o atributo abaixo.
+# =============================================================================
+class RateLimitedAdminAuthenticationForm(AdminAuthenticationForm):
+    """AuthenticationForm do admin com rate limit por IP no clean()."""
+
+    def clean(self):
+        if self.request is None:
+            return super().clean()
+
+        ip = get_client_ip(self.request)
+        if login_bloqueado(ip):
+            # IP já bloqueado: nem valida credenciais nem incrementa.
+            raise forms.ValidationError(MENSAGEM_BLOQUEIO_LOGIN)
+
+        try:
+            cleaned_data = super().clean()
+        except forms.ValidationError:
+            registrar_falha_login(ip)
+            raise
+
+        resetar_falha_login(ip)
+        return cleaned_data
+
+
+admin.site.login_form = RateLimitedAdminAuthenticationForm

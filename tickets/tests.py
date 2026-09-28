@@ -410,6 +410,85 @@ class TesteMiniAPIs(BaseChamadoTest):
         self.assertTrue(ticket.comentarios.filter(mensagem='Teste normal').exists())
 
 
+class TesteFilaPermissoes(BaseChamadoTest):
+    """Fila: @tecnico_required (sem @admin_required), filtro SSR
+    ABERTO/EM_ANDAMENTO e ProprietarioOrTecnicoMixin liberando técnicos."""
+
+    def _criar(self, titulo, status, solicitante=None):
+        return Ticket.objects.create(
+            titulo=titulo,
+            descricao='Descrição do chamado para o teste.',
+            solicitante=solicitante or self.solicitante,
+            categoria=self.categoria,
+            status=status,
+        )
+
+    def test_tecnico_nao_superuser_acessa_fila_com_200(self):
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:fila_admin'))
+
+        self.assertEqual(resp.status_code, 200)
+
+    def test_fila_ssr_mostra_chamado_aberto_no_html_inicial(self):
+        aberto = self._criar('Chamado Aberto SSR', Ticket.Status.ABERTO)
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:fila_admin'))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, aberto.titulo)
+
+    def test_fila_filtro_ssr_so_mostra_abertos_e_em_andamento(self):
+        em_aberto = self._criar('Chamado em Aberto', Ticket.Status.ABERTO)
+        em_andamento = self._criar('Chamado em Andamento', Ticket.Status.EM_ANDAMENTO)
+        self._criar('Chamado Resolvido', Ticket.Status.RESOLVIDO)
+        self._criar('Chamado Cancelado', Ticket.Status.CANCELADO)
+
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:fila_admin'))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, em_aberto.titulo)
+        self.assertContains(resp, em_andamento.titulo)
+        self.assertNotContains(resp, 'Chamado Resolvido')
+        self.assertNotContains(resp, 'Chamado Cancelado')
+
+        statuses = set(resp.context['tickets'].values_list('status', flat=True))
+        self.assertEqual(
+            statuses, {Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO}
+        )
+
+    def test_fila_usuario_comum_e_redirecionado(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(reverse('tickets:fila_admin'))
+
+        self.assertRedirects(
+            resp, reverse('tickets:dashboard'), fetch_redirect_response=False
+        )
+
+    def test_tecnico_nao_dono_acessa_detalhe(self):
+        ticket = self._criar('Chamado de Outro', Ticket.Status.ABERTO)
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:detail', args=[ticket.pk]))
+
+        self.assertEqual(resp.status_code, 200)
+
+    def test_tecnico_nao_dono_acessa_edicao(self):
+        ticket = self._criar('Chamado de Outro Edit', Ticket.Status.ABERTO)
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(reverse('tickets:update', args=[ticket.pk]))
+
+        self.assertEqual(resp.status_code, 200)
+
+    def test_outro_comum_nao_dono_continua_redirecionado(self):
+        ticket = self._criar('Chamado do Fulano', Ticket.Status.ABERTO)
+        self.client.force_login(self.outro_usuario)
+        resp = self.client.get(reverse('tickets:detail', args=[ticket.pk]))
+
+        self.assertRedirects(
+            resp, reverse('tickets:dashboard'), fetch_redirect_response=False
+        )
+
+
 class TestePushSubscriptionAPI(BaseChamadoTest):
     """Valida a API POST /api/save-push-subscription/ (Web Push nativo)."""
 
@@ -1092,6 +1171,15 @@ class TesteEndurecimentoConfiguracao(BaseChamadoTest):
         qs = selectors.get_historico_tickets({'ordenar': '-prioridade'})
 
         self.assertEqual(tuple(qs.query.order_by), ('-prioridade',))
+
+    def test_ordenar_por_resolvido_em_e_aplicado(self):
+        qs = selectors.get_historico_tickets({'ordenar': '-resolvido_em'})
+
+        self.assertEqual(tuple(qs.query.order_by), ('-resolvido_em',))
+
+        qs_asc = selectors.get_historico_tickets({'ordenar': 'resolvido_em'})
+
+        self.assertEqual(tuple(qs_asc.query.order_by), ('resolvido_em',))
 
     def test_view_do_historico_sanitiza_o_parametro_ordenar(self):
         self.client.force_login(self.tecnico)

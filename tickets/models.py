@@ -196,17 +196,6 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f'Push de {self.user}'
-    
-    @property
-    def prioridade_css_class(self):
-        classes = {
-            self.Prioridade.BAIXA: 'badge-priority-baixa',
-            self.Prioridade.MEDIA: 'badge-priority-normal',
-            self.Prioridade.ALTA: 'badge-priority-alta',
-            self.Prioridade.CRITICA: 'badge-priority-critica',
-        }
-        return classes.get(self.prioridade, 'badge-priority-baixa')
-    
 
 
 class Comentario(models.Model):

@@ -35,3 +35,13 @@ STORAGES = {
 }
 
 STATIC_URL = '/static/'
+
+# CACHES default é DatabaseCache (tabela django_cache), que só existe após
+# `createcachetable` (rodado no build do Render). No SQLite em memória dos
+# testes essa tabela não existe → usa LocMemCache (persistente durante o teste,
+# necessário para os testes de rate limit).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}

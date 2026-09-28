@@ -137,6 +137,120 @@ class TesteLogin(TestCase):
 
 
 # =============================================================================
+# 1b. RATE LIMIT COM PROXY (X-Forwarded-For do Render) + ADMIN
+# =============================================================================
+
+class TesteRateLimitLoginProxy(TestCase):
+    """get_client_ip lê o ÚLTIMO IP do X-Forwarded-For (anexado pelo proxy
+    do Render) e o mesmo limite (10 falhas/10min por IP) vale para
+    /accounts/login/ e /admin/login/."""
+
+    ADMIN_LOGIN_URL = '/admin/login/'
+
+    def setUp(self):
+        self.client = Client()
+        self.url = LOGIN_URL
+        self.user = criar_usuario(
+            username='joao.silva',
+            password='senha-forte-123!',
+            email='joao@example.com',
+        )
+        cache.clear()
+
+    def _falhar_login(self, xff=None):
+        extra = {'HTTP_X_FORWARDED_FOR': xff} if xff else {}
+        return self.client.post(self.url, {
+            'username': 'joao.silva',
+            'password': 'senha-errada',
+        }, **extra)
+
+    @staticmethod
+    def _erros(resp):
+        return [str(e) for e in resp.context['form'].non_field_errors()]
+
+    def test_get_client_ip_usa_o_ultimo_ip_do_xff(self):
+        from django.test import RequestFactory
+
+        from accounts.views import get_client_ip
+
+        req = RequestFactory().get('/', HTTP_X_FORWARDED_FOR='1.1.1.1, 10.0.0.9')
+
+        self.assertEqual(get_client_ip(req), '10.0.0.9')
+
+    def test_get_client_ip_sem_header_usa_remote_addr(self):
+        from django.test import RequestFactory
+
+        from accounts.views import get_client_ip
+
+        req = RequestFactory().get('/')
+
+        self.assertEqual(get_client_ip(req), req.META['REMOTE_ADDR'])
+
+    def test_xff_conta_para_o_ip_real_do_proxy(self):
+        from accounts.views import _cache_key
+
+        for _ in range(10):
+            self._falhar_login(xff='1.1.1.1, 10.0.0.9')
+
+        # Contador vai para o IP real (último do XFF), não para o primeiro.
+        self.assertEqual(cache.get(_cache_key('10.0.0.9'), 0), 10)
+        self.assertEqual(cache.get(_cache_key('1.1.1.1'), 0), 0)
+
+        resp = self._falhar_login(xff='1.1.1.1, 10.0.0.9')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(any('bloqueado' in e.lower() for e in self._erros(resp)))
+
+    def test_trocar_o_primeiro_ip_do_xff_nao_zera_o_contador(self):
+        for _ in range(10):
+            self._falhar_login(xff='1.1.1.1, 10.0.0.9')
+        # Primeiro IP muda (spoof), último é o mesmo → contador persiste
+        resp = self._falhar_login(xff='9.9.9.9, 10.0.0.9')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(any('bloqueado' in e.lower() for e in self._erros(resp)))
+
+    def test_11a_tentativa_bloqueada_no_accounts_login(self):
+        for _ in range(10):
+            self._falhar_login()
+        resp = self._falhar_login()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(any('bloqueado' in e.lower() for e in self._erros(resp)))
+
+    def test_11a_tentativa_bloqueada_no_admin_login(self):
+        for _ in range(10):
+            resp = self.client.post(self.ADMIN_LOGIN_URL, {
+                'username': 'joao.silva',
+                'password': 'senha-errada',
+            })
+            self.assertEqual(resp.status_code, 200)
+
+        resp = self.client.post(self.ADMIN_LOGIN_URL, {
+            'username': 'joao.silva',
+            'password': 'senha-errada',
+        })
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(any('bloqueado' in e.lower() for e in self._erros(resp)))
+
+    def test_admin_login_fora_do_limite_continua_funcionando(self):
+        self.client.post(self.ADMIN_LOGIN_URL, {
+            'username': 'joao.silva',
+            'password': 'senha-errada',
+        })
+        self.client.logout()
+
+        # Limite não atingido → credenciais ainda são validadas normalmente
+        resp = self.client.post(self.ADMIN_LOGIN_URL, {
+            'username': 'joao.silva',
+            'password': 'senha-forte-123!',
+        })
+        # Usuário válido mas NÃO staff → recusado pelo admin (sem 'bloqueado')
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(any('bloqueado' in e.lower() for e in self._erros(resp)))
+
+
+# =============================================================================
 # 2. CADASTRO FECHADO (rota register/ removida)
 # =============================================================================
 
@@ -465,23 +579,39 @@ class TesteMixinsDecorators(TestCase):
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
 
-    # -- @admin_required (via fila-admin) --
+    # -- @admin_required (testado no decorador: fila_admin deixou de usá-lo
+    #    e passou a ser só @tecnico_required) --
+
+    def _chamar_admin_required(self, user):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        from accounts.decorators import admin_required
+
+        @admin_required
+        def view_somente_admin(request):
+            return HttpResponse('ok')
+
+        request = RequestFactory().get('/rota-somente-admin/')
+        request.user = user
+        return view_somente_admin(request)
 
     def test_admin_required_tecnico_sem_staff_redirect(self):
-        self.client.login(username='tecnico', password='senha-teste-123!')
-        url = reverse('tickets:fila_admin')
-        resp = self.client.get(url)
-        # fila_admin tem @admin_required + @tecnico_required
-        # tecnico sem is_staff -> admin_required bloqueia -> redirect login
+        resp = self._chamar_admin_required(self.tecnico)
+
         self.assertEqual(resp.status_code, 302)
         self.assertIn('login', resp.url)
 
     def test_admin_required_usuario_comum_redirect(self):
-        self.client.login(username='comum', password='senha-teste-123!')
-        url = reverse('tickets:fila_admin')
-        resp = self.client.get(url)
+        resp = self._chamar_admin_required(self.usuario_comum)
+
         self.assertEqual(resp.status_code, 302)
         self.assertIn('login', resp.url)
+
+    def test_admin_required_superuser_passa(self):
+        resp = self._chamar_admin_required(self.admin)
+
+        self.assertEqual(resp.status_code, 200)
 
     # -- ProprietarioOrTecnicoMixin (via TicketDetailView) --
 

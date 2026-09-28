@@ -67,22 +67,47 @@ def _check_rate_limit(cache_key, max_tentativas, janela_segundos):
     cache.set(cache_key, tentativas + 1, janela_segundos)
     return False, max_tentativas - tentativas - 1
 
+def _cache_key(ip):
+    """Gera a chave de cache do contador de falhas de um IP."""
+    return f'{CACHE_KEY_PREFIX}{ip}'
+
+
+MENSAGEM_BLOQUEIO_LOGIN = (
+    'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
+)
+
+
 def get_client_ip(request):
     """
-    Captura o IP real do cliente considerando proxies (Render/nginx/gunicorn).
-    HTTP_X_FORWARDED_FOR pode vir com vários IPs: 'ip_cliente, proxy1, proxy2'
-    — retorna sempre o primeiro (o IP original do cliente).
+    Captura o IP real do cliente atrás do proxy do Render (gunicorn).
+
+    O proxy ANEXA o IP original ao final do X-Forwarded-For
+    ('ip_do_proxy, ip_do_cliente'), por isso lê o ÚLTIMO valor da lista.
+    Sem header (dev/direto), usa REMOTE_ADDR.
     """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
+        ip = x_forwarded_for.split(',')[-1].strip()
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
 
-def _cache_key(ip):
-    """Gera a chave do cache para um IP."""
-    return f'{CACHE_KEY_PREFIX}{ip}'
+
+def login_bloqueado(ip):
+    """True quando o IP atingiu o limite de falhas de login."""
+    return cache.get(_cache_key(ip), 0) >= MAX_TENTATIVAS_LOGIN
+
+
+def registrar_falha_login(ip):
+    """Incrementa o contador de falhas do IP e devolve o total acumulado."""
+    tentativas = cache.get(_cache_key(ip), 0) + 1
+    cache.set(_cache_key(ip), tentativas, TEMPO_BLOQUEIO_LOGIN)
+    return tentativas
+
+
+def resetar_falha_login(ip):
+    """Zera o contador do IP (login bem-sucedido)."""
+    cache.delete(_cache_key(ip))
 
 class CustomLoginView(SuccessMessageMixin, LoginView):
     """
@@ -105,7 +130,7 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
 
     def form_valid(self, form):
         """Login OK → zera o contador e verifica must_change_password."""
-        cache.delete(_cache_key(get_client_ip(self.request)))
+        resetar_falha_login(get_client_ip(self.request))
         response = super().form_valid(form)
         if form.get_user().must_change_password:
             messages.warning(self.request, 'Sua senha foi redefinida. Defina uma nova senha para continuar.')
@@ -118,9 +143,7 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
         tentativas restam antes do bloqueio.
         """
         ip = get_client_ip(self.request)
-        chave = _cache_key(ip)
-        tentativas = cache.get(chave, 0) + 1
-        cache.set(chave, tentativas, TEMPO_BLOQUEIO_LOGIN)
+        tentativas = registrar_falha_login(ip)
 
         restantes = MAX_TENTATIVAS_LOGIN - tentativas
         if restantes > 0:
@@ -138,10 +161,7 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
                 '(bloqueio de %ss)',
                 ip, tentativas, TEMPO_BLOQUEIO_LOGIN,
             )
-            form.add_error(
-                None,
-                'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
-            )
+            form.add_error(None, MENSAGEM_BLOQUEIO_LOGIN)
         return super().form_invalid(form)
 
     def post(self, request, *args, **kwargs):
@@ -151,18 +171,15 @@ class CustomLoginView(SuccessMessageMixin, LoginView):
         (sem incrementar o contador novamente).
         """
         ip = get_client_ip(request)
-        tentativas = cache.get(_cache_key(ip), 0)
-        if tentativas >= MAX_TENTATIVAS_LOGIN:
+        if login_bloqueado(ip):
+            tentativas = cache.get(_cache_key(ip), 0)
             logger.warning(
                 'IP %s bloqueado - nova tentativa de login recusada '
                 '(contador atual: %s, bloqueio de %ss)',
                 ip, tentativas, TEMPO_BLOQUEIO_LOGIN,
             )
             form = self.get_form()
-            form.add_error(
-                None,
-                'Muitas tentativas falhas. Por segurança, seu IP foi bloqueado por 10 minutos.'
-            )
+            form.add_error(None, MENSAGEM_BLOQUEIO_LOGIN)
             return self.render_to_response(self.get_context_data(form=form))
         return super().post(request, *args, **kwargs)
 

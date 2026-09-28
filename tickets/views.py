@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, CreateView, UpdateView
 
 from accounts.mixins import ProprietarioOrTecnicoMixin, TecnicoOrStaffRequiredMixin
-from accounts.decorators import tecnico_required, admin_required
+from accounts.decorators import tecnico_required  
 from accounts.models import User
 from accounts.views import RATE_TICKET_MAX, RATE_TICKET_JANELA, _check_rate_limit
 
@@ -173,13 +173,14 @@ def historico(request):
     }
     return render(request, 'tickets/historico.html', context)
 
-@admin_required
 @tecnico_required
 def fila_admin(request):
     # Dados iniciais para não depender da atualização AJAX (SSR instantâneo).
     # tickets_novos_ids vai vazio no render: é usado apenas pelo polling para
     # destacar a linha recém-chegada (ver api_fila_admin_rows).
-    tickets = Ticket.objects.filter(status__in=['ABERTO', 'EM_ANDAMENTO']).select_related('solicitante', 'categoria')
+    tickets = Ticket.objects.filter(
+        status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO]
+    ).select_related('solicitante', 'categoria')
     categorias = Categoria.objects.filter(ativa=True)
 
     stats = selectors.get_estatisticas_fila_admin()

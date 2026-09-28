@@ -13,12 +13,12 @@ class TecnicoOrStaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return user.is_staff or getattr(user, 'is_technician', False)
 
 class ProprietarioOrTecnicoMixin(LoginRequiredMixin):
-    """Permite acesso ao dono do ticket, técnicos ou superusuários."""
+    """Permite acesso ao dono do ticket, técnicos (is_technician) ou superusuários."""
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
 
-        if request.user.is_superuser:
+        if request.user.is_superuser or getattr(request.user, 'is_technician', False):
             return super().dispatch(request, *args, **kwargs)
 
         try:

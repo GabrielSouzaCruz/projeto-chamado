@@ -172,6 +172,19 @@ DATABASES = {
 }
 
 # =============================================================================
+# CACHE (DatabaseCache)
+# =============================================================================
+# LocMem morre a cada processo/restart do worker (gunicorn/Render), zerando os
+# contadores de rate limit. A DatabaseCache persiste na tabela `django_cache`,
+# criada no build via `python manage.py createcachetable` (ver render.yaml).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+    }
+}
+
+# =============================================================================
 # VALIDAÇÃO DE SENHAS
 # =============================================================================
 

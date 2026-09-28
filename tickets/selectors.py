@@ -11,6 +11,7 @@ CAMPOS_ORDENACAO_HISTORICO = frozenset({
     'prioridade', '-prioridade',
     'status', '-status',
     'id', '-id',
+    'resolvido_em', '-resolvido_em',
 })
 ORDENACAO_PADRAO_HISTORICO = '-criado_em'
 
