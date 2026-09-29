@@ -45,14 +45,18 @@ Cypress.Commands.add('loginComo', (perfil = 'tecnico') => {
 Cypress.Commands.add('interceptarAPIsDoChamado', (id, opts = {}) => {
   const base = `**/tickets/${id}/`;
 
-  // Partials (mini-APIs HTML consumidas via fetch pelo JS do chat)
+  // Partials (mini-APIs HTML consumidas via HTMX/fetch pelo JS do chat)
   cy.intercept('GET', `${base}comentarios/**`, { fixture: 'comentarios-list.html' }).as('comentariosPartial');
   cy.intercept('GET', `${base}status-badge/**`, { fixture: 'status-badge.html' }).as('statusBadge');
 
-  // Ações POST (comentar / status / assumir). `opts.comentario.delayMs`
-  // permite segurar a resposta para observar o estado "A enviar...".
-  const respComentario = opts.comentario || { statusCode: 200, body: { status: 'success' } };
-  cy.intercept('POST', `${base}comentar/**`, respComentario).as('comentar');
+  // Ações POST (comentar / status / assumir). Para HTMX hx-post, o response
+  // do POST comentar deve ser HTML (a container atualizada), não JSON.
+  const respComentarioHTMX = opts.comentario || {
+    statusCode: 200,
+    body: '<div id="comentarios-container" hx-get="/tickets/' + id + '/comentarios/" hx-trigger="every 15s, visibilitychange from:document" hx-swap="outerHTML"><div id="comentarios-list"><!-- comentários aqui --></div></div>',
+    headers: { 'Content-Type': 'text/html' }
+  };
+  cy.intercept('POST', `${base}comentar/**`, respComentarioHTMX).as('comentar');
 
   cy.intercept('POST', `${base}status/**`, { statusCode: 200, body: { status: 'success' } }).as('alterarStatus');
   cy.intercept('POST', `${base}assumir/**`, { statusCode: 200, body: { status: 'success' } }).as('assumir');
