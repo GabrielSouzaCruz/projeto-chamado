@@ -9,18 +9,19 @@ describe('Chat HTMX — Parciais e polling', () => {
 
   it('envio via hx-post aparece no #comentarios-container sem reload e campo limpa', () => {
     // Marca um atributo no window antes de enviar; após o hx-post este
-    // atributo deve persistir (o DOM foi atualizado via HTMX, não reload).
+    // atributo deve persistir (o DOM foi atualizado via innerHTML, não reload).
     const markerBefore = '__chatMarkBeforeSend';
-    window[markerBefore] = 'presente';
+    cy.window().then((win) => {
+      win[markerBefore] = 'presente';
+    });
 
     cy.get('#chat-input').type('Teste HTMX sem reload{enter}');
 
-    // O intercept do comando abrirDetalheDoChamado já configurou:
-    //   @comentariosPartial → fixture comentarios-list.html
-    //   @comentar    → JSON { status: 'success' }
+    // Aguarda o intercept do comentário (@comentar).
     cy.wait('@comentar');
 
-    // O marcador deve persitir (DOM trocado via innerHTML, não reload).
+    // Verifica que o marcador persiste na mesma window session
+    // (HTMX troca o container via innerHTML, não faz reload da página).
     cy.window().should((win) => {
       expect(win[markerBefore]).to.equal('presente');
     });
@@ -35,11 +36,13 @@ describe('Chat HTMX — Parciais e polling', () => {
   it('com aba oculta (document.hidden) não dispara requisição em 16s', () => {
     // Simula aba oculta antes de tentar enviar.
     cy.window().then((win) => {
+      // Verifica a descriptor de propriedade do visibilityState no document.
+      // Usamos o win.document dentro do then da window para garantir o contexto.
       const propDesc = Object.getOwnPropertyDescriptor(win.document, 'visibilityState');
-      cy.wrap(propDesc).should('exist');
+      expect(propDesc).to.exist;
     });
 
-    // Define visibilityState como "hidden" de forma configurável.
+    // Define clock zero e garante início com aba visível.
     cy.clock(0);
     cy.window().its('document.visibilityState').should('eq', 'visible'); // garantir início visível
 
@@ -49,9 +52,7 @@ describe('Chat HTMX — Parciais e polling', () => {
     // Avança 16 segundos de tempo real (sem que o setInterval reale).
     cy.tick(16000);
 
-    // Como o cy.clock está ativo e visibilityState foi forçado a "hidden"
-    // (via Object.defineProperty no beforeEach ou setup), nenhuma
-    // requisição de comentário deve ter sido disparada.
+    // Com aba oculta, nenhuma requisição de comentário deve ter sido disparada.
     cy.window().its('document.visibilityState').should('eq', 'hidden');
 
     // Garante que nenhuma interceptor @comentar foi acionado.
