@@ -314,3 +314,21 @@ aside.col-lg-4 {
 @media (max-width: 575.98px) {
     .chat-bubble { max-width: 88%; }
 }
+
+/* ================================================
+   SPINNER HTMX — feedback de carregamento via CSS
+   ================================================ */
+
+/* Spinner só aparece quando HTMX está processando */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator {
+    display: inline-block;
+}
+
+/* Esconde o texto "Enviar" e mostra apenas o spinner durante requisição */
+.htmx-request .spinner-text {
+    display: none;
+}

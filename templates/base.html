@@ -283,9 +283,8 @@
     // 5a. WEB PUSH NATIVO (Push API / VAPID) — assinar e persistir a inscrição.
     // A notificação visual nativa chega pelo Service Worker via evento 'push'
     // (disparada pelo servidor com as chaves VAPID, funciona com o app fechado).
-    // O Pusher ficou só no tempo real do DOM + toasts. Estes helpers ficam AQUI
-    // (bloco autenticado, independente do Pusher) porque o botão de permissão
-    // precisa deles mesmo se o tempo real estiver desativado.
+    // Estes helpers ficam AQUI (bloco autenticado) porque o botão de permissão
+    // precisa deles.
     //  - urlBase64ToUint8Array: converte a chave VAPID (base64url) para o
     //    Uint8Array que o pushManager.subscribe() exige.
     //  - tokenCSRF: lê o token do input do logout (sempre presente em páginas
