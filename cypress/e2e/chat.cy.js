@@ -12,9 +12,8 @@ describe('Chat — Interações e Fluidez', () => {
   it('Enter envia a mensagem, limpa o campo e re-renderiza o chat', () => {
     cy.get('#chat-input').type('Problema com o acesso ao sistema{enter}');
 
+    // HTMX POST retorna a container HTML direto, sem GET separado.
     cy.wait('@comentar').its('response.statusCode').should('eq', 200);
-    // Envio bem-sucedido dispara o refresh do HTML dos comentários (mini-API).
-    cy.wait('@comentariosPartial');
 
     cy.get('#chat-input').should('have.value', '');
     cy.chatDeveEstarNoFim();
@@ -22,10 +21,11 @@ describe('Chat — Interações e Fluidez', () => {
 
   it('botão de envio desabilita e mostra spinner "A enviar..." durante a requisição', () => {
     // Segura a resposta por 900ms para observarmos o estado intermediário.
+    // HTMX POST retorna HTML container que será swapped (outerHTML).
     cy.intercept('POST', '**/tickets/1/comentar/**', {
       delayMs: 900,
       statusCode: 200,
-      body: { status: 'success' },
+      body: '<div id="comentarios-container" hx-get="/tickets/1/comentarios/" hx-trigger="every 15s, visibilitychange from:document" hx-swap="outerHTML"><div class="d-flex flex-column gap-3"></div></div>'
     }).as('comentar');
 
     cy.get('#chat-input').type('Mensagem com spinner{enter}');
@@ -60,8 +60,8 @@ describe('Chat — Interações e Fluidez', () => {
     cy.chatDeveEstarNoFim();
 
     cy.get('#chat-input').type('Última mensagem da conversa{enter}');
+    // HTMX POST retorna a container HTML, HTMX listener afterSwap rola até o fim.
     cy.wait('@comentar');
-    cy.wait('@comentariosPartial');
 
     cy.chatDeveEstarNoFim();
   });

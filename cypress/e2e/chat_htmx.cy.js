@@ -1,61 +1,53 @@
 // =============================================================================
-// CHAT HTMX — Parciais sem reload e polling respeitando aba oculta
+// CHAT HTMX — envio via hx-post (sem reload) e polling pausado com aba oculta.
+// Aqui o POST e o GET de comentários passam pelo backend real (e2e_settings):
+// o intercept só observa (alias), para que o swap do container seja o real.
 // =============================================================================
 
-describe('Chat HTMX — Parciais e polling', () => {
+const TICKET_ID = 1;
+
+describe('Chat HTMX — envio e polling', () => {
   beforeEach(() => {
-    cy.abrirDetalheDoChamado(1);
+    cy.loginComo('tecnico');
   });
 
-  it('envio via hx-post aparece no #comentarios-container sem reload e campo limpa', () => {
-    // Marca um atributo no window antes de enviar; após o hx-post este
-    // atributo deve persistir (o DOM foi atualizado via innerHTML, não reload).
-    const markerBefore = '__chatMarkBeforeSend';
-    cy.window().then((win) => {
-      win[markerBefore] = 'presente';
+  it('envia comentário via htmx sem recarregar a página', () => {
+    cy.intercept('POST', `**/tickets/${TICKET_ID}/comentar/**`).as('enviarComentario');
+
+    cy.visit(`/tickets/${TICKET_ID}/`);
+    cy.get('#form-comentario').should('be.visible');
+
+    // Marcador na window: se a página recarregar, ele some.
+    cy.window().then((w) => {
+      w.__marcador = 'presente';
     });
 
-    cy.get('#chat-input').type('Teste HTMX sem reload{enter}');
+    const texto = `Comentário htmx ${Date.now()}`;
+    cy.get('#chat-input').type(`${texto}{enter}`);
 
-    // Aguarda o intercept do comentário (@comentar).
-    cy.wait('@comentar');
+    cy.wait('@enviarComentario');
 
-    // Verifica que o marcador persiste na mesma window session
-    // (HTMX troca o container via innerHTML, não faz reload da página).
-    cy.window().should((win) => {
-      expect(win[markerBefore]).to.equal('presente');
-    });
-
-    // Campo ficou vazio.
+    cy.get('#comentarios-container').should('contain.text', texto);
     cy.get('#chat-input').should('have.value', '');
-
-    // Comentário apareceu no container (bolha renderizada pelo partial).
-    cy.get('#comentarios-container').should('contain', 'Teste HTMX sem reload');
+    cy.window().its('__marcador').should('eq', 'presente');
   });
 
-  it('com aba oculta (document.hidden) não dispara requisição em 16s', () => {
-    // Simula aba oculta antes de tentar enviar.
-    cy.window().then((win) => {
-      // Verifica a descriptor de propriedade do visibilityState no document.
-      // Usamos o win.document dentro do then da window para garantir o contexto.
-      const propDesc = Object.getOwnPropertyDescriptor(win.document, 'visibilityState');
-      expect(propDesc).to.exist;
+  it('não faz polling de comentários com a aba oculta', () => {
+    // O relógio precisa ser instalado antes do visit para controlar os
+    // timers do htmx (hx-trigger="every 15s").
+    cy.clock();
+    cy.visit(`/tickets/${TICKET_ID}/`);
+    cy.get('#comentarios-container').should('exist');
+
+    cy.document().then((doc) => {
+      Object.defineProperty(doc, 'hidden', { configurable: true, get: () => true });
+      Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'hidden' });
     });
 
-    // Define clock zero e garante início com aba visível.
-    cy.clock(0);
-    cy.window().its('document.visibilityState').should('eq', 'visible'); // garantir início visível
+    cy.intercept('GET', `**/tickets/${TICKET_ID}/comentarios/**`).as('pollingComentarios');
 
-    // Dispara envio enquanto aba está visível (clock parado).
-    cy.get('#chat-input').type('Mensagem oculta{enter}');
-
-    // Avança 16 segundos de tempo real (sem que o setInterval reale).
     cy.tick(16000);
 
-    // Com aba oculta, nenhuma requisição de comentário deve ter sido disparada.
-    cy.window().its('document.visibilityState').should('eq', 'hidden');
-
-    // Garante que nenhuma interceptor @comentar foi acionado.
-    cy.wrap('@comentar').should('not.be.called');
+    cy.get('@pollingComentarios.all').should('have.length', 0);
   });
 });

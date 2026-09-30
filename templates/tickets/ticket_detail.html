@@ -66,7 +66,7 @@
                         {% csrf_token %}
                         <label for="chat-input" class="visually-hidden">Digite sua mensagem aqui</label>
                         <textarea name="mensagem" id="chat-input" class="form-control mb-2" rows="2" placeholder="Escreva um comentário..." ></textarea>
-                        
+
                         <div class="chat-action-bar d-flex justify-content-between align-items-center gap-2">
                             <div class="chat-actions d-flex align-items-center flex-wrap gap-2">
                                 <label for="chat-file" class="btn btn-outline-primary btn-sm mb-0">
@@ -86,7 +86,10 @@
                                 </label>
                                 {% endif %}
                             </div>
-                            <button type="submit" class="chat-send btn btn-primary">Enviar</button>
+                            <button type="submit" class="chat-send btn btn-primary">
+                                <span class="htmx-indicator spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span class="spinner-text">Enviar</span>
+                            </button>
                         </div>
 
                         <div id="chat-anexo-preview" class="d-none">
@@ -144,10 +147,10 @@
                 </div>
                 <div class="card-body">
                     {% if user.is_technician and not ticket.tecnico_responsavel and ticket.status == 'aberto' %}
-                    <form id="form-assumir" method="post" action="{% url 'tickets:take' ticket.id %}">
+                    <form id="form-assumir" method="post" action="{% url 'tickets:take' ticket.id %}" class="needs-spinner">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-primary w-100 mb-3">
-                            <i class="fas fa-hand-paper me-1" aria-hidden="true"></i> Assumir Chamado
+                            <span class="htmx-indicator spinner-border spinner-border-sm me-2" role="status"></span><i class="fas fa-hand-paper me-1" aria-hidden="true"></i> Assumir Chamado
                         </button>
                     </form>
                     {% endif %}
@@ -162,7 +165,7 @@
                     </div>
                     {% endif %}
 
-                    <form id="form-status" method="post" action="{% url 'tickets:change_status' ticket.id %}">
+                    <form id="form-status" method="post" action="{% url 'tickets:change_status' ticket.id %}" class="needs-spinner">
                         {% csrf_token %}
                         <label for="status-select" class="form-label small fw-bold">Alterar Status</label>
                         <select name="status" id="status-select" class="form-select mb-3">
@@ -170,7 +173,9 @@
                                 <option value="{{ value }}" {% if ticket.status == value %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="btn btn-success w-100">Atualizar</button>
+                        <button type="submit" class="btn btn-success w-100">
+                            <span class="htmx-indicator spinner-border spinner-border-sm me-2" role="status"></span>Atualizar
+                        </button>
                     </form>
 
                     {% if ticket.solicitante == request.user or request.user.is_superuser %}
@@ -249,9 +254,6 @@
 {% block extra_js %}
 <script>
     // Botão "Voltar" do navegador não deve voltar ao Wizard de criação
-    // (Passo 3 do formulário /tickets/novo/). Se chegamos nesta página
-    // recém-saídos do formulário, substituímos o estado atual do histórico
-    // para que o "Voltar" siga para o dashboard (/tickets/).
     document.body.classList.add('page-chat');
     (function () {
         const ref = document.referrer ? document.referrer.split(/[?#]/)[0] : '';
@@ -259,57 +261,10 @@
         window.history.replaceState(null, document.title, window.location.pathname);
     })();
 </script>
-<script>
-    // Configuração compartilhada com o JS externo (rotas Django + usuário atual).
-    window.TICKET_CONFIG = {
-        ticketId: {{ ticket.id }},
-        currentUser: "{{ request.user.username }}",
-        urls: {
-            comentariosPartial: "{% url 'tickets:ticket_comentarios_partial' ticket.id %}",
-            statusBadgePartial: "{% url 'tickets:ticket_status_badge_partial' ticket.id %}"
-        }
-    };
-</script>
+<script src="{% static 'js/anexo_preview.js' %}"></script>
 <script src="{% static 'js/ticket_detail.js' %}"></script>
-{% if PUSHER_ENABLED %}
-<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
 <script>
-    // REFÚGIO DO PUSHER: o WebSocket vive SÓ nesta tela (Chat). O cliente liga-se
-    // apenas ao canal ticket-N e adiciona a nova bolha via mini-API
-    // (window.atualizarChat), sem recarregar a página. O eco do próprio autor é
-    // ignorado — a mensagem já foi adicionada localmente pelo submit do form.
-    (function () {
-        const CURRENT_USER_ID = {{ request.user.id }};
-        const pusher = new Pusher("{{ PUSHER_KEY }}", {
-            cluster: "{{ PUSHER_CLUSTER }}",
-            forceTLS: true,
-            enabledTransports: ["ws", "wss"],
-        });
-        const canal = pusher.subscribe("ticket-{{ ticket.id }}");
-        canal.bind("novo_comentario", function (data) {
-            if (!data) return;
-            if (Number(data.actor_id) === CURRENT_USER_ID) return;
-            if (typeof window.atualizarChat === "function") {
-                window.atualizarChat();
-            }
-        });
-    })();
-</script>
-{% else %}
-<script>
-    // FALLBACK: Pusher desativado — polling de 10s para manter o chat atualizado.
-    (function () {
-        if (typeof window.atualizarChat !== "function") return;
-        setInterval(function () {
-            window.atualizarChat();
-        }, 10000);
-    })();
-</script>
-{% endif %}
-<script>
-    // Mobile: a coluna de Gestão vira um drawer lateral (WhatsApp-style)
-    // acionado pelo botão "Ações" do cabeçalho do chamado. No desktop
-    // (>= lg) o botão nem existe e o aside é uma coluna normal.
+    // Mobile drawer: Gestão como sidebar
     (function () {
         const botao = document.getElementById('btn-abrir-gestao');
         const aside = document.getElementById('aside-gestao');
