@@ -54,14 +54,31 @@ document.addEventListener('htmx:beforeRequest', function (e) {
     var alvo = e.target;
     if (document.hidden && alvo && alvo.id === 'comentarios-container') {
         e.preventDefault();
+        return;
+    }
+    if (alvo && alvo.id === 'form-comentario') {
+        var btn = alvo.querySelector('button.chat-send');
+        if (btn) {
+            btn.setAttribute('aria-busy', 'true');
+            var txt = btn.querySelector('.spinner-text');
+            if (txt) txt.textContent = 'A enviar';
+        }
     }
 });
 
-// 4. Reset form após sucesso
+// 4. Reset form após sucesso + restaura botão
 document.addEventListener('htmx:afterRequest', function (e) {
     if (e.target && e.target.id === 'form-comentario') {
+        var btn = e.target.querySelector('button.chat-send');
+        if (btn) {
+            btn.removeAttribute('aria-busy');
+            var txt = btn.querySelector('.spinner-text');
+            if (txt) txt.textContent = 'Enviar';
+        }
         if (e.detail && e.detail.successful) {
             e.target.reset();
+            const chatFile = document.getElementById('chat-file');
+            if (chatFile) chatFile.dispatchEvent(new Event('change'));
         }
     }
 });

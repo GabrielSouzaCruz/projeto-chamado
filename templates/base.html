@@ -569,6 +569,7 @@
 <!-- Auto-init: toasts do Django -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof bootstrap === 'undefined') return;
     document.querySelectorAll('.toast').forEach(function(toastEl) {
         var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
         toast.show();
