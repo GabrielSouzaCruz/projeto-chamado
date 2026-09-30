@@ -16,7 +16,7 @@
 .\.venv\Scripts\python.exe manage.py test --settings=config.test_settings
 ```
 
-Resultado esperado: **176 OK, 0 erros, 0 falhas**
+Resultado esperado: **178 OK, 0 erros, 0 falhas**
 
 ## Testes E2E (Cypress) — runner único
 
@@ -45,9 +45,11 @@ Use **sempre** o script `scripts/e2e.ps1`. Ele:
 ### Resultado esperado
 
 ```
-13 specs, 47 tests, 0 failures, 0 pending
+14 specs, 49 tests, 0 failures, 0 pending
 ```
 
-## Tarefa atual
+## Já feito (tarefa mais recente)
 
-Criar e validar `scripts/e2e.ps1` como runner único do Cypress — **concluído** (commit pendente de push).
+Badge do sino via OOB no polling — commit `167ca8d`. O badge `#sino-badge` (com `hx-swap-oob="true"`) é injetado nas respostas 200 dos endpoints de polling (dashboard, fila, comentários). Resposta 204 continua sem corpo. O sino não tem `hx-trigger`, timer ou fetch próprio.
+
+Correções pós-revisão: `e2e.ps1` usa `$ErrorActionPreference = 'Continue'`; `sino_badge.cy.js` usa polling real (intercept após visit, `cy.wait` com timeout 20 s); `ticket_detail.js` restaura scroll inicial ao fundo (`chatBox.scrollTop = chatBox.scrollHeight`) que havia sido removido no refactor `4df1ff7`.

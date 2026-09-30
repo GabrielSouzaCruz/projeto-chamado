@@ -6,7 +6,7 @@ Runner único E2E: mata porta 8000, sobe Django com e2e_settings, roda Cypress e
 .\scripts\e2e.ps1 --spec cypress/e2e/login.cy.js
 #>
 Set-StrictMode -Off
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 
 # --- localiza Python do venv --------------------------------------------------
 $scriptDir  = Split-Path $MyInvocation.MyCommand.Path

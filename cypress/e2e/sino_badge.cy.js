@@ -7,7 +7,14 @@ describe('Badge do sino — atualização via OOB no polling', () => {
   });
 
   it('contador do sino atualiza após um ciclo de polling com mudança', () => {
-    // Intercepta a requisição de polling do dashboard e injeta o badge OOB
+    // Intercept do endpoint separado registrado antes para capturar qualquer chamada antecipada
+    cy.intercept('GET', '**/api/notificacoes/resumo/**').as('sinoSeparado');
+
+    cy.visit('/tickets/');
+    cy.get('#sino-badge').should('have.class', 'd-none');
+
+    // Intercept registrado APÓS o visit para não capturar a própria navegação de página
+    // (cy.intercept alia-se a qualquer fetch/XHR, inclusive navegação de documento)
     cy.intercept({ method: 'GET', pathname: '/tickets/' }, (req) => {
       if (req.headers['hx-request'] === 'true') {
         req.reply({
@@ -21,20 +28,13 @@ describe('Badge do sino — atualização via OOB no polling', () => {
       }
     }).as('pollingDashboard');
 
-    cy.visit('/tickets/');
-    cy.get('#sino-badge').should('have.class', 'd-none');
-
-    // Dispara manualmente a requisição HTMX (simula o que o timer de 15s faria)
-    cy.window().then((win) => {
-      win.htmx.ajax('GET', '/tickets/?versao=desatualizado', {
-        target: '#dashboard-live',
-        swap: 'innerHTML',
-      });
-    });
-
-    cy.wait('@pollingDashboard');
+    // Aguarda o polling real (hx-trigger="every 15s") disparar naturalmente
+    cy.wait('@pollingDashboard', { timeout: 20000 });
     cy.get('#sino-badge').should('not.have.class', 'd-none');
     cy.get('#sino-badge').should('contain.text', '2');
+
+    // Confirma: 0 requisições separadas ao endpoint do sino
+    cy.get('@sinoSeparado.all').should('have.length', 0);
   });
 
   it('nenhuma requisição ao endpoint do sino fora do polling da página', () => {

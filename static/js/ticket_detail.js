@@ -2,6 +2,10 @@
 document.addEventListener("DOMContentLoaded", function() {
     const chatInput = document.getElementById("chat-input");
     const formComentario = document.getElementById("form-comentario");
+    const chatBox = document.getElementById("comentarios-container");
+
+    // Scroll instantâneo ao fundo no load inicial
+    if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
 
     if (chatInput && formComentario) {
         chatInput.addEventListener("keydown", function(e) {
@@ -13,7 +17,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Mobile: scroll quando teclado abre
-    const chatBox = document.getElementById("comentarios-container");
     if (chatInput && chatBox) {
         chatInput.addEventListener("focus", function() {
             window.scrollTo(0, 0);
@@ -45,7 +48,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     if (!alvo || !alvo.closest || !alvo.closest('#comentarios-container')) return;
     var el = document.getElementById('comentarios-container');
     if (!el) return;
-    if (el.scrollTo) { el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }
+    if (el.scrollTo) { el.scrollTo({ top: el.scrollHeight, behavior: 'auto' }); }
     else { el.scrollTop = el.scrollHeight; }
 });
 
