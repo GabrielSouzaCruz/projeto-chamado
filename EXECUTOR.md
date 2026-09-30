@@ -50,6 +50,10 @@ Use **sempre** o script `scripts/e2e.ps1`. Ele:
 
 ## Já feito (tarefa mais recente)
 
+Vendor local — Bootstrap 5.3.3, FontAwesome Free 6.7.2, Inter Latin variable font servidos de `static/vendor/`, sem CDN. `templates/base.html` atualizado para `{% static %}`. CSP em `config/settings.py` sem domínios de CDN. Testes Django (`VendorLocalTest`) confirmam ausência de CDN no HTML e no header CSP.
+
+## Já feito (tarefa anterior)
+
 Badge do sino via OOB no polling — commit `167ca8d`. O badge `#sino-badge` (com `hx-swap-oob="true"`) é injetado nas respostas 200 dos endpoints de polling (dashboard, fila, comentários). Resposta 204 continua sem corpo. O sino não tem `hx-trigger`, timer ou fetch próprio.
 
 Correções pós-revisão: `e2e.ps1` usa `$ErrorActionPreference = 'Continue'`; `sino_badge.cy.js` usa polling real (intercept após visit, `cy.wait` com timeout 20 s); `ticket_detail.js` restaura scroll inicial ao fundo (`chatBox.scrollTop = chatBox.scrollHeight`) que havia sido removido no refactor `4df1ff7`.

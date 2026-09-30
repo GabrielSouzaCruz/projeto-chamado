@@ -479,23 +479,17 @@ CONTENT_SECURITY_POLICY = {
         # Fontes base: apenas o próprio domínio
         "default-src": ["'self'"],
 
-        # Scripts: self + inline (ainda usamos scripts inline no base.html) +
-        # Pusher + CDNs públicas (Bootstrap/jsdelivr, FontAwesome/cloudflare)
+        # Scripts: self + inline (ainda usamos scripts inline no base.html) + Pusher
         "script-src": [
             "'self'",
             "'unsafe-inline'",
             "https://js.pusher.com",
-            "https://cdn.jsdelivr.net",
-            "https://cdnjs.cloudflare.com",
         ],
 
-        # Estilos: self + inline + Bootstrap (jsdelivr) + FontAwesome (cloudflare) + Google Fonts
+        # Estilos: self + inline (vendor local via WhiteNoise/static)
         "style-src": [
             "'self'",
             "'unsafe-inline'",
-            "https://cdn.jsdelivr.net",
-            "https://cdnjs.cloudflare.com",
-            "https://fonts.googleapis.com",
         ],
 
         # Imagens: self + data: (miniatura base64/FileReader) + Cloudinary (anexos)
@@ -505,21 +499,17 @@ CONTENT_SECURITY_POLICY = {
             "https://res.cloudinary.com",
         ],
 
-        # Conexões (fetch/XHR/WebSocket): self + Pusher (wss para o realtime) +
-        # jsDelivr (source maps do Bootstrap baixados pelo navegador)
+        # Conexões (fetch/XHR/WebSocket): self + Pusher (wss para o realtime)
         "connect-src": [
             "'self'",
             "wss://*.pusher.com",
             "https://*.pusher.com",
-            "https://cdn.jsdelivr.net",
         ],
 
-        # Fontes: self + data: (ícones) + FontAwesome (cloudflare) + Google Fonts (gstatic)
+        # Fontes: self + data: (ícones FA via base64 inline ou woff2 local)
         "font-src": [
             "'self'",
             "data:",
-            "https://cdnjs.cloudflare.com",
-            "https://fonts.gstatic.com",
         ],
     },
 }

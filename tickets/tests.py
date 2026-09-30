@@ -1389,3 +1389,34 @@ class TesteSinoBadgeOOB(BaseChamadoTest):
         html = resp.content.decode()
         self.assertIn('id="sino-badge"', html)
         self.assertIn('hx-swap-oob="true"', html)
+
+
+CDN_PATTERNS = [
+    'cdn.jsdelivr.net',
+    'cdnjs.cloudflare.com',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com',
+    'unpkg.com',
+]
+
+
+class VendorLocalTest(TestCase):
+    """Garante que nenhuma URL de CDN aparece no HTML de páginas autenticadas
+    nem no header Content-Security-Policy."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='vendor_test', password='senha12345')
+        self.client.force_login(self.user)
+
+    def test_dashboard_sem_cdn_no_html(self):
+        resp = self.client.get(reverse('tickets:dashboard'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        for pattern in CDN_PATTERNS:
+            self.assertNotIn(pattern, html, f"CDN '{pattern}' encontrado no HTML do dashboard")
+
+    def test_dashboard_sem_cdn_no_csp_header(self):
+        resp = self.client.get(reverse('tickets:dashboard'))
+        csp = resp.get('Content-Security-Policy', '')
+        for pattern in CDN_PATTERNS:
+            self.assertNotIn(pattern, csp, f"CDN '{pattern}' encontrado no header CSP")
