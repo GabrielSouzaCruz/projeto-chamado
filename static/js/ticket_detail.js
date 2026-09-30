@@ -48,7 +48,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     if (!alvo || !alvo.closest || !alvo.closest('#comentarios-container')) return;
     var el = document.getElementById('comentarios-container');
     if (!el) return;
-    if (el.scrollTo) { el.scrollTo({ top: el.scrollHeight, behavior: 'auto' }); }
+    if (el.scrollTo) { el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }
     else { el.scrollTop = el.scrollHeight; }
 });
 
