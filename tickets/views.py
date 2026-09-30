@@ -8,6 +8,7 @@ from django.core.cache import cache
 from django.db.models import Q, Count
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
@@ -48,11 +49,14 @@ def dashboard(request):
     if selectors.eh_htmx(request):
         if request.GET.get('versao', '') == versao:
             return HttpResponse(status=204)
-        return render(request, 'tickets/_dashboard_lista.html', {
+        parcial = render(request, 'tickets/_dashboard_lista.html', {
             'tickets': tickets,
             'is_technician': is_team,
             'versao': versao,
         })
+        badge = render_to_string('tickets/_sino_badge.html',
+                                 {'count': selectors.count_notificacoes(request.user)})
+        return HttpResponse(parcial.content + badge.encode())
 
     stats = selectors.get_estatisticas_dashboard(usuario=request.user)
 
@@ -215,11 +219,14 @@ def fila_admin(request):
     if selectors.eh_htmx(request):
         if request.GET.get('versao', '') == versao:
             return HttpResponse(status=204)
-        return render(request, 'tickets/_fila_conteudo.html', {
+        parcial = render(request, 'tickets/_fila_conteudo.html', {
             'tickets': tickets,
             'tickets_novos_ids': [],
             'versao': versao,
         })
+        badge = render_to_string('tickets/_sino_badge.html',
+                                 {'count': selectors.count_notificacoes(request.user)})
+        return HttpResponse(parcial.content + badge.encode())
 
     categorias = Categoria.objects.filter(ativa=True)
     stats = selectors.get_estatisticas_fila_admin()

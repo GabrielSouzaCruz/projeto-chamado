@@ -1,7 +1,7 @@
 from django.db.models import Q, QuerySet, Count, Avg, DurationField, F, Max
 from django.utils import timezone
 
-from .models import Ticket
+from .models import Comentario, Ticket
 
 # Whitelist de campos aceitos na ordenação do histórico. Qualquer outro valor
 # (ex.: solicitante__password) cai no default '-criado_em', impedindo que o
@@ -36,6 +36,29 @@ def versao_de(qs: QuerySet, campo: str = 'atualizado_em') -> str:
     """
     ultimo = qs.aggregate(valor=Max(campo))['valor']
     return ultimo.isoformat() if ultimo else ''
+
+
+def count_notificacoes(user) -> int:
+    """Contagem de notificações não lidas nos últimos 5 minutos para o badge do sino."""
+    desde = timezone.now() - timezone.timedelta(minutes=5)
+    eh_tecnico = getattr(user, 'is_technician', False) or user.is_superuser
+
+    comentarios_qs = Comentario.objects.filter(
+        criado_em__gt=desde,
+    ).filter(
+        Q(ticket__solicitante_id=user.id) | Q(ticket__tecnico_responsavel_id=user.id)
+    ).exclude(autor_id=user.id)
+    if not eh_tecnico:
+        comentarios_qs = comentarios_qs.filter(interno=False)
+    count = comentarios_qs.count()
+
+    if eh_tecnico:
+        count += Ticket.objects.filter(
+            status__in=[Ticket.Status.ABERTO, Ticket.Status.EM_ANDAMENTO],
+            criado_em__gt=desde,
+        ).count()
+
+    return count
 
 
 def get_tickets_dashboard(usuario, busca: str = None, status: str = None) -> QuerySet:

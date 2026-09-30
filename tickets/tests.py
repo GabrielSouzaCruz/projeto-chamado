@@ -1338,3 +1338,54 @@ class Migracao0010Tests(TransactionTestCase):
         self.assertTrue(
             Categoria.objects.filter(nome='Não categorizado', ativa=True).exists()
         )
+
+
+class TesteSinoBadgeOOB(BaseChamadoTest):
+    """Badge do sino incluído como OOB nas respostas 200 dos polling endpoints."""
+
+    def test_comentarios_polling_200_inclui_oob_sino_badge(self):
+        ticket = self.criar_ticket()
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[ticket.id]) + '?versao=diferente',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('id="sino-badge"', html)
+        self.assertIn('hx-swap-oob="true"', html)
+
+    def test_comentarios_polling_204_nao_tem_corpo(self):
+        ticket = self.criar_ticket()
+        comentarios = ticket.comentarios.filter(interno=False).order_by('criado_em', 'id')
+        versao_atual = selectors.versao_de(comentarios, 'criado_em')
+        from urllib.parse import quote
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(
+            reverse('tickets:ticket_comentarios_partial', args=[ticket.id]) + f'?versao={quote(versao_atual)}',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp.content, b'')
+
+    def test_dashboard_polling_200_inclui_oob_sino_badge(self):
+        self.client.force_login(self.solicitante)
+        resp = self.client.get(
+            reverse('tickets:dashboard') + '?versao=diferente',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('id="sino-badge"', html)
+        self.assertIn('hx-swap-oob="true"', html)
+
+    def test_fila_polling_200_inclui_oob_sino_badge(self):
+        self.client.force_login(self.tecnico)
+        resp = self.client.get(
+            reverse('tickets:fila_admin') + '?versao=diferente',
+            HTTP_HX_Request='true',
+        )
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('id="sino-badge"', html)
+        self.assertIn('hx-swap-oob="true"', html)

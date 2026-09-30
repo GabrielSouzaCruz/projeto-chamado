@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.cache import never_cache
@@ -339,11 +340,16 @@ def ticket_comentarios_partial(request, ticket_id):
     if selectors.eh_htmx(request) and request.GET.get('versao', '') == versao:
         return HttpResponse(status=204)
 
-    return render(request, 'tickets/_comentarios_container.html', {
+    parcial = render(request, 'tickets/_comentarios_container.html', {
         'ticket': ticket,
         'comentarios': comentarios,
         'versao': versao,
     })
+    if selectors.eh_htmx(request):
+        badge = render_to_string('tickets/_sino_badge.html',
+                                 {'count': selectors.count_notificacoes(request.user)})
+        return HttpResponse(parcial.content + badge.encode())
+    return parcial
 
 # =============================================================================
 # AÇÕES AJAX (HTMX no chat; XHR clássico mantido para compatibilidade)
