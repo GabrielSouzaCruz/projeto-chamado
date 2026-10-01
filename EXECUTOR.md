@@ -48,7 +48,11 @@ Use **sempre** o script `scripts/e2e.ps1`. Ele:
 14 specs, 49 tests, 0 failures, 0 pending
 ```
 
-## Já feito (tarefa mais recente)
+## Tarefa atual (BLOQUEADA)
+
+Spec Cypress `cypress/e2e/offline_vendor.cy.js` criado (intercept de CDN, check FontAwesome, Bootstrap, Inter). Django 180 OK. Cypress não executa: binário 13.17.0 reinstalado tem `index.jsc` compilado com V8 ro_heap_hash `0xF18E52EF` incompatível com o Electron atual (`0x6b443c35`). Causa: reinstalação acidental do binário pelo CDN entregou build diferente do original. O `index.jsc` de `resources/app/packages/server/` precisa ser recompilado ou substituído por build compatível para desbloqueio.
+
+## Já feito (tarefa anterior concluída)
 
 Vendor local — Bootstrap 5.3.3, FontAwesome Free 6.7.2, Inter Latin variable font servidos de `static/vendor/`, sem CDN. `templates/base.html` atualizado para `{% static %}`. CSP em `config/settings.py` sem domínios de CDN. Testes Django (`VendorLocalTest`) confirmam ausência de CDN no HTML e no header CSP.
 
